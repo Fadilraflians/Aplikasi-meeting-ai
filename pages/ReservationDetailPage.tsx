@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Page, type Booking } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { useDarkMode } from '../contexts/DarkModeContext';
@@ -17,8 +17,31 @@ const InfoRow: React.FC<{ label: string; value?: string | number }> = ({ label, 
   );
 };
 
+const ClickableInfoRow: React.FC<{ 
+  label: string; 
+  value?: string | number; 
+  onClick: () => void;
+  icon: string;
+  color: string;
+}> = ({ label, value, onClick, icon, color }) => {
+  return (
+    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+      <span className="text-gray-600 font-medium">{label}</span>
+      <button
+        onClick={onClick}
+        className={`flex items-center gap-2 px-3 py-1 rounded-lg ${color} text-white text-sm font-medium hover:opacity-90 transition-opacity`}
+      >
+        <span>{icon}</span>
+        <span>{value || 'Lihat'}</span>
+      </button>
+    </div>
+  );
+};
+
 const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
   const { isDarkMode } = useDarkMode();
+
+
   
   if (!booking) {
     return (
@@ -88,7 +111,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                 <div className="space-y-4">
                   <InfoRow label="👥 Peserta" value={`${booking.participants} orang`} />
                   <InfoRow label="📋 Jenis Rapat" value={booking.meetingType} />
-                  <InfoRow label="🍽️ Pesanan Makanan" value={booking.foodOrder} />
+                  <InfoRow label="⚙️ Fasilitas" value={booking.facilities ? booking.facilities.join(', ') : '—'} />
                 </div>
               </div>
             </div>
@@ -150,6 +173,8 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
           </div>
         </div>
       </div>
+
+
     </div>
   );
 };

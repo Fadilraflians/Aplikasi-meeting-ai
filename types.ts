@@ -7,7 +7,7 @@ export enum Page {
   EditRoom,
   AddRoom,
   Booking,
-  AiAssistant,
+  RBA,
   BookingConfirmation,
   Reservations,
   ReservationDetail,
@@ -52,8 +52,12 @@ export interface Booking {
   participants: number;
   pic: string;
   meetingType: 'internal' | 'external';
-  foodOrder: 'berat' | 'ringan' | 'tidak';
+  facilities: string[]; // Fasilitas yang diminta (required)
   imageUrl?: string;
+  // Field baru untuk RBA yang lebih cerdas
+  urgency?: 'high' | 'normal' | 'low'; // Tingkat urgensi
+  duration?: number; // Durasi dalam jam
+  notes?: string; // Catatan tambahan
 }
 
 export enum BookingState {

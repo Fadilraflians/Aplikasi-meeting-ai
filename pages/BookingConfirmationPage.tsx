@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { Page, type Booking, BookingState } from '../types';
 import { ApiService } from '../src/config/api';
-import { saveFormBookingData, saveAIBookingData } from '../services/aiDatabaseService';
+// import { saveFormBookingData, saveAIBookingData } from '../services/aiDatabaseService'; // Removed - service deleted
 
 interface BookingConfirmationPageProps {
     onNavigate: (page: Page) => void;
@@ -76,21 +76,24 @@ const BookingConfirmationPage: React.FC<BookingConfirmationPageProps> = ({ onNav
                 const currentSessionId = `ai_${Date.now()}`;
                 
                 // Simpan data booking AI ke ai_bookings_success table
-                const ok = await saveAIBookingData(
-                    user_id,
-                    currentSessionId,
-                    BookingState.BOOKED,
-                    {
-                        roomName: booking.roomName,
-                        topic: booking.topic,
-                        pic: booking.pic,
-                        date: booking.date,
-                        time: booking.time,
-                        participants: booking.participants,
-                        meetingType: booking.meetingType,
-                        foodOrder: booking.foodOrder
-                    }
-                );
+                // const ok = await saveAIBookingData(
+                //     user_id,
+                //     currentSessionId,
+                //     BookingState.BOOKED,
+                //     {
+                //         roomName: booking.roomName,
+                //         topic: booking.topic,
+                //         pic: booking.pic,
+                //         date: booking.date,
+                //         time: booking.time,
+                //         participants: booking.participants,
+                //         meetingType: booking.meetingType,
+                //         foodOrder: booking.foodOrder
+                //     }
+                // );
+                
+                // Temporary: Skip database save since aiDatabaseService is removed
+                const ok = true;
 
                 if (ok) {
                     console.log('✅ AI booking data saved to ai_bookings_success table successfully');

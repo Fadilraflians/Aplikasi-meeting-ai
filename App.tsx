@@ -11,7 +11,7 @@ import RoomDetailPage from './pages/RoomDetailPage';
 import EditRoomPage from './pages/EditRoomPage';
 import AddRoomPage from './pages/AddRoomPage';
 import BookingFormPage from './pages/BookingFormPage';
-import AiAssistantPage from './pages/AiAssistantPage';
+import RBAPage from './pages/RBAPage';
 import BookingConfirmationPage from './pages/BookingConfirmationPage';
 import ReservationsPage from './pages/ReservationsPage';
 import ReservationDetailPage from './pages/ReservationDetailPage';
@@ -33,6 +33,7 @@ const App = () => {
     const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
     const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     
     // Mock user data
     const [user, setUser] = useState<User>({
@@ -135,7 +136,7 @@ const App = () => {
                 participants: Number(b.participants || 0),
                 pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
                 meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                foodOrder: (b.food_order === 'berat' ? 'berat' : b.food_order === 'ringan' ? 'ringan' : 'tidak')
+                facilities: (b.facilities && Array.isArray(b.facilities)) ? b.facilities : [],
             }));
 
             // Format AI bookings
@@ -149,7 +150,7 @@ const App = () => {
                 participants: Number(b.participants || 0),
                 pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
                 meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                foodOrder: (b.food_order === 'berat' ? 'berat' : b.food_order === 'ringan' ? 'ringan' : 'tidak')
+                facilities: (b.facilities && Array.isArray(b.facilities)) ? b.facilities : [],
             }));
 
             // Combine and deduplicate bookings
@@ -274,6 +275,8 @@ const App = () => {
         setBookings(prev => [newBooking, ...prev]);
         setConfirmedBooking(newBooking);
         setCurrentBookingData({});
+        // Trigger refresh for ReservationsPage
+        setRefreshTrigger(prev => prev + 1);
         // Catatan: histori 'Selesai' tidak dibuat saat konfirmasi.
         // Status 'Selesai' hanya dihistori ketika user menekan tombol Selesai pada halaman Reservasi.
         navigateTo(Page.BookingConfirmation);
@@ -357,9 +360,9 @@ const App = () => {
             [Page.EditRoom]: <EditRoomPage onNavigate={navigateTo} room={selectedRoom} onRoomUpdated={handleRoomUpdated} />,
             [Page.AddRoom]: <AddRoomPage onNavigate={navigateTo} onRoomAdded={handleRoomAdded} />,
             [Page.Booking]: <BookingFormPage onNavigate={navigateTo} room={selectedRoom} onBookingConfirmed={handleConfirmBooking} bookingData={currentBookingData} />,
-            [Page.AiAssistant]: <AiAssistantPage onNavigate={navigateTo} onBookingConfirmed={handleConfirmBooking} onAiBookingData={handleAiBookingData} />,
+            [Page.RBA]: <RBAPage onNavigate={navigateTo} onBookingConfirmed={handleConfirmBooking} />,
             [Page.BookingConfirmation]: <BookingConfirmationPage onNavigate={navigateTo} booking={confirmedBooking} />,
-            [Page.Reservations]: <ReservationsPage onNavigate={navigateTo} bookings={bookings} onCancelBooking={handleCancelBooking} onRemoveLocalBooking={(id:any)=> setBookings(prev=> prev.filter(b=> String(b.id) !== String(id)))} />, 
+            [Page.Reservations]: <ReservationsPage onNavigate={navigateTo} bookings={bookings} onCancelBooking={handleCancelBooking} onRemoveLocalBooking={(id:any)=> setBookings(prev=> prev.filter(b=> String(b.id) !== String(id)))} refreshTrigger={refreshTrigger} />, 
             [Page.ReservationDetail]: <ReservationDetailPage onNavigate={navigateTo} booking={detailBooking} />, 
             [Page.History]: <HistoryPage onNavigate={navigateTo} />, 
             [Page.Profile]: <ProfilePage onNavigate={navigateTo} user={user} />,

@@ -8,8 +8,10 @@ export default defineConfig(({ mode }) => {
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.VITE_GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
         'process.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
-        'process.env.VITE_PROD_API_URL': JSON.stringify(env.VITE_PROD_API_URL)
+        'process.env.VITE_PROD_API_URL': JSON.stringify(env.VITE_PROD_API_URL),
+        'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY)
       },
       resolve: {
         alias: {
@@ -18,6 +20,7 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       server: {
+        port: 5174,
         proxy: {
           // Proxy API requests to PHP backend (development only)
           '/api': {
@@ -30,7 +33,7 @@ export default defineConfig(({ mode }) => {
       },
       build: {
         // Optimize build for production
-        minify: 'terser',
+        minify: 'esbuild',
         sourcemap: false,
         rollupOptions: {
           output: {

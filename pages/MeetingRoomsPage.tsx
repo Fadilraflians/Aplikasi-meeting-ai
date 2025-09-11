@@ -130,8 +130,12 @@ interface MeetingRoomsPageProps {
 }
 const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookRoom, onRoomDetail, onAddRoom }) => {
     const [rooms, setRooms] = React.useState<MeetingRoom[]>([]);
+    const [filteredRooms, setFilteredRooms] = React.useState<MeetingRoom[]>([]);
     const [loading, setLoading] = React.useState<boolean>(true);
     const [error, setError] = React.useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = React.useState<string>('');
+    const [capacityFilter, setCapacityFilter] = React.useState<string>('');
+    const [facilityFilter, setFacilityFilter] = React.useState<string>('');
     const { isDarkMode } = useDarkMode();
     const { t } = useLanguage();
 
@@ -140,8 +144,17 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
             try {
                 setLoading(true);
                 setError(null);
+                console.log('Loading meeting rooms...');
                 const res = await ApiService.getAllRooms();
+                console.log('API Response:', res);
+                
                 const raw = (res && (res as any).data) ? (res as any).data : res;
+                console.log('Raw data:', raw);
+                
+                if (!raw || !Array.isArray(raw)) {
+                    throw new Error('Invalid data format from API');
+                }
+                
                 const mapped: MeetingRoom[] = (raw || []).map((r: any) => ({
                     id: r.id ?? r.room_id,
                     name: r.name ?? r.room_name,
@@ -159,16 +172,49 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                     })(),
                     image: r.image_url || '/images/meeting-rooms/default-room.jpg',
                 }));
+                
+                console.log('Mapped rooms:', mapped);
                 setRooms(mapped);
+                setFilteredRooms(mapped);
             } catch (e) {
                 console.error('Failed to load rooms:', e);
-                setError(t('meetingRooms.error'));
+                setError(`Failed to load data: ${e instanceof Error ? e.message : 'Unknown error'}`);
             } finally {
                 setLoading(false);
             }
         };
         load();
     }, []);
+
+    // Filter rooms based on search and filters
+    React.useEffect(() => {
+        let filtered = rooms;
+
+        // Search by name
+        if (searchTerm) {
+            filtered = filtered.filter(room => 
+                room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                room.address.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // Filter by capacity
+        if (capacityFilter) {
+            const capacity = parseInt(capacityFilter);
+            filtered = filtered.filter(room => room.capacity >= capacity);
+        }
+
+        // Filter by facility
+        if (facilityFilter) {
+            filtered = filtered.filter(room => 
+                room.facilities.some(facility => 
+                    facility.toLowerCase().includes(facilityFilter.toLowerCase())
+                )
+            );
+        }
+
+        setFilteredRooms(filtered);
+    }, [rooms, searchTerm, capacityFilter, facilityFilter]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
@@ -265,6 +311,86 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                     </div>
                 </div>
 
+                {/* Search and Filter Section */}
+                <div className="bg-white rounded-2xl p-6 shadow-lg mb-8">
+                    <div className="flex flex-col lg:flex-row gap-4">
+                        {/* Search Input */}
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                🔍 Cari Ruangan
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Cari berdasarkan nama ruangan atau alamat..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                            />
+                        </div>
+
+                        {/* Capacity Filter */}
+                        <div className="lg:w-48">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                👥 Kapasitas Min
+                            </label>
+                            <select
+                                value={capacityFilter}
+                                onChange={(e) => setCapacityFilter(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                            >
+                                <option value="">Semua</option>
+                                <option value="2">2+ orang</option>
+                                <option value="5">5+ orang</option>
+                                <option value="10">10+ orang</option>
+                                <option value="20">20+ orang</option>
+                                <option value="50">50+ orang</option>
+                            </select>
+                        </div>
+
+                        {/* Facility Filter */}
+                        <div className="lg:w-48">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                🏢 Fasilitas
+                            </label>
+                            <select
+                                value={facilityFilter}
+                                onChange={(e) => setFacilityFilter(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                            >
+                                <option value="">Semua</option>
+                                <option value="AC">AC</option>
+                                <option value="Projector">Projector</option>
+                                <option value="WiFi">WiFi</option>
+                                <option value="Whiteboard">Whiteboard</option>
+                                <option value="Sound System">Sound System</option>
+                                <option value="Video Conference">Video Conference</option>
+                                <option value="Coffee Machine">Coffee Machine</option>
+                            </select>
+                        </div>
+
+                        {/* Clear Filters */}
+                        <div className="lg:w-32 flex items-end">
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setCapacityFilter('');
+                                    setFacilityFilter('');
+                                }}
+                                className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium"
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Results Count */}
+                    {!loading && !error && (
+                        <div className="mt-4 text-sm text-gray-600">
+                            Menampilkan {filteredRooms.length} dari {rooms.length} ruangan
+                        </div>
+                    )}
+                </div>
+
                 {/* Content */}
                 <div className="bg-white rounded-2xl p-6 shadow-lg">
                     {loading && (
@@ -310,9 +436,29 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                                         {t('meetingRooms.addFirstRoom')}
                                     </button>
                                 </div>
+                            ) : filteredRooms.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <span className="text-gray-400 text-4xl">🔍</span>
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-800 mb-3">Tidak ada ruangan yang sesuai</h3>
+                                    <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                                        Coba ubah filter atau kata kunci pencarian Anda
+                                    </p>
+                                    <button 
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            setCapacityFilter('');
+                                            setFacilityFilter('');
+                                        }}
+                                        className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-8 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                                    >
+                                        Reset Filter
+                                    </button>
+                                </div>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {rooms.map(room => (
+                                    {filteredRooms.map(room => (
                                         <MeetingRoomCard 
                                             key={room.id} 
                                             room={room} 

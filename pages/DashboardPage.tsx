@@ -161,6 +161,20 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
   // Hitung apakah reservasi sudah lewat atau akan datang
   const normalizeTime = (t: string) => {
     if (!t) return '00:00:00';
+    
+    // Handle time range format "HH:MM - HH:MM"
+    if (t.includes(' - ')) {
+      const [startTime] = t.split(' - ');
+      const v = String(startTime).replace(/\./g, ':');
+      const m = v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      if (!m) return v;
+      const hh = String(Math.min(23, Math.max(0, parseInt(m[1], 10)))).padStart(2, '0');
+      const mm = String(Math.min(59, Math.max(0, parseInt(m[2], 10)))).padStart(2, '0');
+      const ss = m[3] ? String(Math.min(59, Math.max(0, parseInt(m[3], 10)))).padStart(2, '0') : '00';
+      return `${hh}:${mm}:${ss}`;
+    }
+    
+    // Handle single time format "HH:MM" or "HH:MM:SS"
     const v = String(t).replace(/\./g, ':');
     const m = v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (!m) return v;
@@ -563,9 +577,11 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
                 <div className="pointer-events-none">
                     <div className="container mx-auto px-4 md:px-8 -mt-12 md:-mt-14">
                         <div className="flex">
-                            <button onClick={() => onNavigate(Page.AiAssistant)} className="pointer-events-auto inline-flex items-center bg-white text-cyan-600 font-bold text-lg px-8 py-3 rounded-full shadow-lg hover:bg-gray-100 transition">
-                                <ChatIcon className="w-6 h-6 mr-2.5" />
-                                {t('ai.chatButton')}
+                            <button onClick={() => onNavigate(Page.RBA)} className="pointer-events-auto inline-flex items-center bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-lg px-8 py-3 rounded-full shadow-lg hover:from-blue-600 hover:to-purple-700 transition">
+                                <svg className="w-6 h-6 mr-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                </svg>
+                                RBA Assistant
                             </button>
                         </div>
                     </div>

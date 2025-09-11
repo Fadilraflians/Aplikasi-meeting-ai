@@ -448,7 +448,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                             <div>
                               <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Waktu</div>
                               <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                                {formatTime(booking.meeting_time)} - {formatTime(booking.end_time)}
+                                {formatTime(booking.meeting_time)}
                               </div>
                             </div>
                           </div>
@@ -503,7 +503,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                               </span>
                             </div>
                             <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              Slot: {formatTime(booking.meeting_time)} - {formatTime(booking.end_time)}
+                              Slot: {formatTime(booking.meeting_time)}
                             </div>
                           </div>
                         </div>
@@ -590,7 +590,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                         <div className="bg-gray-800 text-white text-xs rounded-lg p-3 shadow-lg min-w-64">
                           <div className="font-semibold mb-2">{bookingForSlot.topic}</div>
                           <div className="space-y-1">
-                            <div>📅 {formatTime(bookingForSlot.meeting_time)} - {formatTime(bookingForSlot.end_time)}</div>
+                            <div>📅 {formatTime(bookingForSlot.meeting_time)}</div>
                             <div>👤 PIC: {bookingForSlot.pic}</div>
                             <div>👥 Peserta: {bookingForSlot.participants} orang</div>
                             <div>🏢 Jenis: {bookingForSlot.meeting_type}</div>

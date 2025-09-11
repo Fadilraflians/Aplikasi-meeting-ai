@@ -22,10 +22,10 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
     
     // Gunakan file JPEG yang sesuai dengan halaman meeting room
     if (name.includes('samudrantha')) return '/images/meeting-rooms/r1.jpeg';
-    if (name.includes('nusanipa')) return '/images/meeting-rooms/r2.jpeg';
+    if (name.includes('nusantara')) return '/images/meeting-rooms/r2.jpeg';
     if (name.includes('garuda')) return '/images/meeting-rooms/r3.jpeg';
     if (name.includes('jawadwipa 1') || name.includes('jawadwipa1')) return '/images/meeting-rooms/r4.jpeg';
-    if (name.includes('jawadwipa 2') || name.includes('jawadwipa2')) return '/images/meeting-rooms/r5.jpeg';
+    if (name.includes('jawadwipa 2') || name.includes('jawadwipa2') || name.includes('auditorium jawadwipa 2')) return '/images/meeting-rooms/r5.jpeg';
     if (name.includes('kalamant') || name.includes('kalamanthana')) return '/images/meeting-rooms/r6.jpeg';
     if (name.includes('cedaya')) return '/images/meeting-rooms/r7.jpeg';
     if (name.includes('celebes')) return '/images/meeting-rooms/r8.jpeg';
@@ -39,7 +39,18 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
     return '/images/meeting-rooms/default-room.jpg';
   };
 
-  const formatTime = (time?: string) => (time || '').slice(0,5);
+  const formatTime = (time?: string) => {
+    if (!time) return '';
+    
+    // Handle different time formats
+    if (time.includes(' - ')) {
+      // Already formatted as "HH:MM - HH:MM"
+      return time;
+    }
+    
+    // If it's just start time, return as is (first 5 chars)
+    return time.slice(0, 5);
+  };
 
   const handleDetail = () => {
     alert(
@@ -179,7 +190,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
 };
 
 
-const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Booking[], onCancelBooking: (id: number) => void, onRemoveLocalBooking?: (id:number)=>void }> = ({ onNavigate, bookings, onCancelBooking, onRemoveLocalBooking }) => {
+const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Booking[], onCancelBooking: (id: number) => void, onRemoveLocalBooking?: (id:number)=>void, refreshTrigger?: number }> = ({ onNavigate, bookings, onCancelBooking, onRemoveLocalBooking, refreshTrigger }) => {
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<'Terbaru' | 'Terlama'>('Terbaru');
     const [serverBookings, setServerBookings] = useState<any[]>([]);
@@ -202,8 +213,10 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
 
 
         // Load MySQL bookings (form-based)
+        console.log('Loading server bookings for user:', primaryUserId);
         ApiService.getUserBookings(primaryUserId)
             .then(res => {
+                console.log('Server bookings response:', res);
                 const rows = res.data || [];
                 if (rows.length > 0 || primaryUserId === fallbackUserId) {
                     setServerBookings(rows);
@@ -211,16 +224,25 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                     // Fallback ke user default agar kompatibel dengan data sample
                     return ApiService.getUserBookings(fallbackUserId)
                         .then(res2 => {
+                            console.log('Fallback server bookings response:', res2);
                             setServerBookings(res2.data || []);
                         })
-                        .catch(() => setServerBookings([]));
+                        .catch((e) => {
+                            console.error('Fallback server bookings error:', e);
+                            setServerBookings([]);
+                        });
                 }
             })
-            .catch(() => setServerBookings([]));
+            .catch((e) => {
+                console.error('Server bookings error:', e);
+                setServerBookings([]);
+            });
 
         // Load AI bookings from ai_bookings_success table
+        console.log('Loading AI bookings for user:', primaryUserId);
         ApiService.getAIBookingsByUserId(primaryUserId)
             .then(res => {
+                console.log('AI bookings response:', res);
                 const rows = res.data || [];
                 if (rows.length > 0 || primaryUserId === fallbackUserId) {
                     setAiBookings(rows);
@@ -228,16 +250,54 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                     // Fallback ke user default agar kompatibel dengan data sample
                     return ApiService.getAIBookingsByUserId(fallbackUserId)
                         .then(res2 => {
+                            console.log('Fallback AI bookings response:', res2);
                             setAiBookings(res2.data || []);
                         })
-                        .catch(() => setAiBookings([]));
+                        .catch((e) => {
+                            console.error('Fallback AI bookings error:', e);
+                            setAiBookings([]);
+                        });
                 }
             })
-            .catch(() => setAiBookings([]));
+            .catch((e) => {
+                console.error('AI bookings error:', e);
+                setAiBookings([]);
+            });
     };
 
     useEffect(() => {
         loadServerBookings();
+    }, []);
+
+    // Refresh data when refreshTrigger changes (after booking)
+    useEffect(() => {
+        if (refreshTrigger) {
+            console.log('Refresh trigger changed, refreshing bookings...');
+            loadServerBookings();
+        }
+    }, [refreshTrigger]);
+
+    // Refresh data when component becomes visible (after booking)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                console.log('Page became visible, refreshing bookings...');
+                loadServerBookings();
+            }
+        };
+
+        const handleFocus = () => {
+            console.log('Window focused, refreshing bookings...');
+            loadServerBookings();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+        };
     }, []);
 
     const handleCancel = async (id: number) => {
@@ -348,34 +408,56 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             const ud = userRaw ? JSON.parse(userRaw) : null;
             userName = ud?.full_name || ud?.username || '-';
         } catch {}
-        const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => ({
-            id: b.id,
-            roomId: b.room_id || 0,
-            roomName: b.room_name || `Room ${b.room_id}` || '—',
-            topic: b.topic,
-            date: b.meeting_date,
-            time: b.meeting_time,
-            participants: Number(b.participants || 0),
-            pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-            meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-            foodOrder: (b.food_order === 'berat' ? 'berat' : b.food_order === 'ringan' ? 'ringan' : 'tidak'),
-            imageUrl: b.image_url
-        }));
+        const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => {
+            // Only show start time, no duration/end time
+            let timeDisplay = '';
+            
+            if (b.start_time) {
+                // Extract time from start_time
+                const startTime = new Date(b.start_time);
+                timeDisplay = startTime.toTimeString().slice(0, 5);
+            } else if (b.meeting_time) {
+                // Use meeting_time directly
+                timeDisplay = b.meeting_time.slice(0, 5);
+            }
+            
+            return {
+                id: b.id,
+                roomId: b.room_id || 0,
+                roomName: b.room_name || `Room ${b.room_id}` || '—',
+                topic: b.topic || b.title,
+                date: b.meeting_date || b.start_time?.split(' ')[0] || '',
+                time: timeDisplay,
+                participants: Number(b.participants || b.attendees || 0),
+                pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
+                meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
+                facilities: (b.facilities && Array.isArray(b.facilities)) ? b.facilities : [],
+                imageUrl: b.image_url
+            };
+        });
 
         // Format AI bookings from ai_bookings_success table
-        const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => ({
-            id: `ai_${b.id}`, // Prefix dengan 'ai_' untuk membedakan dari form bookings
-            roomId: b.room_id || 0,
-            roomName: b.room_name || `Room ${b.room_id}` || '—',
-            topic: b.topic,
-            date: b.meeting_date,
-            time: b.meeting_time,
-            participants: Number(b.participants || 0),
-            pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-            meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-            foodOrder: (b.food_order === 'berat' ? 'berat' : b.food_order === 'ringan' ? 'ringan' : 'tidak'),
-            imageUrl: b.image_url
-        }));
+        const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => {
+            // Only show start time, no duration/end time
+            let timeDisplay = b.meeting_time || '';
+            if (b.meeting_time) {
+                timeDisplay = b.meeting_time.slice(0, 5);
+            }
+            
+            return {
+                id: `ai_${b.id}`, // Prefix dengan 'ai_' untuk membedakan dari form bookings
+                roomId: b.room_id || 0,
+                roomName: b.room_name || `Room ${b.room_id}` || '—',
+                topic: b.topic,
+                date: b.meeting_date,
+                time: timeDisplay,
+                participants: Number(b.participants || 0),
+                pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
+                meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
+                facilities: (b.facilities && Array.isArray(b.facilities)) ? b.facilities : [],
+                imageUrl: b.image_url
+            };
+        });
 
         const unified: Booking[] = [];
         const seenIds = new Set<string>();
@@ -383,38 +465,56 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
 
         // Gabungkan hasil dari server (MySQL), AI bookings, dan lokal
         // Prioritaskan AI bookings (yang lebih baru) untuk menghindari duplikasi
+        console.log('AI bookings count:', aiBookingsFormatted.length);
+        console.log('Server bookings count:', serverBookingsFormatted.length);
+        console.log('Local bookings count:', bookings.length);
+        
+        // First, add AI bookings (most recent)
         aiBookingsFormatted.forEach(b => { 
             const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`; // Key lebih spesifik
+            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`;
             
             if (!seenIds.has(key) && !seenBookings.has(bookingKey)) { 
                 unified.push(b); 
                 seenIds.add(key); 
                 seenBookings.add(bookingKey);
-            } 
+                console.log('Added AI booking:', key, bookingKey);
+            } else {
+                console.log('Skipped duplicate AI booking:', key, bookingKey);
+            }
         });
         
+        // Then add server bookings (form bookings)
         serverBookingsFormatted.forEach(b => { 
             const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`; // Key lebih spesifik
+            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`;
             
             if (!seenIds.has(key) && !seenBookings.has(bookingKey)) { 
                 unified.push(b); 
                 seenIds.add(key); 
                 seenBookings.add(bookingKey);
-            } 
+                console.log('Added server booking:', key, bookingKey);
+            } else {
+                console.log('Skipped duplicate server booking:', key, bookingKey);
+            }
         });
         
+        // Finally add local bookings (fallback)
         bookings.forEach(b => { 
             const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`; // Key lebih spesifik
+            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`;
             
             if (!seenIds.has(key) && !seenBookings.has(bookingKey)) { 
                 unified.push(b); 
                 seenIds.add(key); 
                 seenBookings.add(bookingKey);
-            } 
+                console.log('Added local booking:', key, bookingKey);
+            } else {
+                console.log('Skipped duplicate local booking:', key, bookingKey);
+            }
         });
+        
+        console.log('Final unified bookings count:', unified.length);
 
         const list = unified.filter(b => {
             const hay = `${b.topic} ${b.roomName}`.toLowerCase();

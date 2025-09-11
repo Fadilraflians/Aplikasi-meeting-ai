@@ -18,11 +18,20 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
     facilities: '',
     image_url: ''
   });
+  const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Available facilities list (same as BookingFormPage)
+  const availableFacilities = [
+    'AC', 'Projector', 'Sound System', 'Whiteboard', 'TV', 'WiFi',
+    'Microphone', 'Camera', 'Flipchart', 'Coffee Machine', 'Water Dispenser',
+    'Printer', 'Scanner', 'Video Conference', 'Presentation Screen',
+    'Laptop Connection', 'Power Outlets', 'Air Purifier', 'Blinds/Curtains', 'Lighting Control'
+  ];
 
   useEffect(() => {
     if (room) {
@@ -34,6 +43,7 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
         facilities: room.facilities?.join(', ') || '',
         image_url: room.image || ''
       });
+      setSelectedFacilities(room.facilities || []);
     }
   }, [room]);
 
@@ -43,6 +53,22 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleFacilityChange = (facility: string) => {
+    setSelectedFacilities(prev => {
+      const newFacilities = prev.includes(facility)
+        ? prev.filter(f => f !== facility)
+        : [...prev, facility];
+      
+      // Update formData.facilities to match selectedFacilities
+      setFormData(prevForm => ({
+        ...prevForm,
+        facilities: newFacilities.join(', ')
+      }));
+      
+      return newFacilities;
+    });
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -295,7 +321,7 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
                   <label htmlFor="address" className="block text-sm font-semibold text-gray-700 mb-3">
                     <span className="flex items-center gap-2">
                       <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                      Alamat *
+                      Gedung *
                     </span>
                   </label>
                   <input
@@ -305,7 +331,7 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
                     value={formData.address}
                     onChange={handleInputChange}
                     required
-                    placeholder="Masukkan alamat ruangan"
+                    placeholder="Contoh: Tower C, Building A"
                     autoComplete="off"
                     spellCheck="false"
                     className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
@@ -313,43 +339,53 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
                 </div>
               </div>
 
-        <div>
-          <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-            Alamat *
-          </label>
-          <input
-            type="text"
-            id="address"
-            name="address"
-            value={formData.address}
-            onChange={handleInputChange}
-            required
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
-            placeholder="Contoh: Tower C, Building A"
-          />
-        </div>
-
               <div>
-                <label htmlFor="facilities" className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
                   <span className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
                     Fasilitas
                   </span>
                 </label>
-                <input
-                  type="text"
-                  id="facilities"
-                  name="facilities"
-                  value={formData.facilities}
-                  onChange={handleInputChange}
-                  placeholder="Contoh: Proyektor, Whiteboard, AC (pisahkan dengan koma)"
-                  autoComplete="off"
-                  spellCheck="false"
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Pisahkan setiap fasilitas dengan koma
-                </p>
+                <div className="text-sm text-gray-600 mb-4 flex items-center gap-2">
+                  <span className="text-green-600">✓</span>
+                  Pilih fasilitas yang tersedia di ruangan meeting ini
+                </div>
+                <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {availableFacilities.map((facility) => (
+                      <label key={facility} className="flex items-center gap-3 cursor-pointer hover:bg-blue-50 p-3 rounded-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 hover:shadow-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedFacilities.includes(facility)}
+                          onChange={() => handleFacilityChange(facility)}
+                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                        <span className="text-sm font-medium text-gray-700">{facility}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedFacilities.length > 0 && (
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="text-sm font-medium text-blue-800 mb-2">
+                        Fasilitas yang dipilih ({selectedFacilities.length}):
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedFacilities.map((facility) => (
+                          <span key={facility} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            {facility}
+                            <button
+                              type="button"
+                              onClick={() => handleFacilityChange(facility)}
+                              className="ml-1 text-blue-600 hover:text-blue-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Image Upload Section */}

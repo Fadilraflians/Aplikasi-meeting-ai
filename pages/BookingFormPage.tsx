@@ -22,7 +22,15 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
     const [participants, setParticipants] = useState(bookingData?.participants || 1);
     const [pic, setPic] = useState(bookingData?.pic || '');
     const [meetingType, setMeetingType] = useState<'internal' | 'external'>(bookingData?.meetingType || 'internal');
-    const [foodOrder, setFoodOrder] = useState<'berat' | 'ringan' | 'tidak'>(bookingData?.foodOrder || 'tidak');
+    const [selectedFacilities, setSelectedFacilities] = useState<string[]>(bookingData?.facilities || []);
+
+    // Available facilities list
+    const availableFacilities = [
+        'AC', 'Projector', 'Sound System', 'Whiteboard', 'TV', 'WiFi',
+        'Microphone', 'Camera', 'Flipchart', 'Coffee Machine', 'Water Dispenser',
+        'Printer', 'Scanner', 'Video Conference', 'Presentation Screen',
+        'Laptop Connection', 'Power Outlets', 'Air Purifier', 'Blinds/Curtains', 'Lighting Control'
+    ];
 
     // Load available rooms from API
     useEffect(() => {
@@ -93,8 +101,14 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
         setMeetingType(e.target.value as 'internal' | 'external');
     }, []);
 
-    const handleFoodOrderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-        setFoodOrder(e.target.value as 'berat' | 'ringan' | 'tidak');
+    const handleFacilityChange = useCallback((facility: string) => {
+        setSelectedFacilities(prev => {
+            if (prev.includes(facility)) {
+                return prev.filter(f => f !== facility);
+            } else {
+                return [...prev, facility];
+            }
+        });
     }, []);
 
     const handleRoomChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -205,7 +219,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
             participants,
             pic, // kirim PIC yang diinput user ke backend
             meeting_type: meetingType || 'internal',
-            food_order: foodOrder || 'tidak',
+            facilities: selectedFacilities,
             booking_state: 'BOOKED'
         } as any;
 
@@ -221,11 +235,11 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                 roomName: selectedRoom.name,
                 topic,
                 date,
-                time: `${times.start} - ${times.end}`,
+                time: times.start,
                 participants,
                 pic,
                 meetingType,
-                foodOrder,
+                facilities: selectedFacilities,
             };
             onBookingConfirmed(newBooking);
         } catch (err: any) {
@@ -509,30 +523,85 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         <option value="external">Eksternal</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label htmlFor="foodOrder" className="block text-sm font-semibold text-gray-700 mb-3">
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
-                                            <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                                            Jenis Makanan *
+                                            <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                            Fasilitas
                                         </span>
                                     </label>
-                                    <select 
-                                        id="foodOrder" 
-                                        name="foodOrder" 
-                                        value={foodOrder} 
-                                        onChange={handleFoodOrderChange}
-                                        className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300 cursor-pointer"
-                                    >
-                                        <option value="tidak">Tidak pesan makanan</option>
-                                        <option value="ringan">Makanan Ringan</option>
-                                        <option value="berat">Makanan Berat</option>
-                                    </select>
+                                    <div className="text-sm text-gray-600 mb-4 flex items-center gap-2">
+                                        <span className="text-green-600">✓</span>
+                                        Pilih fasilitas yang tersedia di ruangan meeting ini
+                                    </div>
+                                    <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            {availableFacilities.map((facility) => (
+                                                <label key={facility} className="flex items-center gap-3 cursor-pointer hover:bg-blue-50 p-3 rounded-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 hover:shadow-sm">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedFacilities.includes(facility)}
+                                                        onChange={() => handleFacilityChange(facility)}
+                                                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                                    />
+                                                    <span className="text-sm font-medium text-gray-700">{facility}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {selectedFacilities.length > 0 && (
+                                            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                <div className="text-sm font-medium text-blue-800 mb-2">
+                                                    Fasilitas yang dipilih ({selectedFacilities.length}):
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {selectedFacilities.map((facility) => (
+                                                        <span key={facility} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                                            {facility}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleFacilityChange(facility)}
+                                                                className="ml-1 text-blue-600 hover:text-blue-800"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-4 pt-6 border-t border-gray-200">
+                                <button
+                                    type="button"
+                                    onClick={() => onNavigate(Page.MeetingRooms)}
+                                    className="flex-1 bg-gray-100 text-gray-700 font-semibold py-4 px-6 rounded-xl hover:bg-gray-200 transition-all duration-200 border-2 border-gray-200 hover:border-gray-300"
+                                >
+                                    <span className="flex items-center justify-center gap-2">
+                                        <span>↩️</span>
+                                        Batal
+                                    </span>
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold py-4 px-6 rounded-xl hover:from-teal-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                                >
+                                    <span className="flex items-center justify-center gap-2">
+                                        <span>✅</span>
+                                        Konfirmasi Pemesanan
+                                    </span>
+                                </button>
                             </div>
 
                             {/* Room Details Section */}
                             {selectedRoom && (
-                                <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8 rounded-2xl border-2 border-blue-200 shadow-lg">
+                                <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8 rounded-2xl border-2 border-blue-200 shadow-lg mt-6">
                                     <div className="flex items-center gap-3 mb-6">
                                         <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
                                             <span className="text-white text-sm font-bold">🏢</span>
@@ -604,29 +673,6 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     )}
                                 </div>
                             )}
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-4 pt-6 border-t border-gray-200">
-                                <button
-                                    type="button"
-                                    onClick={() => onNavigate(Page.MeetingRooms)}
-                                    className="flex-1 bg-gray-100 text-gray-700 font-semibold py-4 px-6 rounded-xl hover:bg-gray-200 transition-all duration-200 border-2 border-gray-200 hover:border-gray-300"
-                                >
-                                    <span className="flex items-center justify-center gap-2">
-                                        <span>↩️</span>
-                                        Batal
-                                    </span>
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold py-4 px-6 rounded-xl hover:from-teal-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                                >
-                                    <span className="flex items-center justify-center gap-2">
-                                        <span>✅</span>
-                                        Konfirmasi Pemesanan
-                                    </span>
-                                </button>
-                            </div>
                         </form>
                     </div>
                 </div>

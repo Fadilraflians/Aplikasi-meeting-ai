@@ -35,7 +35,8 @@ if (empty($path_parts)) {
         'endpoints' => [
             'auth' => '/api/auth',
             'rooms' => '/api/rooms',
-            'reservations' => '/api/reservations'
+            'reservations' => '/api/reservations',
+            'rispat' => '/api/rispat-simple.php'
         ]
     ]);
     exit();
@@ -56,12 +57,16 @@ switch ($service) {
         require_once '../services/reservationService.php';
         break;
         
+    case 'rispat-simple.php':
+        require_once 'rispat-simple.php';
+        break;
+        
     default:
         http_response_code(404);
         echo json_encode([
             'success' => false,
             'message' => 'Service not found',
-            'available_services' => ['auth', 'rooms', 'reservations']
+            'available_services' => ['auth', 'rooms', 'reservations', 'rispat-simple.php']
         ]);
         break;
 }
