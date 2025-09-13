@@ -265,3 +265,6 @@ React.useEffect(() => {
 4. **Test Responsiveness**: Pastikan layout responsif di berbagai ukuran layar
 
 **Semua perbaikan berhasil dilakukan dengan UI yang lebih menarik dan search yang fungsional!** 🎨✨
+
+
+

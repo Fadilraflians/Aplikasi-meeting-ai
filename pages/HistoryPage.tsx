@@ -15,6 +15,7 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0,10));
   const { t } = useLanguage();
 
+
   useEffect(() => {
     const userDataStr = localStorage.getItem('user_data');
     const userData = userDataStr ? JSON.parse(userDataStr) : null;
@@ -30,12 +31,19 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
     ApiService.getUserAIBookingsMongo(userId).then(res=> setMongoBookings(res.data||[])).catch(()=>setMongoBookings([]));
   }, []);
 
-  const items = useMemo(() => {
-    // hanya tampilkan histori (Selesai/Dibatalkan) yang tersimpan lokal
+    const items = useMemo(() => {
+    // hanya tampilkan histori (Selesai/Dibatalkan) yang tersimpan lokal, EXCLUDE expired
     const local = getHistory();
-    return local
-      .filter(h => h.date === date)
-      .sort((a,b)=> (a.time>b.time?1:-1));
+    console.log('HistoryPage - All history entries:', local);
+    console.log('HistoryPage - Selected date:', date);
+    
+    const filtered = local.filter(h => h.date === date && h.status !== 'expired');
+    console.log('HistoryPage - Filtered entries for date (excluding expired):', filtered);
+    
+    const sorted = filtered.sort((a,b)=> (a.time>b.time?1:-1));
+    console.log('HistoryPage - Final sorted entries:', sorted);
+    
+    return sorted;
   }, [date]);
 
   return (
@@ -56,7 +64,12 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
         {items.length === 0 && (
           <div className="text-center py-10 bg-gray-50 rounded-xl border">Tidak ada histori pada tanggal ini.</div>
         )}
-        {items.map((h:any)=> (
+        {items.map((h:any)=> {
+          console.log('HistoryPage - Rendering item:', h);
+          console.log('HistoryPage - Item status:', h.status);
+          console.log('HistoryPage - Should show View Rispat button:', h.status === 'expired');
+          
+          return (
           <div key={`${h.id}-${h.savedAt || ''}`} className="bg-white p-5 rounded-xl border shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -66,16 +79,38 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
                 <div>
                   <h4 className="font-bold text-gray-800 leading-tight">{h.topic || '—'}</h4>
                   <p className="text-gray-600 text-sm">{h.roomName}</p>
+                  {h.pic && h.pic !== '-' && (
+                    <p className="text-gray-500 text-xs mt-1">PIC: {h.pic}</p>
+                  )}
+                  {h.participants && (
+                    <p className="text-gray-500 text-xs">Peserta: {h.participants} orang</p>
+                  )}
                 </div>
               </div>
               <div className="text-right text-sm">
-                <span className={`inline-block px-3 py-1 rounded-full font-semibold ${h.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{h.status}</span>
-                <div className="text-gray-500 mt-1">{h.date} {String(h.time).slice(0,5)}</div>
+                <span className={`inline-block px-3 py-1 rounded-full font-semibold ${
+                  h.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 
+                  h.status === 'expired' ? 'bg-orange-100 text-orange-700' :
+                  'bg-rose-100 text-rose-700'
+                }`}>{h.status === 'expired' ? 'Expired' : h.status}</span>
+                <div className="text-gray-500 mt-1">
+                  {h.date} {String(h.time).slice(0,5)}
+                  {h.endTime && (
+                    <span className="ml-1">- {String(h.endTime).slice(0,5)}</span>
+                  )}
+                  {h.status === 'expired' && h.completedAt && (
+                    <div className="text-xs text-orange-600 mt-1">
+                      Expired: {new Date(h.completedAt).toLocaleString('id-ID')}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
+
     </div>
   );
 };

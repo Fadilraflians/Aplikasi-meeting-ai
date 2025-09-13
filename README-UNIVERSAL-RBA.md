@@ -202,3 +202,6 @@ interface RBAResponse {
 Universal RBA adalah evolusi dari asisten pemesanan ruangan yang sederhana menjadi AI assistant yang cerdas, adaptif, dan universal. Dengan kemampuan pemahaman bahasa alami yang mendalam, RBA dapat menangani berbagai skenario interaksi dan memberikan pengalaman user yang seamless dan personal.
 
 RBA siap untuk digunakan dan dapat diakses melalui `http://localhost:5174` dengan mengklik tombol "RBA Assistant" di dashboard.
+
+
+

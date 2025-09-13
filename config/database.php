@@ -15,6 +15,9 @@ class Database {
         $this->conn = null;
 
         try {
+            // Set timezone to Asia/Jakarta
+            date_default_timezone_set('Asia/Jakarta');
+            
             // Create PDO connection with proper error handling
             $this->conn = new PDO(
                 "mysql:host=" . $this->host . ";dbname=" . $this->db_name . ";charset=utf8mb4",

@@ -272,3 +272,6 @@ const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => ({
 4. **Test Display**: Pastikan fasilitas ditampilkan dengan format yang benar
 
 **Detail reservasi berhasil diperbarui dengan kolom undangan dan rispat!** 📋✨
+
+
+

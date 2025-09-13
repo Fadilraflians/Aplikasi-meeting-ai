@@ -23,3 +23,6 @@ echo 2. Buat folder uploads/rispat/ jika belum ada
 echo 3. Test upload foto melalui aplikasi
 echo.
 pause
+
+
+

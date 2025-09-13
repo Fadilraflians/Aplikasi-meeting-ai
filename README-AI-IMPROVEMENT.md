@@ -348,3 +348,6 @@ Expected: AI proses pemesanan dan redirect ke halaman konfirmasi
 - ✅ **Memberikan pengalaman chat yang natural** seperti berbicara dengan manusia
 
 **Coba sekarang di `http://localhost:5174` - RBA Assistant akan meminta informasi tambahan dan menggunakan text-based interaction!** 🚀💬
+
+
+

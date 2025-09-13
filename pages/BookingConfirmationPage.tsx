@@ -27,8 +27,36 @@ const SuccessIcon: React.FC = () => (
 );
 
 const BookingConfirmationPage: React.FC<BookingConfirmationPageProps> = ({ onNavigate, booking }) => {
+    // Function to calculate end time based on start time and duration
+    const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+        try {
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const startDate = new Date();
+            startDate.setHours(hours, minutes, 0, 0);
+            
+            const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+            
+            return `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+        } catch (error) {
+            console.error('Error calculating end time:', error);
+            // Default: add 1 hour
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const endHours = (hours + 1) % 24;
+            return `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+    };
+
     useEffect(() => {
-        console.log('booking data', booking);
+        console.log('🔍 BookingConfirmationPage - booking data received:', booking);
+        console.log('🔍 BookingConfirmationPage - booking data details:', {
+            roomName: booking?.roomName,
+            topic: booking?.topic,
+            pic: booking?.pic,
+            date: booking?.date,
+            time: booking?.time,
+            participants: booking?.participants,
+            meetingType: booking?.meetingType
+        });
         if (!booking) return;
         
         // Prevent duplicate saves with a flag
@@ -162,23 +190,20 @@ const BookingConfirmationPage: React.FC<BookingConfirmationPageProps> = ({ onNav
                         <p className="font-semibold text-lg text-gray-800">{booking.date}</p>
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500">Waktu</p>
+                        <p className="text-sm text-gray-500">Waktu Mulai</p>
                         <p className="font-semibold text-lg text-gray-800">
                             {booking.time || '09:00'}
                         </p>
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500">Jumlah Peserta</p>
-                        <p className="font-semibold text-lg text-gray-800">{booking.participants} orang</p>
+                        <p className="text-sm text-gray-500">Waktu Berakhir</p>
+                        <p className="font-semibold text-lg text-gray-800">
+                            {booking.endTime || calculateEndTime(booking.time || '09:00', booking.duration || 60)}
+                        </p>
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500">Jenis Makanan</p>
-                        <p className="font-semibold text-lg text-gray-800 capitalize">
-                            {booking.foodOrder === 'tidak' ? 'Tidak pesan makanan' : 
-                             booking.foodOrder === 'ringan' ? 'Makanan Ringan' : 
-                             booking.foodOrder === 'berat' ? 'Makanan Berat' : 
-                             booking.foodOrder === 'ya' ? 'Makanan Berat' : 'Tidak pesan makanan'}
-                        </p>
+                        <p className="text-sm text-gray-500">Jumlah Peserta</p>
+                        <p className="font-semibold text-lg text-gray-800">{booking.participants} orang</p>
                     </div>
                 </div>
             </div>

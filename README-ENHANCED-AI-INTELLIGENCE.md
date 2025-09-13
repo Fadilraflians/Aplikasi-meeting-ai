@@ -162,3 +162,6 @@ Silakan coba aplikasi di `http://localhost:5174` - RBA Assistant sekarang adalah
 - Menyesuaikan respons berdasarkan mood dan urgency user
 
 **AI Assistant Anda sekarang jauh lebih cerdas dan mampu memahami semua input user!** 🧠✨
+
+
+

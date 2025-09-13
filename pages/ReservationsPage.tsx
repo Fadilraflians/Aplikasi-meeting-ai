@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Page, type Booking } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { ApiService } from '../src/config/api';
@@ -7,7 +7,7 @@ import { addHistory } from '../services/historyService';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) => void, onDetail: (b: Booking) => void, onComplete: (b: Booking) => void }> = ({ booking, onCancel, onDetail, onComplete }) => {
+const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | number) => void, onDetail: (b: Booking) => void, onComplete: (b: Booking) => void, getBookingStatus: (date: string, startTime: string, endTime?: string, serverTime?: any) => string }> = ({ booking, onCancel, onDetail, onComplete, getBookingStatus }) => {
   const { isDarkMode } = useDarkMode();
   const { t } = useLanguage();
   const getRoomImage = (roomName?: string, imageUrl?: string) => {
@@ -39,7 +39,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
     return '/images/meeting-rooms/default-room.jpg';
   };
 
-  const formatTime = (time?: string) => {
+  const formatTime = (time?: string, endTime?: string) => {
     if (!time) return '';
     
     // Handle different time formats
@@ -48,8 +48,44 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
       return time;
     }
     
+    // If we have end time, format as "HH:MM - HH:MM"
+    if (endTime) {
+      const startTime = time.slice(0, 5);
+      const endTimeFormatted = endTime.slice(0, 5);
+      return `${startTime} - ${endTimeFormatted}`;
+    }
+    
     // If it's just start time, return as is (first 5 chars)
     return time.slice(0, 5);
+  };
+
+
+  // Fungsi untuk mendapatkan label status
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'upcoming':
+        return 'Upcoming';
+      case 'ongoing':
+        return 'Sedang Berlangsung';
+      case 'expired':
+        return 'Selesai';
+      default:
+        return 'Active';
+    }
+  };
+
+  // Fungsi untuk mendapatkan warna status
+  const getStatusColor = (status: string, isDarkMode: boolean) => {
+    switch (status) {
+      case 'upcoming':
+        return isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-800';
+      case 'ongoing':
+        return isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800';
+      case 'expired':
+        return isDarkMode ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-800';
+      default:
+        return isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-800';
+    }
   };
 
   const handleDetail = () => {
@@ -58,7 +94,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
       `Ruangan : ${booking.roomName}\n`+
       `Topik   : ${booking.topic}\n`+
       `Tanggal : ${booking.date}\n`+
-      `Waktu   : ${formatTime(booking.time)}\n`+
+      `Waktu   : ${formatTime(booking.time, booking.endTime)}\n`+
       `Peserta : ${booking.participants}\n`+
       `PIC     : ${booking.pic || '-'}\n`+
       `Jenis   : ${booking.meetingType}\n`+
@@ -87,9 +123,28 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
           }}
         />
             {/* Status indicator */}
-            <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-            </div>
+            {(() => {
+              const status = getBookingStatus(booking.date, booking.time, booking.endTime);
+              let indicatorColor = 'bg-green-500'; // default
+              
+              switch (status) {
+                case 'upcoming':
+                  indicatorColor = 'bg-blue-500';
+                  break;
+                case 'ongoing':
+                  indicatorColor = 'bg-green-500';
+                  break;
+                case 'expired':
+                  indicatorColor = 'bg-gray-500';
+                  break;
+              }
+              
+              return (
+                <div className={`absolute -top-2 -right-2 w-6 h-6 ${indicatorColor} rounded-full border-2 border-white flex items-center justify-center`}>
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+              );
+            })()}
           </div>
           
           {/* Content */}
@@ -105,9 +160,17 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
               </div>
               
               {/* Status Badge */}
-              <div className={`px-3 py-1 rounded-full text-xs font-semibold ${isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
-                {t('reservations.active')}
-              </div>
+              {(() => {
+                const status = getBookingStatus(booking.date, booking.time, booking.endTime);
+                const statusLabel = getStatusLabel(status);
+                const statusColor = getStatusColor(status, isDarkMode);
+                
+                return (
+                  <div className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
+                    {statusLabel}
+                  </div>
+                );
+              })()}
             </div>
             
             {/* Details Grid */}
@@ -131,7 +194,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
                 <div>
                   <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('reservations.time')}</div>
                   <div className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                    {formatTime(booking.time)}
+                    {formatTime(booking.time, booking.endTime)}
                   </div>
                 </div>
               </div>
@@ -169,18 +232,36 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: number) =
               >
                 📋 {t('reservations.detail')}
               </button>
-              <button 
-                onClick={handleComplete} 
-                className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'} text-white shadow-md hover:shadow-lg`}
-              >
-                ✅ {t('reservations.complete')}
-              </button>
-              <button 
-                onClick={() => onCancel(booking.id)} 
-                className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} text-white shadow-md hover:shadow-lg`}
-              >
-                ❌ {t('reservations.cancel')}
-              </button>
+              {(() => {
+                const status = getBookingStatus(booking.date, booking.time, booking.endTime);
+                
+                // Hanya tampilkan tombol Complete untuk status ongoing atau upcoming
+                if (status === 'ongoing' || status === 'upcoming') {
+                  return (
+                    <>
+                      <button 
+                        onClick={handleComplete} 
+                        className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'} text-white shadow-md hover:shadow-lg`}
+                      >
+                        ✅ {t('reservations.complete')}
+                      </button>
+                      <button 
+                        onClick={() => onCancel(booking.id)} 
+                        className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} text-white shadow-md hover:shadow-lg`}
+                      >
+                        ❌ {t('reservations.cancel')}
+                      </button>
+                    </>
+                  );
+                } else {
+                  // Untuk status expired, hanya tampilkan tombol Detail
+                  return (
+                    <div className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-center text-gray-500">
+                      Meeting telah berakhir
+                    </div>
+                  );
+                }
+              })()}
             </div>
           </div>
         </div>
@@ -195,8 +276,130 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     const [sort, setSort] = useState<'Terbaru' | 'Terlama'>('Terbaru');
     const [serverBookings, setServerBookings] = useState<any[]>([]);
     const [aiBookings, setAiBookings] = useState<any[]>([]);
+    const [serverCurrentTime, setServerCurrentTime] = useState<any>(null);
     const { isDarkMode } = useDarkMode();
     const { t } = useLanguage();
+
+    const fetchServerTime = async () => {
+        // Use browser time directly since it's already in WIB
+        const now = new Date();
+        
+        // Format date and time in WIB (browser timezone)
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        
+        const serverTimeData = {
+            date: `${year}-${month}-${day}`,
+            time: `${hours}:${minutes}:${seconds}`,
+            datetime: `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`,
+            timezone: 'Asia/Jakarta',
+            timestamp: Math.floor(now.getTime() / 1000)
+        };
+        
+        setServerCurrentTime(serverTimeData);
+        console.log('Server time set (browser WIB):', serverTimeData);
+    };
+
+    // Fungsi untuk menentukan status berdasarkan waktu dengan server time
+    const getBookingStatusWithServerTime = (date: string, startTime: string, endTime?: string, serverTime?: any) => {
+        console.log('getBookingStatusWithServerTime called with:', { 
+            date, 
+            startTime, 
+            endTime, 
+            serverTime,
+            serverTimeDate: serverTime?.date,
+            serverTimeTime: serverTime?.time
+        });
+        
+        // Use server time from API instead of browser time
+        const currentServerTime = serverTime || new Date();
+        const today = currentServerTime.date || currentServerTime.toISOString().slice(0, 10);
+        const currentTime = currentServerTime.time ? currentServerTime.time.slice(0, 5) : currentServerTime.toTimeString().slice(0, 5);
+        
+        console.log('Using server time:', { currentServerTime, today, currentTime });
+        
+        // Debug logging
+        console.log('Debug Status:', {
+            date,
+            today,
+            startTime,
+            endTime,
+            currentTime,
+            dateComparison: date === today,
+            serverTime: currentServerTime
+        });
+        
+        // Jika tanggal berbeda dari hari ini
+        if (date !== today) {
+            const bookingDate = new Date(date);
+            const todayDate = new Date(today);
+            
+            if (bookingDate < todayDate) {
+                return 'expired';
+            } else {
+                return 'upcoming';
+            }
+        }
+        
+        // Konversi waktu ke format yang bisa dibandingkan (HH:MM)
+        const formatTime = (time: string) => {
+            if (time.length === 5 && time.includes(':')) {
+                return time;
+            }
+            if (time.length >= 5) {
+                return time.slice(0, 5);
+            }
+            return time;
+        };
+        
+        const formattedStartTime = formatTime(startTime);
+        const formattedEndTime = endTime ? formatTime(endTime) : null;
+        const formattedCurrentTime = formatTime(currentTime);
+        
+        // Konversi waktu ke menit untuk perbandingan yang akurat
+        const timeToMinutes = (timeStr: string) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+        
+        const currentMinutes = timeToMinutes(formattedCurrentTime);
+        const startMinutes = timeToMinutes(formattedStartTime);
+        const endMinutes = formattedEndTime ? timeToMinutes(formattedEndTime) : null;
+        
+        // Jika tanggal sama dengan hari ini, cek waktu
+        if (!endMinutes) {
+            if (currentMinutes > startMinutes) {
+                return 'expired';
+            } else {
+                return 'upcoming';
+            }
+        }
+        
+        // Jika ada end time, cek status lengkap
+        let finalStatus;
+        if (currentMinutes < startMinutes) {
+            finalStatus = 'upcoming';
+        } else if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+            finalStatus = 'ongoing';
+        } else {
+            finalStatus = 'expired';
+        }
+        
+        console.log('Final Status Result:', {
+            booking: `${date} ${formattedStartTime}-${formattedEndTime}`,
+            currentTime: formattedCurrentTime,
+            currentMinutes,
+            startMinutes,
+            endMinutes,
+            finalStatus
+        });
+        
+        return finalStatus;
+    };
 
     const loadServerBookings = () => {
         const userDataStr = localStorage.getItem('user_data');
@@ -265,9 +468,96 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             });
     };
 
+    // Fungsi untuk memindahkan meeting expired ke history
+    const moveExpiredToHistory = useCallback(async (bookings: any[]) => {
+        if (!serverCurrentTime) return;
+        
+        console.log('moveExpiredToHistory called with:', {
+            bookingsCount: bookings.length,
+            serverCurrentTime,
+            sampleBooking: bookings[0]
+        });
+        
+        const expiredBookings = bookings.filter(booking => {
+            // Debug: log booking structure
+            console.log('Checking booking:', {
+                id: booking.id,
+                topic: booking.topic || booking.meeting_topic,
+                date: booking.date || booking.meeting_date,
+                startTime: booking.start_time || booking.meeting_time,
+                endTime: booking.end_time,
+                allFields: Object.keys(booking)
+            });
+            
+            const status = getBookingStatusWithServerTime(
+                booking.date || booking.meeting_date, 
+                booking.start_time || booking.meeting_time, 
+                booking.end_time, 
+                serverCurrentTime
+            );
+            
+            console.log('Booking status:', status);
+            return status === 'expired';
+        });
+        
+        console.log('Found expired bookings:', expiredBookings.length);
+        
+        if (expiredBookings.length > 0) {
+            console.log('Expired bookings details:', expiredBookings);
+        }
+        
+        for (const booking of expiredBookings) {
+            try {
+                // Tambahkan ke history
+                const historyEntry = {
+                    id: booking.id,
+                    roomName: booking.room_name || booking.name,
+                    topic: booking.topic || booking.meeting_topic,
+                    date: booking.date,
+                    time: booking.start_time || booking.meeting_time,
+                    endTime: booking.end_time,
+                    pic: booking.pic || booking.meeting_pic,
+                    participants: booking.participants || booking.meeting_participants,
+                    status: 'Selesai' as const,
+                    completedAt: new Date().toISOString(),
+                    source: booking.source || 'server'
+                };
+                
+                addHistory(historyEntry);
+                console.log('Moved expired booking to history:', booking.topic);
+                
+                // Hapus dari database (opsional - bisa di-comment jika ingin tetap ada)
+                // await ApiService.deleteBooking(booking.id);
+                
+            } catch (error) {
+                console.error('Error moving expired booking to history:', error);
+            }
+        }
+    }, [serverCurrentTime, getBookingStatusWithServerTime]);
+
     useEffect(() => {
+        fetchServerTime();
         loadServerBookings();
     }, []);
+
+    // Pindahkan meeting expired ke history setelah data dimuat
+    useEffect(() => {
+        console.log('useEffect triggered:', {
+            serverCurrentTime: !!serverCurrentTime,
+            serverBookingsLength: serverBookings.length,
+            aiBookingsLength: aiBookings.length,
+            serverCurrentTimeData: serverCurrentTime
+        });
+        
+        if (serverCurrentTime && (serverBookings.length > 0 || aiBookings.length > 0)) {
+            console.log('Checking for expired bookings...');
+            const allBookings = [...serverBookings, ...aiBookings];
+            console.log('All bookings to check:', allBookings.length);
+            moveExpiredToHistory(allBookings);
+        } else {
+            console.log('Skipping expired check - conditions not met');
+        }
+    }, [serverCurrentTime, serverBookings, aiBookings]);
 
     // Refresh data when refreshTrigger changes (after booking)
     useEffect(() => {
@@ -300,7 +590,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
         };
     }, []);
 
-    const handleCancel = async (id: number) => {
+    const handleCancel = async (id: string | number) => {
         try {
             // Show confirmation dialog
             const confirmed = window.confirm(t('reservations.confirmCancel'));
@@ -313,11 +603,14 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             
             if (isAiBooking) {
                 // For AI bookings, call the AI cancel endpoint
-                await ApiService.cancelBooking(id);
-                console.log('AI booking cancelled via API:', id);
+                console.log('Attempting to cancel AI booking:', String(id));
+                const result = await ApiService.cancelBooking(String(id));
+                console.log('AI booking cancel result:', result);
             } else {
                 // For form bookings, call the regular API
-                await onCancelBooking(id);
+                console.log('Attempting to cancel form booking:', Number(id));
+                await onCancelBooking(Number(id));
+                console.log('Form booking cancelled successfully');
             }
             
             // Add to history
@@ -351,7 +644,12 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             
         } catch (e) {
             console.error('Error cancelling booking:', e);
-            alert(t('reservations.cancelError'));
+            console.error('Error details:', {
+                id,
+                isAiBooking: String(id).startsWith('ai_'),
+                error: e
+            });
+            alert(`Failed to cancel booking. Error: ${e.message || e}`);
             return;
         }
     };
@@ -401,128 +699,31 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     };
 
     const filteredSorted = useMemo(() => {
-        // Format MySQL bookings (form-based)
-        const userRaw = localStorage.getItem('user_data');
-        let userName = '-';
-        try {
-            const ud = userRaw ? JSON.parse(userRaw) : null;
-            userName = ud?.full_name || ud?.username || '-';
-        } catch {}
-        const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => {
-            // Only show start time, no duration/end time
-            let timeDisplay = '';
-            
-            if (b.start_time) {
-                // Extract time from start_time
-                const startTime = new Date(b.start_time);
-                timeDisplay = startTime.toTimeString().slice(0, 5);
-            } else if (b.meeting_time) {
-                // Use meeting_time directly
-                timeDisplay = b.meeting_time.slice(0, 5);
-            }
-            
-            return {
-                id: b.id,
-                roomId: b.room_id || 0,
-                roomName: b.room_name || `Room ${b.room_id}` || '—',
-                topic: b.topic || b.title,
-                date: b.meeting_date || b.start_time?.split(' ')[0] || '',
-                time: timeDisplay,
-                participants: Number(b.participants || b.attendees || 0),
-                pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-                meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                facilities: (b.facilities && Array.isArray(b.facilities)) ? b.facilities : [],
-                imageUrl: b.image_url
-            };
-        });
-
-        // Format AI bookings from ai_bookings_success table
-        const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => {
-            // Only show start time, no duration/end time
-            let timeDisplay = b.meeting_time || '';
-            if (b.meeting_time) {
-                timeDisplay = b.meeting_time.slice(0, 5);
-            }
-            
-            return {
-                id: `ai_${b.id}`, // Prefix dengan 'ai_' untuk membedakan dari form bookings
-                roomId: b.room_id || 0,
-                roomName: b.room_name || `Room ${b.room_id}` || '—',
-                topic: b.topic,
-                date: b.meeting_date,
-                time: timeDisplay,
-                participants: Number(b.participants || 0),
-                pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-                meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                facilities: (b.facilities && Array.isArray(b.facilities)) ? b.facilities : [],
-                imageUrl: b.image_url
-            };
-        });
-
-        const unified: Booking[] = [];
-        const seenIds = new Set<string>();
-        const seenBookings = new Set<string>(); // Untuk mendeteksi duplikasi berdasarkan kriteria booking
-
-        // Gabungkan hasil dari server (MySQL), AI bookings, dan lokal
-        // Prioritaskan AI bookings (yang lebih baru) untuk menghindari duplikasi
-        console.log('AI bookings count:', aiBookingsFormatted.length);
-        console.log('Server bookings count:', serverBookingsFormatted.length);
-        console.log('Local bookings count:', bookings.length);
+        // Use bookings from props (same as DashboardPage)
+        console.log('🔍 ReservationsPage - Using bookings from props:', bookings);
+        console.log('🔍 ReservationsPage - Props bookings count:', bookings.length);
         
-        // First, add AI bookings (most recent)
-        aiBookingsFormatted.forEach(b => { 
-            const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`;
-            
-            if (!seenIds.has(key) && !seenBookings.has(bookingKey)) { 
-                unified.push(b); 
-                seenIds.add(key); 
-                seenBookings.add(bookingKey);
-                console.log('Added AI booking:', key, bookingKey);
-            } else {
-                console.log('Skipped duplicate AI booking:', key, bookingKey);
-            }
-        });
-        
-        // Then add server bookings (form bookings)
-        serverBookingsFormatted.forEach(b => { 
-            const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`;
-            
-            if (!seenIds.has(key) && !seenBookings.has(bookingKey)) { 
-                unified.push(b); 
-                seenIds.add(key); 
-                seenBookings.add(bookingKey);
-                console.log('Added server booking:', key, bookingKey);
-            } else {
-                console.log('Skipped duplicate server booking:', key, bookingKey);
-            }
-        });
-        
-        // Finally add local bookings (fallback)
-        bookings.forEach(b => { 
-            const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}-${b.participants}`;
-            
-            if (!seenIds.has(key) && !seenBookings.has(bookingKey)) { 
-                unified.push(b); 
-                seenIds.add(key); 
-                seenBookings.add(bookingKey);
-                console.log('Added local booking:', key, bookingKey);
-            } else {
-                console.log('Skipped duplicate local booking:', key, bookingKey);
-            }
-        });
-        
-        console.log('Final unified bookings count:', unified.length);
-
-        const list = unified.filter(b => {
+        // Gunakan hanya bookings dari props (yang sudah di-format dari App.tsx)
+        const list = bookings.filter(b => {
             const hay = `${b.topic} ${b.roomName}`.toLowerCase();
-            return hay.includes(search.toLowerCase());
+            const matchesSearch = hay.includes(search.toLowerCase());
+            
+            // Filter out expired bookings (they will be moved to history)
+            if (serverCurrentTime) {
+                const status = getBookingStatusWithServerTime(b.date, b.time, b.endTime, serverCurrentTime);
+                const isExpired = status === 'expired';
+                
+                if (isExpired) {
+                    console.log('Filtering out expired booking:', b.topic, 'Status:', status);
+                    return false;
+                }
+            }
+            
+            return matchesSearch;
         });
         const toDate = (b: Booking) => new Date(`${b.date} ${b.time}`).getTime();
         return list.slice().sort((a, b) => sort === 'Terbaru' ? toDate(b) - toDate(a) : toDate(a) - toDate(b));
-    }, [bookings, search, sort, serverBookings, aiBookings]);
+    }, [bookings, search, sort, serverCurrentTime]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
@@ -643,7 +844,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                         sessionStorage.setItem('detail_booking', JSON.stringify(b));
                         const ev = new CustomEvent('set_detail_booking');
                         window.dispatchEvent(ev as any);
-                    }} onComplete={handleCompleteBooking} />)
+                    }} onComplete={handleCompleteBooking} getBookingStatus={(date, startTime, endTime) => getBookingStatusWithServerTime(date, startTime, endTime, serverCurrentTime)} />)
                 ) : (
                         <div className="bg-white rounded-2xl p-12 shadow-lg text-center">
                             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">

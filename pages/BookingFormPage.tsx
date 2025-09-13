@@ -18,27 +18,50 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
     const [topic, setTopic] = useState(bookingData?.topic || '');
     const [date, setDate] = useState(bookingData?.date || '');
     const [time, setTime] = useState(bookingData?.time || '');
-    const [endTime, setEndTime] = useState('');
+    const [endTime, setEndTime] = useState(bookingData?.endTime || '');
     const [participants, setParticipants] = useState(bookingData?.participants || 1);
     const [pic, setPic] = useState(bookingData?.pic || '');
     const [meetingType, setMeetingType] = useState<'internal' | 'external'>(bookingData?.meetingType || 'internal');
     const [selectedFacilities, setSelectedFacilities] = useState<string[]>(bookingData?.facilities || []);
 
-    // Available facilities list
-    const availableFacilities = [
-        'AC', 'Projector', 'Sound System', 'Whiteboard', 'TV', 'WiFi',
-        'Microphone', 'Camera', 'Flipchart', 'Coffee Machine', 'Water Dispenser',
-        'Printer', 'Scanner', 'Video Conference', 'Presentation Screen',
-        'Laptop Connection', 'Power Outlets', 'Air Purifier', 'Blinds/Curtains', 'Lighting Control'
-    ];
+    // Get facilities based on selected room
+    const getRoomFacilities = (room: MeetingRoom | null): string[] => {
+        if (!room) return [];
+        return room.facilities || [];
+    };
 
-    // Load available rooms from API
+    // Available facilities based on selected room
+    const availableFacilities = getRoomFacilities(selectedRoom);
+
+    // Auto-fill end time when start time changes
+    useEffect(() => {
+        if (time && !endTime) {
+            const [startHour, startMin] = time.split(':').map(Number);
+            const endMinutes = startHour * 60 + startMin + 60; // Add 1 hour
+            const endHour = Math.floor(endMinutes / 60);
+            const endMin = endMinutes % 60;
+            const autoEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+            setEndTime(autoEndTime);
+        }
+    }, [time, endTime]);
+
+    // Load available rooms from database
     useEffect(() => {
         const loadRooms = async () => {
             try {
                 setLoadingRooms(true);
-                const response = await ApiService.getAllRooms();
-                const raw = (response && (response as any).data) ? (response as any).data : response;
+                
+                // Load rooms from database using the same API as MeetingRoomsPage
+                const res = await ApiService.getAllRooms();
+                console.log('API Response for rooms:', res);
+                
+                const raw = (res && (res as any).data) ? (res as any).data : res;
+                console.log('Raw room data:', raw);
+                
+                if (!raw || !Array.isArray(raw)) {
+                    throw new Error('Invalid data format from API');
+                }
+                
                 const mapped: MeetingRoom[] = (raw || []).map((r: any) => ({
                     id: r.id ?? r.room_id,
                     name: r.name ?? r.room_name,
@@ -49,16 +72,27 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                         const f = r.features;
                         if (Array.isArray(f)) return f as string[];
                         if (typeof f === 'string') {
-                            try { const j = JSON.parse(f); if (Array.isArray(j)) return j; } catch {}
+                            try { 
+                                const j = JSON.parse(f); 
+                                if (Array.isArray(j)) return j; 
+                            } catch {}
                             return f.split(',').map((s: string) => s.trim()).filter(Boolean);
                         }
                         return [] as string[];
                     })(),
                     image: r.image_url || '/images/meeting-rooms/default-room.jpg',
+                    available: r.is_available === 1 || r.is_available === true
                 }));
+                
+                console.log('Mapped rooms for booking form:', mapped);
                 setAvailableRooms(mapped);
+                
+                // Only auto-select first room if no room was passed as prop
+                if (!selectedRoom && !room && mapped.length > 0) {
+                    setSelectedRoom(mapped[0]);
+                }
             } catch (error) {
-                console.error('Failed to load rooms:', error);
+                console.error('Error loading rooms:', error);
                 // Fallback to empty array if API fails
                 setAvailableRooms([]);
             } finally {
@@ -68,6 +102,13 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
 
         loadRooms();
     }, []);
+
+    // Effect to handle room prop changes
+    useEffect(() => {
+        if (room && !selectedRoom) {
+            setSelectedRoom(room);
+        }
+    }, [room, selectedRoom]);
 
     // Optimized handlers to prevent re-renders
     const handleTopicChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,7 +131,15 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
     }, []);
 
     const handleDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setDate(e.target.value);
+        const selectedDate = e.target.value;
+        const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+        
+        // Only allow today and future dates
+        if (selectedDate >= today) {
+            setDate(selectedDate);
+        } else {
+            alert('Tidak dapat memilih tanggal yang sudah lewat. Silakan pilih tanggal hari ini atau ke depan.');
+        }
     }, []);
 
     const handleParticipantsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,7 +164,11 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
         const roomId = parseInt(e.target.value, 10);
         const room = availableRooms.find(r => r.id === roomId) || null;
         setSelectedRoom(room);
+        
+        // Reset selected facilities when room changes
+        setSelectedFacilities([]);
     }, [availableRooms]);
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -180,10 +233,34 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
             resolvedRoomId = found ? found.id : null;
         } catch {}
 
-        // Final guards
+        // Final guards - validate required fields
+        if (!topic.trim()) {
+            alert('Topik rapat wajib diisi.');
+            return;
+        }
+        
+        if (!date) {
+            alert('Tanggal rapat wajib diisi.');
+            return;
+        }
+        
+        if (!pic.trim()) {
+            alert('PIC (Penanggung Jawab) wajib diisi.');
+            return;
+        }
+        
         if (!times.start) {
             alert('Waktu mulai rapat wajib diisi.');
             return;
+        }
+        
+        // Auto-fill end time if not provided (default to 1 hour after start time)
+        if (!times.end && times.start) {
+            const [startHour, startMin] = times.start.split(':').map(Number);
+            const endMinutes = startHour * 60 + startMin + 60; // Add 1 hour
+            const endHour = Math.floor(endMinutes / 60);
+            const endMin = endMinutes % 60;
+            times.end = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
         }
         
         if (!times.end) {
@@ -215,6 +292,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
             topic,
             meeting_date: date,
             meeting_time: normalizeTime(times.start || time),
+            end_time: normalizeTime(times.end || endTime),
             duration: durationMinutes,
             participants,
             pic, // kirim PIC yang diinput user ke backend
@@ -236,11 +314,23 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                 topic,
                 date,
                 time: times.start,
+                endTime: times.end,
                 participants,
                 pic,
                 meetingType,
                 facilities: selectedFacilities,
             };
+            
+            console.log('🔍 BookingFormPage - Created booking object:', newBooking);
+            console.log('🔍 BookingFormPage - Field details:', {
+                roomName: newBooking.roomName,
+                topic: newBooking.topic,
+                pic: newBooking.pic,
+                date: newBooking.date,
+                time: newBooking.time,
+                participants: newBooking.participants,
+                meetingType: newBooking.meetingType
+            });
             onBookingConfirmed(newBooking);
         } catch (err: any) {
             console.error('Gagal menyimpan booking ke backend:', err);
@@ -435,6 +525,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         name="date" 
                                         value={date} 
                                         onChange={handleDateChange}
+                                        min={new Date().toISOString().split('T')[0]} // Set minimum date to today
                                         className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300" 
                                     />
                                 </div>
@@ -535,22 +626,30 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     </label>
                                     <div className="text-sm text-gray-600 mb-4 flex items-center gap-2">
                                         <span className="text-green-600">✓</span>
-                                        Pilih fasilitas yang tersedia di ruangan meeting ini
+                                        Pilih fasilitas yang tersedia di {selectedRoom?.name || 'ruangan meeting ini'}
                                     </div>
                                     <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm">
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {availableFacilities.map((facility) => (
-                                                <label key={facility} className="flex items-center gap-3 cursor-pointer hover:bg-blue-50 p-3 rounded-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 hover:shadow-sm">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedFacilities.includes(facility)}
-                                                        onChange={() => handleFacilityChange(facility)}
-                                                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                                                    />
-                                                    <span className="text-sm font-medium text-gray-700">{facility}</span>
-                                                </label>
-                                            ))}
-                                        </div>
+                                        {availableFacilities.length > 0 ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                {availableFacilities.map((facility) => (
+                                                    <label key={facility} className="flex items-center gap-3 cursor-pointer hover:bg-blue-50 p-3 rounded-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 hover:shadow-sm">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedFacilities.includes(facility)}
+                                                            onChange={() => handleFacilityChange(facility)}
+                                                            className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                                        />
+                                                        <span className="text-sm font-medium text-gray-700">{facility}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-8 text-gray-500">
+                                                <div className="text-4xl mb-2">🏢</div>
+                                                <p>Pilih ruangan terlebih dahulu untuk melihat fasilitas yang tersedia</p>
+                                            </div>
+                                        )}
+                                        
                                         {selectedFacilities.length > 0 && (
                                             <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                                                 <div className="text-sm font-medium text-blue-800 mb-2">

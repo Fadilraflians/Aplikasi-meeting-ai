@@ -158,6 +158,7 @@ const SiteFooter: React.FC = () => {
 };
 
 const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
+  console.log('🔍 ReservationCard received booking:', booking);
   // Hitung apakah reservasi sudah lewat atau akan datang
   const normalizeTime = (t: string) => {
     if (!t) return '00:00:00';
@@ -184,8 +185,12 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
     return `${hh}:${mm}:${ss}`;
   };
 
-  const toTs = (b: Booking) => {
-    const time = normalizeTime(b.time);
+  const toTs = (b: Booking, useEndTime = false) => {
+    // Use end time if requested, otherwise use start time
+    const time = useEndTime ? 
+      (b.endTime ? normalizeTime(b.endTime) : normalizeTime(b.time)) : 
+      normalizeTime(b.time);
+    
     let dateStr = b.date;
     
     if (dateStr.includes(',')) {
@@ -230,30 +235,67 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
     return dateTime.getTime();
   };
 
-  const bookingTs = toTs(booking);
-  const nowTs = Date.now();
-  const isPast = bookingTs < nowTs;
-  const timeDiff = Math.abs(bookingTs - nowTs);
-  const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60)) || 0;
-  const minutesDiff = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60)) || 0;
-
+  const startTs = toTs(booking, false); // Start time
+  const endTs = toTs(booking, true);    // End time
+  const nowTs = Date.now(); // Browser time (WIB)
+  
+  // Determine booking status
+  const isStarted = nowTs >= startTs;
+  const isEnded = nowTs >= endTs;
+  const isOngoing = isStarted && !isEnded;
+  
+  console.log('🔍 ReservationCard Status Check:', {
+    booking: booking.topic,
+    startTime: booking.time,
+    endTime: booking.endTime,
+    startTs: new Date(startTs).toLocaleString(),
+    endTs: new Date(endTs).toLocaleString(),
+    nowTs: new Date(nowTs).toLocaleString(),
+    isStarted,
+    isEnded,
+    isOngoing
+  });
+  
   let statusText = '';
   let statusColor = '';
   
-  if (isPast) {
+  if (isEnded) {
+    // Booking has ended
+    const timeDiff = nowTs - endTs;
+    const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60)) || 0;
+    const minutesDiff = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60)) || 0;
+    
     if (hoursDiff === 0) {
       statusText = `${minutesDiff} menit yang lalu`;
     } else {
-      statusText = `${hoursDiff} jam ${minutesDiff} menit yang lalu`;
+      statusText = `${hoursDiff} jam yang lalu`;
     }
-    statusColor = 'text-orange-600 bg-orange-100';
+    statusColor = 'text-gray-600 bg-gray-100 border-gray-200';
+  } else if (isOngoing) {
+    // Booking is currently ongoing
+    statusText = 'Sedang Berlangsung';
+    statusColor = 'text-green-600 bg-green-100 border-green-200';
   } else {
+    // Booking hasn't started yet
+    const timeDiff = startTs - nowTs;
+    const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60)) || 0;
+    const minutesDiff = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60)) || 0;
+    
     if (hoursDiff === 0) {
-      statusText = `Dalam ${minutesDiff} menit`;
+      if (minutesDiff <= 5) {
+        statusText = 'Segera dimulai';
+        statusColor = 'text-red-600 bg-red-100 border-red-200';
+      } else {
+        statusText = `Dalam ${minutesDiff} menit`;
+        statusColor = 'text-orange-600 bg-orange-100 border-orange-200';
+      }
+    } else if (hoursDiff < 24) {
+      statusText = `Dalam ${hoursDiff} jam`;
+      statusColor = 'text-blue-600 bg-blue-100 border-blue-200';
     } else {
-      statusText = `Dalam ${hoursDiff} jam ${minutesDiff} menit`;
+      statusText = 'Akan Datang';
+      statusColor = 'text-green-600 bg-green-100 border-green-200';
     }
-    statusColor = 'text-green-600 bg-green-100';
   }
 
   return (
@@ -319,7 +361,15 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
               </svg>
               <span className="text-xs font-medium text-gray-500">Waktu</span>
             </div>
-            <p className="font-semibold text-gray-800">{booking.time}</p>
+            <p className="font-semibold text-gray-800">
+              {booking.time}
+              {booking.endTime && (
+                <span className="text-gray-500 text-sm ml-1">- {booking.endTime}</span>
+              )}
+              {!booking.endTime && (
+                <span className="text-red-500 text-xs ml-1">(No endTime)</span>
+              )}
+            </p>
           </div>
         </div>
         
@@ -339,12 +389,13 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center">
               <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17M17 13v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span className="text-sm font-medium text-gray-500">Makanan</span>
+              <span className="text-sm font-medium text-gray-500">Fasilitas</span>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${booking.foodOrder === 'tidak' ? 'bg-gray-100 text-gray-700 border border-gray-200' : booking.foodOrder === 'ringan' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-orange-100 text-orange-700 border border-orange-200'}`}>
-              {booking.foodOrder === 'tidak' ? 'Tidak pesan' : booking.foodOrder === 'ringan' ? 'Makanan Ringan' : 'Makanan Berat'}
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+              {booking.facilities && booking.facilities.length > 0 ? booking.facilities.join(', ') : 'Tidak ada'}
             </span>
           </div>
         </div>
@@ -357,7 +408,11 @@ const HistoryListPreview: React.FC = () => {
   const [items, setItems] = React.useState<HistoryEntry[]>([]);
   const { t } = useLanguage();
   React.useEffect(() => {
-    setItems(getHistory().slice(0, 3));
+    // Filter hanya status 'Selesai' dan 'Dibatalkan', bukan 'expired'
+    const filteredHistory = getHistory().filter(h => 
+      h.status === 'Selesai' || h.status === 'Dibatalkan'
+    );
+    setItems(filteredHistory.slice(0, 3));
   }, []);
   if (items.length === 0) return <div className="text-center text-gray-500 bg-gray-50 p-8 rounded-xl border">{t('dashboard.noReservations')}</div>;
   return (
@@ -384,66 +439,27 @@ const HistoryListPreview: React.FC = () => {
 };
 
 const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Booking[] }> = ({ onNavigate, bookings }) => {
-    const [serverBookings, setServerBookings] = useState<Booking[]>([]);
-    const [aiBookings, setAiBookings] = useState<Booking[]>([]);
     const { t } = useLanguage();
 
+    // Use bookings from props directly - no need to fetch separately
+    console.log('🔍 Dashboard received bookings from props:', bookings);
+    console.log('🔍 Bookings count:', bookings.length);
+    console.log('🔍 Sample booking:', bookings[0]);
+    console.log('🔍 All bookings details:', bookings.map(b => ({
+        id: b.id,
+        topic: b.topic,
+        date: b.date,
+        time: b.time,
+        endTime: b.endTime,
+        roomName: b.roomName
+    })));
+    
+    // Force refresh when component mounts or bookings change
     useEffect(() => {
-        const userDataStr = localStorage.getItem('user_data');
-        let userData: any = null;
-        try {
-            userData = userDataStr ? JSON.parse(userDataStr) : null;
-        } catch {}
-        const userId = userData?.id;
-        // Jika user tidak punya ID, gunakan null untuk mendapatkan data kosong
-        if (!userId) {
-            console.log('User baru detected - showing empty dashboard');
-            setServerBookings([]);
-            setAiBookings([]);
-            return;
-        }
-        const userName = userData?.full_name || userData?.username || '-';
-        
-        // Load MySQL bookings (form-based) - hanya untuk user yang sudah ada data
-        // User baru akan mendapatkan array kosong
-        ApiService.getUserBookings(userId)
-            .then(res => {
-                const mapped: Booking[] = (res.data || []).map((b: any) => ({
-                    id: b.id,
-                    roomName: b.room_name || `Room ${b.room_id}` || '—',
-                    topic: b.topic,
-                    date: b.meeting_date,
-                    time: b.meeting_time,
-                    participants: Number(b.participants || 0),
-                    // Tampilkan PIC sesuai data yang tersimpan; jika kosong tampilkan '-'
-                    pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-                    meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                    foodOrder: (b.food_order === 'berat' ? 'berat' : b.food_order === 'ringan' ? 'ringan' : 'tidak'),
-                    imageUrl: b.image_url
-                }));
-                setServerBookings(mapped);
-            })
-            .catch(() => setServerBookings([]));
+        console.log('🔍 Dashboard useEffect triggered, bookings:', bookings);
+    }, [bookings]);
 
-        // Load AI bookings from ai_bookings_success table
-        ApiService.getAIBookingsByUserId(userId)
-            .then(res => {
-                const mapped: Booking[] = (res.data || []).map((b: any) => ({
-                    id: `ai_${b.id}`, // Prefix dengan 'ai_' untuk membedakan dari form bookings
-                    roomName: b.room_name || `Room ${b.room_id}` || '—',
-                    topic: b.topic,
-                    date: b.meeting_date,
-                    time: b.meeting_time,
-                    participants: Number(b.participants || 0),
-                    pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-                    meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                    foodOrder: (b.food_order === 'berat' ? 'berat' : b.food_order === 'ringan' ? 'ringan' : 'tidak'),
-                    imageUrl: b.image_url
-                }));
-                setAiBookings(mapped);
-            })
-            .catch(() => setAiBookings([]));
-    }, []);
+    // No need for auto-refresh since data comes from props
 
     // Pilih reservasi mendatang terdekat dari gabungan DB + lokal
     const normalizeTime = (t: string) => {
@@ -458,7 +474,10 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
     };
 
     const toTs = (b: Booking) => {
-        const time = normalizeTime(b.time);
+        // Use end time if available, otherwise use start time + 1 hour
+        const endTime = b.endTime || calculateEndTime(b.time, 60);
+        const time = normalizeTime(endTime);
+        
         // date bisa YYYY-MM-DD atau DD/MM/YYYY; coba parse keduanya
         let dateStr = b.date;
         
@@ -488,66 +507,183 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
             dateStr = `${yy}-${mm}-${dd}`;
         }
         
-
         return new Date(`${dateStr}T${time}`).getTime();
     };
 
-    const unified: Booking[] = (() => {
-        const seen = new Set<string>();
-        const seenBookings = new Set<string>(); // Untuk mendeteksi duplikasi berdasarkan kriteria booking
-        const merged: Booking[] = [];
-        
-        // Prioritaskan lokal (punya PIC dari form)
-        bookings.forEach(b => { 
-            const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}`;
-            if (!seen.has(key) && !seenBookings.has(bookingKey)) { 
-                merged.push(b); 
-                seen.add(key); 
-                seenBookings.add(bookingKey);
-            } 
-        });
-        // lalu MySQL (form bookings dari DB)
-        serverBookings.forEach(b => { 
-            const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}`;
-            if (!seen.has(key) && !seenBookings.has(bookingKey)) { 
-                merged.push(b); 
-                seen.add(key); 
-                seenBookings.add(bookingKey);
-            } 
-        });
-        // lalu AI bookings dari ai_bookings_success table
-        aiBookings.forEach(b => { 
-            const key = String(b.id);
-            const bookingKey = `${b.roomName}-${b.topic}-${b.date}-${b.time}`;
-            if (!seen.has(key) && !seenBookings.has(bookingKey)) { 
-                merged.push(b); 
-                seen.add(key); 
-                seenBookings.add(bookingKey);
-            } 
-        });
-        return merged;
-    })();
+    const calculateEndTime = (startTime: string, durationMinutes: number) => {
+        if (!startTime) return '';
+        const [hours, minutes] = startTime.split(':').map(Number);
+        const totalMinutes = hours * 60 + minutes + durationMinutes;
+        const endHours = Math.floor(totalMinutes / 60);
+        const endMinutes = totalMinutes % 60;
+        return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+    };
+
+    // Use bookings from props directly
+    const unified: Booking[] = bookings || [];
+    console.log('🔍 Using bookings from props:', unified);
+    console.log('🔍 Unified bookings length:', unified.length);
+    
+    // If no bookings, show empty state
+    if (unified.length === 0) {
+        console.log('🔍 No bookings available, showing empty state');
+    }
 
     const nowTs = Date.now();
     
-    // Urutkan semua booking berdasarkan kedekatan dengan waktu sekarang
-    const sortedByProximity = unified.sort((a, b) => {
+    // Gunakan logika status yang sama dengan ReservationsPage
+    const getBookingStatus = (date: string, startTime: string, endTime?: string) => {
+        const now = new Date();
+        // Format waktu dalam WIB (browser timezone)
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        const today = `${year}-${month}-${day}`;
+        const currentTime = `${hours}:${minutes}`;
+        
+        console.log('🔍 Dashboard Status Check:', {
+            bookingDate: date,
+            today: today,
+            bookingTime: startTime,
+            currentTime: currentTime,
+            endTime: endTime
+        });
+        
+        // Jika tanggal berbeda dari hari ini
+        if (date !== today) {
+            const bookingDate = new Date(date);
+            const todayDate = new Date(today);
+            
+            if (bookingDate < todayDate) {
+                return 'expired';
+            } else {
+                return 'upcoming';
+            }
+        }
+        
+        // Konversi waktu ke format yang bisa dibandingkan (HH:MM)
+        const formatTime = (time: string) => {
+            if (time.length === 5 && time.includes(':')) {
+                return time;
+            }
+            if (time.length >= 5) {
+                return time.slice(0, 5);
+            }
+            return time;
+        };
+        
+        const formattedStartTime = formatTime(startTime);
+        const formattedEndTime = endTime ? formatTime(endTime) : null;
+        const formattedCurrentTime = formatTime(currentTime);
+        
+        // Konversi waktu ke menit untuk perbandingan yang akurat
+        const timeToMinutes = (timeStr: string) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+        
+        const currentMinutes = timeToMinutes(formattedCurrentTime);
+        const startMinutes = timeToMinutes(formattedStartTime);
+        const endMinutes = formattedEndTime ? timeToMinutes(formattedEndTime) : null;
+        
+        // Jika tanggal sama dengan hari ini, cek waktu
+        if (!endMinutes) {
+            if (currentMinutes > startMinutes) {
+                return 'expired';
+            } else {
+                return 'upcoming';
+            }
+        }
+        
+        // Jika ada end time, cek status lengkap
+        if (currentMinutes < startMinutes) {
+            return 'upcoming';
+        } else if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+            return 'ongoing';
+        } else {
+            return 'expired';
+        }
+    };
+    
+    // Filter booking berdasarkan status yang sama dengan ReservationsPage
+    const upcomingBookings = unified.filter(booking => {
+        const status = getBookingStatus(booking.date, booking.time, booking.endTime);
+        console.log(`🔍 Dashboard Booking ${booking.topic} (${booking.date} ${booking.time}): Status = ${status}`);
+        const isUpcoming = status === 'upcoming' || status === 'ongoing';
+        console.log(`🔍 Dashboard Is upcoming: ${isUpcoming}`);
+        return isUpcoming;
+    });
+    
+    const pastBookings = unified.filter(booking => {
+        const status = getBookingStatus(booking.date, booking.time, booking.endTime);
+        return status === 'expired';
+    });
+    
+    console.log('🔍 Final Results:', {
+        totalBookings: unified.length,
+        upcomingCount: upcomingBookings.length,
+        pastCount: pastBookings.length,
+        upcomingBookings: upcomingBookings.map(b => ({ 
+            id: b.id,
+            topic: b.topic, 
+            date: b.date, 
+            time: b.time,
+            endTime: b.endTime
+        }))
+    });
+    
+    console.log('🔍 All bookings details:', unified.map(b => ({
+        id: b.id,
+        topic: b.topic,
+        date: b.date,
+        time: b.time,
+        endTime: b.endTime
+    })));
+    
+    // Gunakan logika filtering yang benar untuk upcoming bookings
+    const finalUpcomingBookings = upcomingBookings;
+    
+    // Auto-complete booking yang sudah lewat
+    if (pastBookings.length > 0) {
+        console.log(`Found ${pastBookings.length} past bookings - auto-completing...`);
+        // Panggil API untuk auto-complete
+        ApiService.autoCompleteExpiredBookings()
+            .then(response => {
+                if (response.status === 'success') {
+                    console.log('✅ Auto-completed expired bookings:', response.message);
+                    // Data akan di-refresh otomatis oleh auto-refresh timer
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error auto-completing bookings:', error);
+            });
+    }
+    
+    console.log('🔍 Past bookings count:', pastBookings.length);
+    console.log('🔍 Upcoming bookings count:', upcomingBookings.length);
+    console.log('🔍 Final upcoming bookings count:', finalUpcomingBookings.length);
+    
+    // Urutkan booking yang akan datang berdasarkan waktu terdekat
+    const sortedUpcoming = finalUpcomingBookings.sort((a, b) => {
         const aTs = toTs(a);
         const bTs = toTs(b);
-        const aDiff = Math.abs(aTs - nowTs); // Selisih absolut dengan waktu sekarang
-        const bDiff = Math.abs(bTs - nowTs);
-        return aDiff - bDiff; // Urutkan dari yang paling dekat
+        return aTs - bTs; // Urutkan dari yang paling dekat
     });
     
     // Pilih booking yang paling dekat dengan waktu sekarang
-    const upcomingBooking = sortedByProximity[0] || null;
+    const upcomingBooking = sortedUpcoming[0] || null;
+    
+    console.log('🔍 Sorted upcoming bookings:', sortedUpcoming);
+    console.log('🔍 Selected upcoming booking:', upcomingBooking);
     
 
     
     // Tampilkan booking terdekat yang akan dilaksanakan
     const bookingToShow = upcomingBooking;
+    console.log('🔍 Booking to show:', bookingToShow);
 
     return (
         <div>
@@ -595,8 +731,16 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
                         <div className="bg-white p-6 rounded-2xl shadow-md border">
                             <h3 className="text-3xl font-bold text-gray-700 mb-6 text-center lg:text-left">{t('dashboard.upcomingReservations')}</h3>
                             <div>
-                                {bookingToShow ? (
-                                    <ReservationCard booking={bookingToShow} />
+                                {finalUpcomingBookings.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {/* Tampilkan hanya 1 reservasi upcoming yang paling dekat */}
+                                        <ReservationCard key={finalUpcomingBookings[0].id} booking={finalUpcomingBookings[0]} />
+                                        {finalUpcomingBookings.length > 1 && (
+                                            <div className="text-center text-gray-500 text-sm">
+                                                Dan {finalUpcomingBookings.length - 1} reservasi lainnya...
+                                            </div>
+                                        )}
+                                    </div>
                                 ) : (
                                     <div className="text-center text-gray-500 bg-gray-50 p-8 rounded-2xl border">
                                         <p>{t('dashboard.noReservations')}</p>
@@ -619,12 +763,18 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
                             <h3 className="text-3xl font-bold text-gray-700 mb-6 text-center lg:text-left">{t('dashboard.bookingHistory')}</h3>
                             <p className="text-gray-600 mb-4">{t('dashboard.historyDesc')}</p>
                             <HistoryListPreview />
-                            <div className="text-center lg:text-left mt-6">
+                            <div className="text-center lg:text-left mt-6 flex gap-4 justify-center lg:justify-start">
                                 <button 
                                     onClick={() => onNavigate(Page.History)} 
                                     className="bg-white text-cyan-600 border border-cyan-500 font-bold py-3 px-8 rounded-xl hover:bg-gray-50 transition shadow text-lg"
                                 >
                                     {t('dashboard.viewHistory')}
+                                </button>
+                                <button 
+                                    onClick={() => onNavigate(Page.Rispat)} 
+                                    className="bg-blue-500 text-white border border-blue-500 font-bold py-3 px-8 rounded-xl hover:bg-blue-600 transition shadow text-lg"
+                                >
+                                    View Rispat
                                 </button>
                             </div>
                         </div>

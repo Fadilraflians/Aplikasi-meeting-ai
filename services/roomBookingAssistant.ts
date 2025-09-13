@@ -1,6 +1,8 @@
 // RoomBooking Assistant (RBA) - AI Assistant yang Cerdas dan Proaktif
 import { Booking, BookingState, MeetingRoom } from '../types';
 import RoomDatabaseService, { RoomRecommendation, Room } from './roomDatabaseService';
+import { ConversationService } from './conversationService';
+import { Conversation, ConversationMessage } from '../src/types/conversation';
 
 interface RBAContext {
   conversationHistory: Array<{
@@ -20,6 +22,16 @@ interface RBAContext {
   };
   sessionId: string;
   userId: string;
+  dataCollection: {
+    topic?: string;
+    pic?: string;
+    meetingType?: 'internal' | 'external';
+    date?: string;
+    time?: string;
+    participants?: number;
+    roomPreference?: string;
+  };
+  availableRooms: MeetingRoom[];
 }
 
 interface RBAResponse {
@@ -51,13 +63,14 @@ export class RoomBookingAssistant {
   private context: RBAContext;
   private availableRooms: MeetingRoom[] = [];
   private roomDatabaseService: RoomDatabaseService;
+  private conversationService: ConversationService;
 
   constructor(userId: string, sessionId: string) {
-    // Force API key configuration - NO FALLBACK MODE
-    this.apiKey = 'AIzaSyChO21CKm9-Ekie02b6d6FVyMrLEV9Vlwg';
+    // No Gemini API - focus only on booking functionality
+    this.apiKey = '';
     
-    console.log('🔑 FORCED API KEY:', this.apiKey.substring(0, 10) + '...');
-    console.log('✅ GEMINI_API_KEY configured, RBA will use Gemini API ONLY');
+    console.log('🚫 GEMINI API DISABLED - Using booking-only mode');
+    console.log('✅ RBA will focus only on room booking functionality');
     
     this.context = {
       conversationHistory: [],
@@ -70,14 +83,19 @@ export class RoomBookingAssistant {
         facilityPreferences: ['tidak']
       },
       sessionId,
-      userId
+      userId,
+      dataCollection: {},
+      availableRooms: []
     };
     
     // Initialize room database service
     this.roomDatabaseService = new RoomDatabaseService();
     
-    console.log('✅ RBA Initialized with FORCED API Key');
-    console.log('🚫 FALLBACK MODE DISABLED - Only Gemini API will be used');
+    // Initialize conversation service for MongoDB
+    this.conversationService = new ConversationService();
+    
+    console.log('✅ RBA Initialized - Booking Only Mode');
+    console.log('📊 MongoDB conversation storage enabled');
   }
 
   // Main method to process user input
@@ -86,31 +104,1187 @@ export class RoomBookingAssistant {
       // Add user input to conversation history
       this.addToHistory('user', userInput);
 
-      // API key is always available (forced in constructor)
-      console.log('RBA: Using Gemini API with key:', this.apiKey.substring(0, 10) + '...');
+      // Check if input is booking-related
+      if (!this.detectBookingIntent(userInput)) {
+        return {
+          message: "Maaf, saya hanya bisa membantu dengan pemesanan ruangan meeting. Silakan gunakan opsi 'Pesan Ruangan' untuk memulai booking.",
+          action: 'continue',
+          quickActions: [
+            { label: 'Pesan Ruangan', action: 'book_room', type: 'primary' as const },
+            { label: 'Lihat Ruangan', action: 'view_rooms', type: 'secondary' as const }
+          ]
+        };
+      }
 
-      // Analyze user intent and extract entities
-      const analysis = await this.analyzeUserIntent(userInput);
-
-      // Create comprehensive prompt for RBA
-      const prompt = this.buildRBAPrompt(userInput, analysis);
-
-      // Get response from Gemini
-      const geminiResponse = await this.callGeminiAPI(prompt);
-
-      // Parse and process the response
-      const response = await this.processGeminiResponse(geminiResponse, userInput, analysis);
-
-      // Add AI response to history
-      this.addToHistory('assistant', response.message, analysis.intent, analysis.entities);
-
-      // Update user preferences based on interaction
-      this.updateUserPreferences(response.bookingData);
-
-      return response;
+      // Process booking-related input
+      return await this.processBookingInput(userInput);
     } catch (error) {
       console.error('RBA Error:', error);
-      throw new Error('Gemini API error - no fallback mode available');
+      return this.handleBookingError(userInput, error);
+    }
+  }
+
+  // Detect if user input is booking-related
+  private detectBookingIntent(userInput: string): boolean {
+    const bookingKeywords = [
+      'booking', 'pesan', 'reservasi', 'ruang', 'meeting', 'rapat',
+      'jadwal', 'tanggal', 'jam', 'waktu', 'peserta', 'topik',
+      'internal', 'eksternal', 'pic', 'konsumsi', 'makanan'
+    ];
+    
+    const lowerInput = userInput.toLowerCase();
+    return bookingKeywords.some(keyword => lowerInput.includes(keyword));
+  }
+
+  // Process booking-related input
+  private async processBookingInput(userInput: string): Promise<RBAResponse> {
+    try {
+      // Analyze input for booking information
+      const bookingAnalysis = this.analyzeBookingInput(userInput);
+      
+      // Check if this is a confirmation response
+      if (bookingAnalysis.extractedData.isConfirmation && bookingAnalysis.confidence > 0.7) {
+        return this.handleBookingConfirmationYes();
+      }
+      
+      // Check if data is complete enough for direct confirmation
+      if (bookingAnalysis.confidence >= 0.8 && bookingAnalysis.missingFields.length <= 1) {
+        return this.handleSmartBookingConfirmation();
+      }
+      
+      // Update current booking context with new data
+      this.updateBookingContext(bookingAnalysis.extractedData);
+      
+      // Generate response based on booking analysis
+      return this.generateBookingResponse(bookingAnalysis, userInput);
+      
+    } catch (error) {
+      console.error('Booking processing error:', error);
+      return this.handleBookingError(userInput, error);
+    }
+  }
+
+  // Generate booking response without Gemini API
+  private generateBookingResponse(bookingAnalysis: any, userInput: string): RBAResponse {
+    const { extractedData, missingFields, confidence } = bookingAnalysis;
+    
+    let response = '';
+    const quickActions = [];
+    
+    if (confidence >= 0.8 && missingFields.length <= 1) {
+      // Data is almost complete - show confirmation with facilities
+      const roomName = extractedData.roomName;
+      const roomFacilities = roomName ? this.getRoomFacilities(roomName) : [];
+      
+      response = `Baik! Saya sudah mencatat detail pemesanan Anda:
+- Ruangan: ${roomName || 'Belum dipilih'}
+- Topik Rapat: ${extractedData.topic || 'Belum ditentukan'}
+- PIC: ${extractedData.pic || 'Belum ditentukan'}
+- Jumlah Peserta: ${extractedData.participants || 'Belum ditentukan'} orang
+- Tanggal & Jam: ${extractedData.date || 'Belum ditentukan'}, ${extractedData.time || 'Belum ditentukan'}
+- Jenis Rapat: ${extractedData.meetingType || 'Belum ditentukan'}`;
+
+      if (roomFacilities.length > 0) {
+        response += `\n\nFasilitas yang tersedia di ${roomName}:
+${roomFacilities.map(facility => `- ${facility}`).join('\n')}
+
+Silakan pilih fasilitas yang ingin Anda gunakan:`;
+        
+        // Add facility selection quick actions
+        roomFacilities.forEach(facility => {
+          quickActions.push({
+            label: `Pilih ${facility}`,
+            action: `select_facility_${facility.toLowerCase().replace(/\s+/g, '_')}`,
+            type: 'secondary'
+          });
+        });
+      }
+      
+      response += `\n\nApakah semua informasi ini sudah benar? (Ya/Tidak)`;
+      
+      quickActions.push(
+        { label: 'Ya, Benar', action: 'confirm_booking', type: 'primary' },
+        { label: 'Tidak, Ubah', action: 'edit_booking', type: 'secondary' }
+      );
+    } else if (missingFields.length > 0) {
+      // Missing information - ask for specific fields
+      response = `Untuk melengkapi pemesanan, saya masih membutuhkan informasi berikut:
+- ${missingFields.join('\n- ')}
+
+Silakan berikan informasi tersebut.`;
+      
+      quickActions.push(
+        { label: 'Pesan Ruangan', action: 'book_room', type: 'primary' },
+        { label: 'Lihat Ruangan', action: 'view_rooms', type: 'secondary' }
+      );
+    } else {
+      // General booking help
+      response = `Saya siap membantu Anda memesan ruangan meeting. Silakan berikan informasi berikut:
+- Nama ruangan yang diinginkan
+- Topik rapat
+- PIC (Penanggung Jawab)
+- Jumlah peserta
+- Tanggal dan jam
+- Jenis rapat (Internal/Eksternal)`;
+      
+      quickActions.push(
+        { label: 'Pesan Ruangan', action: 'book_room', type: 'primary' },
+        { label: 'Lihat Ruangan', action: 'view_rooms', type: 'secondary' }
+      );
+    }
+    
+    // Add to conversation history
+    this.addToHistory('assistant', response);
+    
+    return {
+      message: response,
+      action: 'continue',
+      quickActions: quickActions,
+      bookingData: extractedData
+    };
+  }
+
+  // Handle facility selection
+  private handleFacilitySelection(facility: string): RBAResponse {
+    console.log('🔧 Facility selected:', facility);
+    
+    // Get current booking data
+    const currentBooking = this.context.currentBooking;
+    const currentFacilities = currentBooking.facilities || [];
+    
+    // Check if facility is already selected
+    if (currentFacilities.includes(facility)) {
+      // Remove facility if already selected
+      const updatedFacilities = currentFacilities.filter(f => f !== facility);
+      this.context.currentBooking.facilities = updatedFacilities;
+      
+      return {
+        message: `✅ Fasilitas "${facility}" telah dihapus dari pilihan Anda.\n\nFasilitas yang dipilih: ${updatedFacilities.length > 0 ? updatedFacilities.join(', ') : 'Belum ada'}`,
+        action: 'continue',
+        quickActions: this.generateFacilityQuickActions(currentBooking.roomName || ''),
+        bookingData: this.context.currentBooking
+      };
+    } else {
+      // Add facility if not selected
+      const updatedFacilities = [...currentFacilities, facility];
+      this.context.currentBooking.facilities = updatedFacilities;
+      
+      return {
+        message: `✅ Fasilitas "${facility}" telah ditambahkan ke pilihan Anda.\n\nFasilitas yang dipilih: ${updatedFacilities.join(', ')}`,
+        action: 'continue',
+        quickActions: this.generateFacilityQuickActions(currentBooking.roomName || ''),
+        bookingData: this.context.currentBooking
+      };
+    }
+  }
+
+  // Generate facility quick actions for a room
+  private generateFacilityQuickActions(roomName: string): any[] {
+    const roomFacilities = this.getRoomFacilities(roomName);
+    const selectedFacilities = this.context.currentBooking.facilities || [];
+    
+    const quickActions = [];
+    
+    roomFacilities.forEach(facility => {
+      const isSelected = selectedFacilities.includes(facility);
+      quickActions.push({
+        label: `${isSelected ? '✅' : '⬜'} ${facility}`,
+        action: `select_facility_${facility.toLowerCase().replace(/\s+/g, '_')}`,
+        type: isSelected ? 'primary' : 'secondary'
+      });
+    });
+    
+    // Add confirmation button if facilities are selected
+    if (selectedFacilities.length > 0) {
+      quickActions.push({
+        label: 'Selesai Pilih Fasilitas',
+        action: 'finish_facility_selection',
+        type: 'primary'
+      });
+    }
+    
+    return quickActions;
+  }
+
+  // Handle finish facility selection
+  private handleFinishFacilitySelection(): RBAResponse {
+    const currentBooking = this.context.currentBooking;
+    const selectedFacilities = currentBooking.facilities || [];
+    
+    if (selectedFacilities.length === 0) {
+      return {
+        message: 'Anda belum memilih fasilitas apapun. Silakan pilih fasilitas yang ingin Anda gunakan.',
+        action: 'continue',
+        quickActions: this.generateFacilityQuickActions(currentBooking.roomName || ''),
+        bookingData: currentBooking
+      };
+    }
+    
+    // Show final confirmation with selected facilities
+    const response = `Baik! Saya sudah mencatat detail pemesanan Anda:
+- Ruangan: ${currentBooking.roomName || 'Belum dipilih'}
+- Topik Rapat: ${currentBooking.topic || 'Belum ditentukan'}
+- PIC: ${currentBooking.pic || 'Belum ditentukan'}
+- Jumlah Peserta: ${currentBooking.participants || 'Belum ditentukan'} orang
+- Tanggal & Jam: ${currentBooking.date || 'Belum ditentukan'}, ${currentBooking.time || 'Belum ditentukan'}
+- Jenis Rapat: ${currentBooking.meetingType || 'Belum ditentukan'}
+- Fasilitas yang dipilih: ${selectedFacilities.join(', ')}
+
+Apakah semua informasi ini sudah benar? (Ya/Tidak)`;
+    
+    return {
+      message: response,
+      action: 'continue',
+      quickActions: [
+        { label: 'Ya, Benar', action: 'confirm_booking', type: 'primary' },
+        { label: 'Tidak, Ubah', action: 'edit_booking', type: 'secondary' },
+        { label: 'Ubah Fasilitas', action: 'change_facilities', type: 'secondary' }
+      ],
+      bookingData: currentBooking
+    };
+  }
+
+  // Handle booking errors
+  private handleBookingError(userInput: string, error: any): RBAResponse {
+    console.error('Booking error:', error);
+    
+    let response = 'Maaf, terjadi kesalahan dalam memproses permintaan Anda. ';
+    
+    if (error.message === 'QUOTA_EXCEEDED') {
+      response += 'Saat ini saya dalam mode terbatas karena quota API harian sudah habis. Silakan coba lagi besok atau gunakan fitur booking manual.';
+    } else {
+      response += 'Silakan coba lagi atau gunakan opsi di bawah ini.';
+    }
+    
+    const quickActions = [
+      { label: 'Pesan Ruangan', action: 'book_room', type: 'primary' as const },
+      { label: 'Lihat Ruangan', action: 'view_rooms', type: 'secondary' as const },
+      { label: 'Bantuan', action: 'help', type: 'secondary' as const }
+    ];
+    
+    this.addToHistory('assistant', response);
+    
+    return {
+      message: response,
+      action: 'continue',
+      quickActions: quickActions
+    };
+  }
+
+
+  // Update booking context with new data
+  private updateBookingContext(newData: Partial<Booking>): void {
+    console.log('🔍 updateBookingContext - newData:', newData);
+    console.log('🔍 updateBookingContext - current context before:', this.context.currentBooking);
+    this.context.currentBooking = { ...this.context.currentBooking, ...newData };
+    console.log('🔍 updateBookingContext - current context after:', this.context.currentBooking);
+  }
+
+  // Handle intelligent fallback when API quota is exceeded
+  private handleIntelligentFallback(userInput: string, error: any): RBAResponse {
+    const lowerInput = userInput.toLowerCase();
+    
+    // Check if it's a booking intent
+    const bookingKeywords = ['pesan', 'booking', 'reservasi', 'ruang', 'meeting', 'rapat'];
+    const hasBookingIntent = bookingKeywords.some(keyword => lowerInput.includes(keyword));
+    
+    if (hasBookingIntent) {
+      // Analyze booking input for fallback
+      const bookingAnalysis = this.analyzeBookingInput(userInput);
+      
+      if (bookingAnalysis.confidence > 0.5) {
+        // High confidence - provide smart response
+        return this.generateSmartBookingResponse(bookingAnalysis);
+      } else {
+        // Low confidence - ask for more details
+        return this.generateBookingGuidanceResponse(bookingAnalysis);
+      }
+    } else {
+      // General conversation - provide helpful response
+      return this.generateGeneralFallbackResponse(userInput);
+    }
+  }
+
+  // Generate smart booking response for fallback
+  private generateSmartBookingResponse(bookingAnalysis: any): RBAResponse {
+    const { extractedData, missingFields } = bookingAnalysis;
+    
+    let message = "Baik! Saya akan membantu Anda booking ruang meeting. ";
+    
+    if (extractedData.date) {
+      message += `Tanggal: ${extractedData.date}. `;
+    }
+    if (extractedData.time) {
+      message += `Waktu: ${extractedData.time}. `;
+    }
+    if (extractedData.participants) {
+      message += `Peserta: ${extractedData.participants} orang. `;
+    }
+    if (extractedData.topic) {
+      message += `Topik: ${extractedData.topic}. `;
+    }
+    
+    if (missingFields.length > 0) {
+      message += `\n\nUntuk melengkapi booking, saya masih perlu: ${missingFields.join(', ')}.`;
+    } else {
+      message += "\n\nSemua informasi sudah lengkap! Apakah Anda ingin melanjutkan dengan booking?";
+    }
+    
+    const quickActions = this.generateContextualQuickActions(bookingAnalysis, "");
+    
+    return {
+      message: message,
+      action: 'continue',
+      quickActions: quickActions,
+      bookingData: extractedData
+    };
+  }
+
+  // Generate booking guidance response for fallback
+  private generateBookingGuidanceResponse(bookingAnalysis: any): RBAResponse {
+    const { missingFields } = bookingAnalysis;
+    
+    let message = "Baik! Saya akan membantu Anda booking ruang meeting. ";
+    message += "Untuk memberikan rekomendasi ruangan terbaik, saya perlu informasi berikut:\n\n";
+    message += "• Tanggal dan waktu yang diinginkan\n";
+    message += "• Jumlah peserta\n";
+    message += "• Topik atau jenis meeting\n";
+    message += "• Fasilitas yang dibutuhkan (opsional)\n\n";
+    message += "Silakan berikan informasi tersebut atau gunakan tombol di bawah.";
+    
+    const quickActions = [
+      { label: 'Hari Ini', action: 'date_hari_ini', icon: '📅', type: 'secondary' as const },
+      { label: 'Besok', action: 'date_besok', icon: '📅', type: 'secondary' as const },
+      { label: 'Lihat Ruangan', action: 'view_rooms', icon: '🏢', type: 'secondary' as const },
+      { label: 'Bantuan', action: 'help', icon: '❓', type: 'secondary' as const }
+    ];
+    
+    return {
+      message: message,
+      action: 'continue',
+      quickActions: quickActions
+    };
+  }
+
+  // Generate general fallback response
+  private generateGeneralFallbackResponse(userInput: string): RBAResponse {
+    const lowerInput = userInput.toLowerCase();
+    
+    let message = "Halo! Saya Spacio AI Assistant. ";
+    
+    if (lowerInput.includes('hi') || lowerInput.includes('halo') || lowerInput.includes('hai')) {
+      message += "Ada yang bisa saya bantu? Saya bisa membantu Anda dengan booking ruang meeting atau menjawab pertanyaan tentang ruangan dan fasilitas.";
+    } else if (lowerInput.includes('bantuan') || lowerInput.includes('help')) {
+      message += "Saya bisa membantu Anda dengan:\n\n• Booking ruang meeting\n• Informasi ruangan dan fasilitas\n• Panduan penggunaan sistem\n\nApa yang ingin Anda ketahui?";
+    } else {
+      message += "Saya bisa membantu Anda dengan booking ruang meeting atau menjawab pertanyaan tentang ruangan dan fasilitas. Ada yang bisa saya bantu?";
+    }
+    
+    const quickActions = [
+      { label: 'Pesan Ruangan', action: 'booking_start', icon: '📅', type: 'primary' as const },
+      { label: 'Lihat Ruangan', action: 'view_rooms', icon: '🏢', type: 'secondary' as const },
+      { label: 'Bantuan', action: 'help', icon: '❓', type: 'secondary' as const }
+    ];
+    
+    return {
+      message: message,
+      action: 'continue',
+      quickActions: quickActions
+    };
+  }
+
+  // Build advanced Gemini prompt with interactive booking system
+  private buildAdvancedGeminiPrompt(userInput: string, bookingAnalysis: any): string {
+    const { extractedData, missingFields, confidence } = bookingAnalysis;
+    const conversationHistory = this.buildConversationHistoryForPrompt();
+    
+    let prompt = `Anda adalah Spacio AI Assistant - Asisten AI Pemesanan Ruangan yang ramah dan cerdas.
+
+TUJUAN: Membantu user memesan ruangan meeting dengan cara yang natural dan interaktif.
+
+INFORMASI YANG DIBUTUHKAN:
+1. Nama Ruangan
+2. Topik Rapat  
+3. PIC (Penanggung Jawab)
+4. Jumlah Peserta
+5. Tanggal & Jam
+6. Jenis Rapat (Internal/Eksternal)
+
+RUANGAN TERSEDIA:
+- Samudrantha Meeting Room (Kapasitas: 10 orang)
+- Cedaya Meeting Room (Kapasitas: 15 orang)
+- Celebes Meeting Room (Kapasitas: 15 orang)
+- Kalamanthana Meeting Room (Kapasitas: 15 orang)
+- Ruang Nasionalis (Kapasitas: 15 orang)
+- Ruang Meeting A (Kapasitas: 8 orang)
+- Ruang Konferensi Bintang (Kapasitas: 12 orang)
+- Auditorium Utama (Kapasitas: 50 orang)
+- Ruang Kolaborasi Alpha (Kapasitas: 6 orang)
+
+RIWAYAT PERCAKAPAN:
+${conversationHistory}
+
+INPUT USER SAAT INI: "${userInput}"
+
+DATA YANG SUDAH DIKUMPULKAN:
+${JSON.stringify(extractedData, null, 2)}
+
+FIELD YANG MASIH KURANG: ${missingFields.join(', ') || 'Tidak ada'}
+
+TINGKAT KELENGKAPAN: ${(confidence * 100).toFixed(0)}%
+
+PANDUAN RESPON:
+
+1. JIKA DATA SUDAH LENGKAP (6 field):
+Langsung konfirmasi dengan format:
+"Baik! Saya sudah mencatat semua detail pemesanan Anda:
+- Ruangan: [Nama Ruangan]
+- Topik Rapat: [Topik]
+- PIC: [PIC]
+- Jumlah Peserta: [Jumlah] orang
+- Tanggal & Jam: [Tanggal], pukul [Jam]
+- Jenis Rapat: [Jenis]
+
+Apakah semua informasi ini sudah benar? (Ya/Tidak)"
+
+2. JIKA USER KONFIRMASI "YA":
+Langsung ke form berhasil:
+"Pemesanan ruangan Anda berhasil! Terima kasih telah menggunakan layanan kami.
+
+Detail pemesanan:
+- ID Booking: AI-${Math.floor(Math.random() * 1000)}
+- Ruangan: [Nama Ruangan]
+- Tanggal: [Tanggal]
+- Waktu: [Jam]
+
+Silakan periksa email Anda untuk detail lebih lanjut."
+
+3. JIKA RUANGAN TIDAK DITEMUKAN:
+"Maaf, [nama ruangan] tidak terdaftar dalam sistem kami. Berikut rekomendasi ruangan yang tersedia untuk [jumlah] peserta:
+
+1. [Ruang 1] (Kapasitas: [X] orang)
+2. [Ruang 2] (Kapasitas: [X] orang)
+3. [Ruang 3] (Kapasitas: [X] orang)
+
+Mana yang ingin Anda pilih?"
+
+4. JIKA MASIH ADA YANG KURANG:
+"Untuk melengkapi pemesanan, saya masih membutuhkan:
+- [Field yang kurang 1]
+- [Field yang kurang 2]
+
+Silakan berikan informasi tersebut."
+
+5. JIKA USER MINTA REKOMENDASI:
+"Baik, berikut rekomendasi ruangan untuk [jumlah] peserta pada [tanggal] pukul [jam]:
+
+1. [Ruang 1] (Kapasitas: [X] orang)
+2. [Ruang 2] (Kapasitas: [X] orang)
+3. [Ruang 3] (Kapasitas: [X] orang)
+
+Mana yang ingin Anda pilih?"
+
+KARAKTERISTIK RESPON:
+- Ramah dan sopan
+- Jelas dan mudah dipahami
+- Natural dalam Bahasa Indonesia
+- Selalu berikan opsi atau pertanyaan lanjutan
+- Hindari kalimat yang terlalu panjang
+
+Jawab sesuai dengan situasi di atas:`;
+
+    return prompt;
+  }
+
+  // Build conversation history for prompt
+  private buildConversationHistoryForPrompt(): string {
+    const history = this.context.conversationHistory.slice(-6); // Last 6 messages
+    if (history.length === 0) return "Belum ada riwayat percakapan.";
+    
+    return history.map((msg, index) => {
+      const role = msg.role === 'user' ? 'User' : 'Assistant';
+      const content = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+      return `${index + 1}. ${role}: ${content}`;
+    }).join('\n');
+  }
+
+  // Build conversation context for OpenAI API
+  private buildConversationContext(userInput: string, bookingAnalysis: any): any[] {
+    const systemPrompt = this.buildAdvancedSystemPrompt();
+    const conversationHistory = this.buildConversationHistory();
+    const currentContext = this.buildCurrentContext(bookingAnalysis);
+    
+    return [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory,
+      { role: 'user', content: userInput },
+      { role: 'assistant', content: currentContext }
+    ];
+  }
+
+  // Build advanced system prompt for OpenAI
+  private buildAdvancedSystemPrompt(): string {
+    return `Anda adalah Spacio AI Assistant - Sistem AI Pemesanan & Asisten Ruangan Cerdas yang sangat advanced.
+
+KEMAMPUAN ANDA:
+1. CONTEXTUAL UNDERSTANDING - Memahami konteks percakapan dan mengingat riwayat
+2. AMBIGUITY RESOLUTION - Menangani ambiguitas dengan pertanyaan klarifikasi yang spesifik
+3. MULTI-TURN CONVERSATIONS - Mempertahankan percakapan kompleks dan bertahap
+4. KNOWLEDGE BASE & Q&A - Menjawab pertanyaan tentang ruangan, fasilitas, dan kebijakan
+5. INTELLIGENT ROOM RECOMMENDATION - Merekomendasikan ruangan berdasarkan kriteria multi-dimensi
+6. PROACTIVE ASSISTANCE - Memberikan saran dan rekomendasi yang proaktif
+
+KONTEKS SISTEM SPACIO:
+- Aplikasi: Spacio (Smart Room Booking & Assistant AI)
+- Database: Ruangan dengan kapasitas, lokasi, fasilitas standar, status ketersediaan
+- Fitur: Booking, rekomendasi cerdas, Q&A, konflik detection, notifikasi
+
+DATABASE RUANGAN (Contoh):
+- Ruang Meeting A: Lantai 3, Kapasitas 8, Fasilitas: Proyektor, Whiteboard, Wi-Fi
+- Ruang Konferensi Bintang: Lantai 5, Kapasitas 12, Fasilitas: Proyektor, Sound System, Video Conference
+- Auditorium Utama: Lantai 1, Kapasitas 50, Fasilitas: Panggung, Sound System, Layar Besar
+- Ruang Kolaborasi Alpha: Lantai 2, Kapasitas 6, Fasilitas: Whiteboard Besar, TV Smart, Meja Fleksibel
+
+TUGAS ANDA:
+1. ANALISIS INPUT: Ekstrak informasi booking dari input user dengan NLU lanjutan
+2. CONTEXTUAL RESPONSE: Berikan respons berdasarkan konteks percakapan sebelumnya
+3. AMBIGUITY HANDLING: Jika input tidak jelas, ajukan pertanyaan klarifikasi yang spesifik
+4. KNOWLEDGE Q&A: Jawab pertanyaan tentang ruangan, fasilitas, kebijakan dengan akurat
+5. SMART RECOMMENDATION: Berikan rekomendasi ruangan berdasarkan algoritma prioritas
+6. PROACTIVE GUIDANCE: Berikan saran dan panduan yang proaktif
+
+ALGORITMA REKOMENDASI RUANGAN:
+1. Ketersediaan Waktu (Prioritas Utama)
+2. Kapasitas (Paling mendekati jumlah peserta)
+3. Fasilitas Kunci (Sesuai kebutuhan)
+4. Jenis Ruangan (Berdasarkan topik meeting)
+5. Lokasi (Preferensi pengguna)
+
+CONTOH RESPON CERDAS:
+- "Apa fasilitas di Ruang Meeting A?" → "Ruang Meeting A memiliki: Proyektor, Whiteboard, Wi-Fi, Meja Konferensi, dan Kursi Ergonomis. Cocok untuk rapat tim hingga 8 orang."
+- "Besok jam 2 rapat strategi 10 orang" → "Baik! Untuk rapat strategi 10 orang besok jam 2, saya merekomendasikan Ruang Konferensi Bintang di Lantai 5. Kapasitas 12 orang dengan proyektor dan sound system. Apakah Anda setuju?"
+- "Apakah ada yang lebih kecil?" → "Ya, ada Ruang Meeting A di Lantai 3 dengan kapasitas 8 orang. Namun untuk 10 orang mungkin agak sempit. Apakah Anda ingin tetap menggunakan Ruang Konferensi Bintang?"
+
+RESPONS HARUS:
+- Natural dan conversational dalam Bahasa Indonesia
+- Cerdas dan informatif dengan konteks yang tepat
+- Proaktif dalam memberikan saran dan rekomendasi
+- Menangani ambiguitas dengan pertanyaan klarifikasi yang spesifik
+- Mengingat konteks percakapan sebelumnya
+
+Jawab dengan cerdas dan proaktif:`;
+  }
+
+  // Build conversation history for context
+  private buildConversationHistory(): any[] {
+    const history = this.context.conversationHistory.slice(-6); // Last 6 messages
+    return history.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content
+    }));
+  }
+
+  // Build current context information
+  private buildCurrentContext(bookingAnalysis: any): string {
+    const { extractedData, missingFields, confidence } = bookingAnalysis;
+    
+    let context = "KONTEKS SAAT INI:\n";
+    
+    if (Object.keys(extractedData).length > 0) {
+      context += `Data yang sudah dikumpulkan: ${JSON.stringify(extractedData)}\n`;
+    }
+    
+    if (missingFields.length > 0) {
+      context += `Informasi yang masih kurang: ${missingFields.join(', ')}\n`;
+    }
+    
+    context += `Tingkat kepercayaan analisis: ${(confidence * 100).toFixed(0)}%\n`;
+    
+    if (this.context.currentBooking && Object.keys(this.context.currentBooking).length > 0) {
+      context += `Booking yang sedang diproses: ${JSON.stringify(this.context.currentBooking)}\n`;
+    }
+    
+    return context;
+  }
+
+  // Generate contextual quick actions
+  private generateContextualQuickActions(bookingAnalysis: any, userInput: string): any[] {
+    const { extractedData, missingFields, confidence } = bookingAnalysis;
+    const actions = [];
+    
+    // If booking intent detected
+    if (bookingAnalysis.hasBookingIntent) {
+      // Check if this is a confirmation response
+      if (extractedData.isConfirmation && confidence > 0.7) {
+        // User confirmed - show booking success actions
+        actions.push(
+          { label: 'Lihat Detail Lengkap', action: 'view_booking_details', icon: '📋', type: 'primary' },
+          { label: 'Booking Lagi', action: 'booking_start', icon: '📅', type: 'secondary' }
+        );
+      } else if (confidence > 0.7 && missingFields.length <= 2) {
+        // High confidence - show confirmation
+        actions.push(
+          { label: 'Konfirmasi Booking', action: 'confirm_smart_booking', icon: '✅', type: 'primary' }
+        );
+      } else {
+        // Low confidence - show completion options based on missing fields
+        if (missingFields.includes('tanggal')) {
+          actions.push(
+            { label: 'Hari Ini', action: 'date_hari_ini', icon: '📅', type: 'secondary' },
+            { label: 'Besok', action: 'date_besok', icon: '📅', type: 'secondary' }
+          );
+        }
+        
+        if (missingFields.includes('waktu')) {
+          actions.push(
+            { label: 'Jam 9 Pagi', action: 'time_09_00', icon: '🕘', type: 'secondary' },
+            { label: 'Jam 2 Siang', action: 'time_14_00', icon: '🕐', type: 'secondary' }
+          );
+        }
+        
+        if (missingFields.includes('jumlah peserta')) {
+          actions.push(
+            { label: '5 Orang', action: 'participants_5', icon: '👥', type: 'secondary' },
+            { label: '10 Orang', action: 'participants_10', icon: '👥', type: 'secondary' },
+            { label: '15 Orang', action: 'participants_15', icon: '👥', type: 'secondary' }
+          );
+        }
+        
+        if (missingFields.includes('nama ruangan')) {
+          actions.push(
+            { label: 'Lihat Ruangan', action: 'view_rooms', icon: '🏢', type: 'secondary' }
+          );
+        }
+        
+        if (missingFields.includes('topik rapat')) {
+          actions.push(
+            { label: 'Rapat Tim', action: 'topic_rapat_tim', icon: '👥', type: 'secondary' },
+            { label: 'Presentasi', action: 'topic_presentasi', icon: '📊', type: 'secondary' },
+            { label: 'Training', action: 'topic_training', icon: '🎓', type: 'secondary' }
+          );
+        }
+        
+        if (missingFields.includes('PIC (penanggung jawab)')) {
+          actions.push(
+            { label: 'Saya Sendiri', action: 'pic_self', icon: '👤', type: 'secondary' }
+          );
+        }
+        
+        if (missingFields.includes('jenis rapat (internal/eksternal)')) {
+          actions.push(
+            { label: 'Internal', action: 'meeting_type_internal', icon: '🏢', type: 'secondary' },
+            { label: 'Eksternal', action: 'meeting_type_external', icon: '🌐', type: 'secondary' }
+          );
+        }
+      }
+      
+      // Add room-specific actions if room is specified
+      if (extractedData.roomName) {
+        actions.push(
+          { label: 'Lihat Detail Ruangan', action: `room_detail_${extractedData.roomName.toLowerCase().replace(/\s+/g, '_')}`, icon: '🏢', type: 'secondary' }
+        );
+      }
+      
+      // Add recommendation action if participants are specified
+      if (extractedData.participants) {
+        actions.push(
+          { label: 'Rekomendasi Ruangan', action: 'view_recommendations', icon: '💡', type: 'secondary' }
+        );
+      }
+    } else {
+      // General conversation - show general actions
+      actions.push(
+        { label: 'Pesan Ruangan', action: 'booking_start', icon: '📅', type: 'primary' },
+        { label: 'Lihat Ruangan', action: 'view_rooms', icon: '🏢', type: 'secondary' },
+        { label: 'Reservasi Saya', action: 'my_reservations', icon: '📋', type: 'secondary' }
+      );
+    }
+    
+    // Always show help
+    actions.push(
+      { label: 'Bantuan', action: 'help', icon: '❓', type: 'secondary' }
+    );
+    
+    return actions;
+  }
+
+  // Advanced booking input analysis for Spacio database
+  private analyzeBookingInput(userInput: string): {
+    hasBookingIntent: boolean;
+    extractedData: Partial<Booking>;
+    confidence: number;
+    missingFields: string[];
+  } {
+    const lower = userInput.toLowerCase();
+    const extracted: Partial<Booking> = {};
+    const missingFields: string[] = [];
+    
+    // Booking intent detection - more comprehensive
+    const bookingKeywords = [
+      'pesan', 'booking', 'reservasi', 'ruang', 'meeting', 'rapat',
+      'jadwal', 'tanggal', 'jam', 'waktu', 'besok', 'hari ini', 'lusa',
+      'mau', 'ingin', 'butuh', 'perlu', 'saya mau', 'saya ingin',
+      'internal', 'eksternal', 'konfirmasi', 'ya', 'tidak', 'benar', 'setuju'
+    ];
+    
+    // Check if this is a continuation of booking conversation
+    const isBookingContinuation = bookingKeywords.some(keyword => lower.includes(keyword)) ||
+                                 this.context.conversationHistory.some(msg => 
+                                   msg.role === 'assistant' && 
+                                   (msg.content.includes('booking') || msg.content.includes('pemesanan'))
+                                 );
+    
+    if (!isBookingContinuation) {
+      return { hasBookingIntent: false, extractedData: {}, confidence: 0, missingFields: [] };
+    }
+    
+    // Spacio room names from database
+    const spacioRooms = [
+      'samudrantha meeting room', 'cedaya meeting room', 'celebes meeting room',
+      'kalamanthana meeting room', 'ruang nasionalis', 'ruang meeting a',
+      'ruang konferensi bintang', 'auditorium utama', 'ruang kolaborasi alpha'
+    ];
+    
+    // Extract room name - more flexible matching
+    const roomMatch = spacioRooms.find(room => lower.includes(room));
+    if (roomMatch) {
+      extracted.roomName = roomMatch.charAt(0).toUpperCase() + roomMatch.slice(1);
+    } else {
+      // Try to extract any room name mentioned (even if not in database)
+      const roomPatterns = [
+        /([a-zA-Z\s]+)\s+meeting\s+room/i,
+        /ruang\s+([a-zA-Z\s]+)/i,
+        /([a-zA-Z\s]+)\s+room/i,
+        /booking\s+ruang\s+([a-zA-Z\s]+)/i,
+        /pesan\s+ruang\s+([a-zA-Z\s]+)/i
+      ];
+      
+      for (const pattern of roomPatterns) {
+        const match = userInput.match(pattern);
+        if (match && match[1]) {
+          const roomName = match[1].trim();
+          if (roomName.length > 2) {
+            extracted.roomName = roomName;
+            extracted.roomNotFound = true; // Flag untuk ruangan tidak ditemukan
+            break;
+          }
+        }
+      }
+      
+      // If no specific room mentioned, but "ruang meeting" is mentioned, set default
+      if (!extracted.roomName && (lower.includes('ruang meeting') || lower.includes('booking ruang'))) {
+        extracted.roomName = 'Ruang Meeting (Belum Dipilih)';
+        extracted.roomNotFound = true;
+      }
+    }
+    
+    // Extract PIC (Person in Charge) - more flexible
+    const picPatterns = [
+      /pic[:\s-]*([a-zA-Z\s]+)/i,
+      /penanggung jawab[:\s-]*([a-zA-Z\s]+)/i,
+      /atas nama[:\s-]*([a-zA-Z\s]+)/i,
+      /pic-nya\s+([a-zA-Z\s]+)/i,
+      /picnya\s+([a-zA-Z\s]+)/i,
+      /pic\s+([a-zA-Z\s]+)/i
+    ];
+    
+    for (const pattern of picPatterns) {
+      const match = userInput.match(pattern);
+      if (match && match[1]) {
+        const pic = match[1].trim();
+        if (pic.length > 1) {
+          extracted.pic = pic;
+          break;
+        }
+      }
+    }
+    
+    // If no PIC found with patterns, try to find names after common words
+    if (!extracted.pic) {
+      const namePatterns = [
+        /picnya\s+([a-zA-Z]+)/i,
+        /pic\s+([a-zA-Z]+)/i,
+        /penanggung\s+jawab\s+([a-zA-Z]+)/i
+      ];
+      
+      for (const pattern of namePatterns) {
+        const match = userInput.match(pattern);
+        if (match && match[1]) {
+          extracted.pic = match[1].trim();
+          break;
+        }
+      }
+    }
+    
+    // Extract topic/meeting purpose - more flexible
+    const topicPatterns = [
+      /untuk\s+([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
+      /topik[:\s-]*([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
+      /rapat[:\s-]*([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
+      /topiknya\s+([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i
+    ];
+    
+    for (const pattern of topicPatterns) {
+      const match = userInput.match(pattern);
+      if (match && match[1]) {
+        const topic = match[1].trim();
+        if (topic && topic.length > 2) {
+          extracted.topic = topic;
+          break;
+        }
+      }
+    }
+    
+    // If no topic found, try simpler patterns
+    if (!extracted.topic) {
+      const simpleTopicPatterns = [
+        /topiknya\s+([a-zA-Z\s]+)/i,
+        /untuk\s+([a-zA-Z\s]+)/i,
+        /rapat\s+([a-zA-Z\s]+)/i
+      ];
+      
+      for (const pattern of simpleTopicPatterns) {
+        const match = userInput.match(pattern);
+        if (match && match[1]) {
+          const topic = match[1].trim();
+          if (topic.length > 2 && !topic.includes('pic') && !topic.includes('orang')) {
+            extracted.topic = topic;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Extract participants count
+    const participantPatterns = [
+      /(\d+)\s*(?:orang|peserta|people|pax)/i,
+      /untuk\s+(\d+)\s*(?:orang|peserta|people|pax)/i,
+      /(\d+)\s*(?:orang|peserta|people|pax)\s*(?:yang|akan|hadir)/i
+    ];
+    
+    for (const pattern of participantPatterns) {
+      const match = userInput.match(pattern);
+      if (match && match[1]) {
+        extracted.participants = parseInt(match[1]);
+        break;
+      }
+    }
+    
+    // Extract date - more comprehensive
+    if (lower.includes('besok')) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      extracted.date = tomorrow.toISOString().split('T')[0];
+    } else if (lower.includes('hari ini')) {
+      extracted.date = new Date().toISOString().split('T')[0];
+    } else if (lower.includes('lusa')) {
+      const dayAfterTomorrow = new Date();
+      dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+      extracted.date = dayAfterTomorrow.toISOString().split('T')[0];
+    } else {
+      // Try to extract specific dates
+      const datePatterns = [
+        /(\d{1,2})\s*(?:september|oktober|november|desember|januari|februari|maret|april|mei|juni|juli|agustus)\s*(\d{4})/i,
+        /(\d{4})-(\d{1,2})-(\d{1,2})/,
+        /(\d{1,2})\/(\d{1,2})\/(\d{4})/
+      ];
+      
+      for (const pattern of datePatterns) {
+        const match = userInput.match(pattern);
+        if (match) {
+          // Convert to ISO date format
+          let year, month, day;
+          if (pattern.source.includes('september|oktober')) {
+            // Indonesian month names
+            const monthNames = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 
+                              'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+            const monthIndex = monthNames.findIndex(m => lower.includes(m));
+            if (monthIndex !== -1) {
+              day = parseInt(match[1]);
+              month = monthIndex + 1;
+              year = parseInt(match[2]);
+            }
+          } else {
+            year = parseInt(match[1]);
+            month = parseInt(match[2]);
+            day = parseInt(match[3]);
+          }
+          
+          if (year && month && day) {
+            extracted.date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Extract time - more comprehensive
+    const timePatterns = [
+      /(\d{1,2}):(\d{2})\s*(?:pagi|siang|sore|malam)?/i,
+      /(\d{1,2})\s*(?:pagi|siang|sore|malam)/i,
+      /jam\s+(\d{1,2})(?::(\d{2}))?\s*(?:pagi|siang|sore|malam)?/i
+    ];
+    
+    for (const pattern of timePatterns) {
+      const match = userInput.match(pattern);
+      if (match) {
+        let hour = parseInt(match[1]);
+        const minute = match[2] ? parseInt(match[2]) : 0;
+        const period = match[3] || (match[0].includes('pagi') ? 'pagi' : 
+                                   match[0].includes('siang') ? 'siang' :
+                                   match[0].includes('sore') ? 'sore' :
+                                   match[0].includes('malam') ? 'malam' : '');
+        
+        if (period === 'sore' || period === 'malam') {
+          hour += 12;
+        } else if (period === 'siang' && hour < 12) {
+          hour += 12;
+        }
+        
+        extracted.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        break;
+      }
+    }
+    
+    // Extract meeting type - more intelligent detection
+    if (lower.includes('internal')) {
+      extracted.meetingType = 'internal';
+    } else if (lower.includes('eksternal')) {
+      extracted.meetingType = 'external';
+    } else {
+      // Intelligent detection based on context
+      if (lower.includes('client') || lower.includes('customer') || lower.includes('vendor') || 
+          lower.includes('supplier') || lower.includes('partner') || lower.includes('eksternal')) {
+        extracted.meetingType = 'external';
+      } else if (lower.includes('tim') || lower.includes('team') || lower.includes('internal') ||
+                 lower.includes('karyawan') || lower.includes('staff') || lower.includes('internal')) {
+        extracted.meetingType = 'internal';
+      } else {
+        // Default to internal if unclear
+        extracted.meetingType = 'internal';
+      }
+    }
+    
+    // Check for confirmation responses
+    const confirmationKeywords = ['ya', 'benar', 'setuju', 'ok', 'oke', 'baik', 'lanjutkan'];
+    const isConfirmation = confirmationKeywords.some(keyword => lower.includes(keyword));
+    
+    if (isConfirmation) {
+      extracted.isConfirmation = true;
+    }
+    
+    // Combine with data from conversation history
+    const combinedData = { ...this.context.currentBooking, ...extracted };
+    
+    // Calculate confidence based on required fields
+    const requiredFields = ['roomName', 'topic', 'pic', 'participants', 'date', 'time', 'meetingType'];
+    const extractedFields = requiredFields.filter(field => combinedData[field as keyof Booking]);
+    const confidence = extractedFields.length / requiredFields.length;
+    
+    // Determine missing fields
+    if (!combinedData.roomName) missingFields.push('nama ruangan');
+    if (!combinedData.topic) missingFields.push('topik rapat');
+    if (!combinedData.pic) missingFields.push('PIC (penanggung jawab)');
+    if (!combinedData.participants) missingFields.push('jumlah peserta');
+    if (!combinedData.date) missingFields.push('tanggal');
+    if (!combinedData.time) missingFields.push('jam');
+    if (!combinedData.meetingType) missingFields.push('jenis rapat (internal/eksternal)');
+    
+    console.log('🔍 analyzeBookingInput - extracted data:', extracted);
+    console.log('🔍 analyzeBookingInput - combined data:', combinedData);
+    console.log('🔍 analyzeBookingInput - confidence:', confidence);
+    console.log('🔍 analyzeBookingInput - missing fields:', missingFields);
+    
+    return {
+      hasBookingIntent: true,
+      extractedData: combinedData,
+      confidence,
+      missingFields
+    };
+  }
+
+  // Build smart booking prompt
+  private buildSmartBookingPrompt(userInput: string, analysis: any): string {
+    const { extractedData, missingFields, confidence } = analysis;
+    
+    return `Anda adalah Spacio AI Assistant - Sistem AI Pemesanan Ruangan Cerdas.
+
+ANALISIS INPUT USER:
+Input: "${userInput}"
+Data yang berhasil diekstrak: ${JSON.stringify(extractedData)}
+Confidence: ${(confidence * 100).toFixed(0)}%
+Field yang masih kurang: ${missingFields.join(', ')}
+
+TUGAS ANDA:
+1. Berikan respons yang cerdas berdasarkan data yang sudah diekstrak
+2. Jika data lengkap (>80%), berikan konfirmasi dan lanjut ke proses booking
+3. Jika data kurang lengkap, tanyakan field yang masih kurang dengan cara yang natural
+4. Berikan saran fasilitas berdasarkan topik meeting
+5. Jika ada konflik potensial, berikan peringatan dan alternatif
+
+CONTOH RESPON CERDAS:
+- Data lengkap: "Baik! Saya sudah mencatat semua detail. Besok jam 10 untuk rapat tim 8 orang. Saya akan mencari ruangan dengan kapasitas minimal 8 orang dan fasilitas yang sesuai. Apakah Anda setuju dengan detail ini?"
+- Data kurang: "Baik! Saya sudah mencatat beberapa detail. Untuk melengkapi booking, saya masih perlu tahu: ${missingFields.join(', ')}. Bisakah Anda memberikan informasi tersebut?"
+
+RESPONS HARUS:
+- Natural dan conversational dalam Bahasa Indonesia
+- Cerdas dan informatif
+- Mengarahkan ke proses booking yang sistematis
+- Memberikan insight yang berguna
+
+Jawab sekarang:`;
+  }
+
+  // Generate smart quick actions based on analysis
+  private generateSmartQuickActions(analysis: any): any[] {
+    const { extractedData, missingFields } = analysis;
+    const actions = [];
+    
+    // If data is complete, show confirmation
+    if (missingFields.length === 0) {
+      actions.push(
+        { label: 'Konfirmasi Booking', action: 'confirm_smart_booking', icon: '✅', type: 'primary' },
+        { label: 'Ubah Detail', action: 'modify_booking', icon: '✏️', type: 'secondary' }
+      );
+    } else {
+      // Show actions for missing fields
+      if (missingFields.includes('tanggal')) {
+        actions.push(
+          { label: 'Hari Ini', action: 'date_hari_ini', icon: '📅', type: 'secondary' },
+          { label: 'Besok', action: 'date_besok', icon: '📅', type: 'secondary' }
+        );
+      }
+      
+      if (missingFields.includes('waktu')) {
+        actions.push(
+          { label: 'Pagi (09:00)', action: 'time_pagi', icon: '🕘', type: 'secondary' },
+          { label: 'Siang (12:00)', action: 'time_siang', icon: '🕛', type: 'secondary' },
+          { label: 'Sore (15:00)', action: 'time_sore', icon: '🕒', type: 'secondary' }
+        );
+      }
+      
+      if (missingFields.includes('jumlah peserta')) {
+        actions.push(
+          { label: '5 Orang', action: 'participants_5', icon: '👥', type: 'secondary' },
+          { label: '10 Orang', action: 'participants_10', icon: '👥', type: 'secondary' },
+          { label: '15 Orang', action: 'participants_15', icon: '👥', type: 'secondary' }
+        );
+      }
+    }
+    
+    // Always show general actions
+    actions.push(
+      { label: 'Bantuan', action: 'help', icon: '❓', type: 'secondary' }
+    );
+    
+    return actions;
+  }
+
+  // Build prompt for general chat
+  private buildGeneralChatPrompt(userInput: string): string {
+    return `Anda adalah Spacio AI Assistant - Sistem AI Pemesanan Ruangan Cerdas yang sangat advanced.
+
+KEMAMPUAN ANDA:
+1. NATURAL LANGUAGE UNDERSTANDING (NLU) - Memahami bahasa alami Indonesia
+2. SMART ROOM MATCHING - Mencocokkan ruangan berdasarkan kriteria optimal
+3. CONFLICT DETECTION - Mendeteksi konflik jadwal dan memberikan alternatif
+4. FACILITY MANAGEMENT - Mengelola fasilitas dan memberikan saran otomatis
+5. CONVERSATIONAL BOOKING - Proses booking melalui percakapan natural
+
+KONTEKS SISTEM:
+- Aplikasi: Spacio (Smart Room Booking System)
+- Database: Ruangan dengan kapasitas, lokasi, fasilitas standar
+- Fitur: Booking, konflik detection, saran alternatif, notifikasi
+
+PESAN USER: "${userInput}"
+
+TUGAS ANDA:
+1. ANALISIS INPUT: Ekstrak informasi booking dari input user (tanggal, waktu, peserta, topik, PIC, fasilitas)
+2. SMART RESPONSE: Berikan respons yang cerdas berdasarkan konteks dan kebutuhan
+3. GUIDED BOOKING: Jika user ingin booking, bimbing mereka melalui proses yang sistematis
+4. CONFLICT HANDLING: Jika ada konflik, berikan alternatif yang optimal
+5. FACILITY SUGGESTION: Berikan saran fasilitas berdasarkan topik meeting
+
+CONTOH RESPON CERDAS:
+- "pesan ruangan" → "Baik! Saya akan membantu Anda booking ruang meeting. Silakan berikan detail: tanggal, waktu, jumlah peserta, topik meeting, dan PIC. Saya akan mencari ruangan terbaik yang tersedia."
+- "besok jam 10 rapat tim 8 orang" → "Baik! Besok jam 10 untuk rapat tim 8 orang. Saya akan cek ketersediaan ruangan dengan kapasitas minimal 8 orang. Apakah ada fasilitas khusus yang dibutuhkan? (proyektor, whiteboard, video conference)"
+- "hi" → "Halo! Saya Spacio AI Assistant - sistem booking ruang meeting cerdas. Saya bisa membantu Anda memesan ruangan dengan analisis optimal, deteksi konflik, dan saran fasilitas. Apa yang bisa saya bantu?"
+
+RESPONS HARUS:
+- Natural dan conversational dalam Bahasa Indonesia
+- Cerdas dan informatif (2-4 kalimat)
+- Mengarahkan ke proses booking yang sistematis
+- Memberikan value dan insight yang berguna
+
+Jawab sekarang:`;
+  }
+
+  // Call Gemini API
+  private async callGeminiAPI(prompt: string): Promise<string> {
+    const url = `${this.baseUrl}?key=${this.apiKey}`;
+    
+    console.log('🤖 Calling Gemini API...');
+    console.log('📝 Prompt length:', prompt.length);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.8,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          }
+        ]
+      }),
+    });
+
+    console.log('📡 Gemini API Response Status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ Gemini API Error:', errorData);
+      
+      // Handle quota exceeded error
+      if (response.status === 429) {
+        console.warn('⚠️ Gemini API quota exceeded, switching to fallback mode');
+        throw new Error('QUOTA_EXCEEDED');
+      }
+      
+      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Gemini API Response received');
+    
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      const aiResponse = data.candidates[0].content.parts[0].text;
+      console.log('🤖 AI Response:', aiResponse.substring(0, 100) + '...');
+      return aiResponse;
+    } else {
+      console.error('❌ Invalid response structure:', data);
+      throw new Error('Invalid response from Gemini API');
     }
   }
 
@@ -119,12 +1293,171 @@ export class RoomBookingAssistant {
     try {
       console.log('RBA: Handling quick action:', action);
       
+      // Handle quick actions for data collection
+      if (action.startsWith('topic_') || action.startsWith('topik_')) {
+        const topic = action.replace(/^(topic_|topik_)/, '').replace(/_/g, ' ');
+        this.context.dataCollection.topic = topic;
+        return await this.processInput(`topik ${topic}`);
+      }
+      
+      if (action.startsWith('meeting_')) {
+        const meetingType = action.replace('meeting_', '') as 'internal' | 'external';
+        this.context.dataCollection.meetingType = meetingType;
+        return await this.processInput(`meeting ${meetingType}`);
+      }
+      
+      if (action.startsWith('date_')) {
+        const dateType = action.replace('date_', '');
+        let dateValue = '';
+        if (dateType === 'hari_ini') dateValue = 'hari ini';
+        else if (dateType === 'besok') dateValue = 'besok';
+        else if (dateType === 'lusa') dateValue = 'lusa';
+        return await this.processInput(dateValue);
+      }
+      
+      if (action.startsWith('time_')) {
+        const time = action.replace('time_', '');
+        return await this.processInput(`jam ${time}`);
+      }
+      
+      if (action.startsWith('participants_')) {
+        const participants = parseInt(action.replace('participants_', ''));
+        return await this.processInput(`${participants} orang`);
+      }
+      
+      if (action === 'confirm_booking') {
+        return this.handleConfirmation();
+      }
+      
+      // Handle facility selection
+      if (action.startsWith('select_facility_')) {
+        const facility = action.replace('select_facility_', '').replace(/_/g, ' ');
+        return this.handleFacilitySelection(facility);
+      }
+      
+      if (action === 'finish_facility_selection') {
+        return this.handleFinishFacilitySelection();
+      }
+      
+      if (action === 'modify_data') {
+        return this.handleModifyData();
+      }
+      
+      if (action === 'change_room') {
+        return this.handleChangeRoom();
+      }
+      
+      if (action === 'booking_start') {
+        return this.startBookingProcess();
+      }
+      
+      if (action === 'my_reservations') {
+        return {
+          message: "Untuk melihat reservasi Anda, silakan gunakan menu 'Reservasi Saya' di aplikasi atau hubungi admin.",
+          action: 'continue',
+          quickActions: [
+            { label: 'Pesan Ruangan', action: 'booking_start', icon: '📅', type: 'primary' },
+            { label: 'Bantuan', action: 'help', icon: '❓', type: 'secondary' }
+          ]
+        };
+      }
+      
+      if (action === 'help') {
+        return {
+          message: "Saya Spacio AI Assistant - Sistem AI Pemesanan & Asisten Ruangan Cerdas! Saya bisa membantu Anda:\n\n• Booking ruang meeting dengan rekomendasi cerdas\n• Menjawab pertanyaan tentang ruangan dan fasilitas\n• Memberikan informasi kebijakan dan prosedur\n• Membantu dengan multi-turn conversations\n• Menangani ambiguitas dengan klarifikasi\n\nKetik 'pesan ruangan' untuk mulai booking atau tanyakan apa saja!",
+          action: 'continue',
+          quickActions: [
+            { label: 'Pesan Ruangan', action: 'booking_start', icon: '📅', type: 'primary' },
+            { label: 'Lihat Ruangan', action: 'view_rooms', icon: '🏢', type: 'secondary' },
+            { label: 'Reservasi Saya', action: 'my_reservations', icon: '📋', type: 'secondary' }
+          ]
+        };
+      }
+      
+      if (action === 'view_rooms') {
+        return {
+          message: "Berikut adalah daftar ruangan yang tersedia di Spacio:\n\n🏢 **RUANGAN TERSEDIA:**\n\n• **Ruang Meeting A** (Lantai 3)\n  Kapasitas: 8 orang\n  Fasilitas: Proyektor, Whiteboard, Wi-Fi\n\n• **Ruang Konferensi Bintang** (Lantai 5)\n  Kapasitas: 12 orang\n  Fasilitas: Proyektor, Sound System, Video Conference\n\n• **Auditorium Utama** (Lantai 1)\n  Kapasitas: 50 orang\n  Fasilitas: Panggung, Sound System, Layar Besar\n\n• **Ruang Kolaborasi Alpha** (Lantai 2)\n  Kapasitas: 6 orang\n  Fasilitas: Whiteboard Besar, TV Smart, Meja Fleksibel\n\nTanyakan detail ruangan tertentu atau mulai booking!",
+          action: 'continue',
+          quickActions: [
+            { label: 'Pesan Ruangan', action: 'booking_start', icon: '📅', type: 'primary' },
+            { label: 'Detail Ruang Meeting A', action: 'room_detail_meeting_a', icon: '🏢', type: 'secondary' },
+            { label: 'Detail Ruang Konferensi Bintang', action: 'room_detail_bintang', icon: '🏢', type: 'secondary' }
+          ]
+        };
+      }
+      
+      if (action === 'view_recommendations') {
+        return {
+          message: "Saya akan memberikan rekomendasi ruangan terbaik berdasarkan kebutuhan Anda. Untuk memberikan rekomendasi yang akurat, saya perlu informasi lengkap tentang:\n\n• Tanggal dan waktu yang diinginkan\n• Jumlah peserta\n• Topik atau jenis meeting\n• Fasilitas yang dibutuhkan\n• Preferensi lokasi (opsional)\n\nSilakan berikan informasi tersebut atau gunakan tombol di bawah untuk melengkapi data booking.",
+          action: 'continue',
+          quickActions: [
+            { label: 'Lengkapi Data Booking', action: 'booking_start', icon: '📅', type: 'primary' },
+            { label: 'Lihat Semua Ruangan', action: 'view_rooms', icon: '🏢', type: 'secondary' },
+            { label: 'Bantuan', action: 'help', icon: '❓', type: 'secondary' }
+          ]
+        };
+      }
+      
+      // Smart booking actions
+      if (action === 'confirm_smart_booking') {
+        return this.handleSmartBookingConfirmation();
+      }
+      
+      if (action === 'confirm_booking_yes') {
+        return this.handleBookingConfirmationYes();
+      }
+      
+      if (action === 'confirm_booking_no') {
+        return this.handleBookingConfirmationNo();
+      }
+      
+      if (action === 'modify_booking_info') {
+        return this.handleModifyBookingInfo();
+      }
+      
+      if (action === 'modify_booking') {
+        return {
+          message: "Baik! Silakan berikan detail yang ingin Anda ubah. Saya akan membantu Anda memperbarui informasi booking.",
+          action: 'continue',
+          quickActions: [
+            { label: 'Ubah Tanggal', action: 'modify_date', icon: '📅', type: 'secondary' },
+            { label: 'Ubah Waktu', action: 'modify_time', icon: '🕐', type: 'secondary' },
+            { label: 'Ubah Peserta', action: 'modify_participants', icon: '👥', type: 'secondary' }
+          ]
+        };
+      }
+      
+      // Date actions
+      if (action.startsWith('date_')) {
+        const dateType = action.replace('date_', '');
+        let dateValue = '';
+        if (dateType === 'hari_ini') dateValue = 'hari ini';
+        else if (dateType === 'besok') dateValue = 'besok';
+        return await this.processInput(`tanggal ${dateValue}`);
+      }
+      
+      // Time actions
+      if (action.startsWith('time_')) {
+        const timeType = action.replace('time_', '');
+        let timeValue = '';
+        if (timeType === 'pagi') timeValue = '09:00';
+        else if (timeType === 'siang') timeValue = '12:00';
+        else if (timeType === 'sore') timeValue = '15:00';
+        return await this.processInput(`jam ${timeValue}`);
+      }
+      
+      // Participants actions
+      if (action.startsWith('participants_')) {
+        const participants = action.replace('participants_', '');
+        return await this.processInput(`${participants} orang`);
+      }
+      
       // Merge current booking data with context
       const mergedBooking = { ...this.context.currentBooking, ...currentBooking };
       
       switch (action) {
         case 'konfirmasi':
-          return this.handleConfirmation(mergedBooking);
+          return this.handleConfirmation();
         case 'proses_pemesanan':
           return this.handleProcessBooking(mergedBooking);
         case 'pilih_ruangan':
@@ -148,8 +1481,8 @@ export class RoomBookingAssistant {
     }
   }
 
-  // Handle booking confirmation
-  private handleConfirmation(bookingData: Partial<Booking>): RBAResponse {
+  // Old handleConfirmation method removed - using new one below
+  private handleConfirmationOld(bookingData: Partial<Booking>): RBAResponse {
     const { participants, date, time, topic, roomName, pic, meetingType, facilities } = bookingData;
     
     // Check if all required fields are present
@@ -303,15 +1636,18 @@ export class RoomBookingAssistant {
     
     // Extract information from user input with AI intelligence
     const extractedInfo = this.extractAdditionalInfoEnhanced(userInput);
+    console.log('🔍 extractAdditionalInfoEnhanced result:', extractedInfo);
     
     // Merge with existing booking data
     const updatedBooking = {
       ...bookingData,
       ...extractedInfo
     };
+    console.log('🔍 updatedBooking after merge:', updatedBooking);
     
     // Update context with new data
     this.context.currentBooking = updatedBooking;
+    console.log('🔍 context.currentBooking after update:', this.context.currentBooking);
     
     // Provide intelligent feedback
     const feedback = this.generateIntelligentFeedback(extractedInfo, userInput);
@@ -320,23 +1656,99 @@ export class RoomBookingAssistant {
     const currentBooking = this.context.currentBooking;
     const stillMissing = [];
     
+    // Check all required fields
+    if (!currentBooking.roomName) stillMissing.push('nama ruangan');
     if (!currentBooking.topic) stillMissing.push('topik rapat');
-    if (!currentBooking.pic) stillMissing.push('PIC');
+    if (!currentBooking.pic) stillMissing.push('PIC (Penanggung jawab)');
+    if (!currentBooking.participants) stillMissing.push('jumlah peserta');
+    if (!currentBooking.date) stillMissing.push('tanggal rapat');
+    if (!currentBooking.time) stillMissing.push('waktu rapat');
     if (!currentBooking.meetingType) stillMissing.push('jenis rapat');
-    if (!currentBooking.facilities || currentBooking.facilities.length === 0) stillMissing.push('fasilitas');
+    
+    console.log('🔍 Data completeness check:', {
+      currentBooking,
+      stillMissing,
+      hasRoomName: !!currentBooking.roomName,
+      hasTopic: !!currentBooking.topic,
+      hasPic: !!currentBooking.pic,
+      hasParticipants: !!currentBooking.participants,
+      hasDate: !!currentBooking.date,
+      hasTime: !!currentBooking.time,
+      hasMeetingType: !!currentBooking.meetingType
+    });
     
     if (stillMissing.length === 0) {
       // All data complete, proceed to confirmation
-      return this.handleConfirmation(updatedBooking);
+      console.log('✅ All data complete, proceeding to confirmation');
+      return this.handleConfirmation();
     } else {
       // Still missing data, continue asking
+      console.log('❌ Still missing data:', stillMissing);
+      const missingMessage = `Untuk melengkapi pemesanan, saya masih membutuhkan informasi berikut:\n\n` +
+        stillMissing.map((field, index) => `${index + 1}. ${field}`).join('\n') +
+        `\n\nSilakan berikan informasi tersebut.`;
+      
       return {
-        message: feedback,
+        message: missingMessage,
         action: 'continue',
         bookingData: updatedBooking,
-        nextState: BookingState.CONFIRMING
+        nextState: BookingState.CONFIRMING,
+        quickActions: this.generateQuickActionsForMissingData(stillMissing)
       };
     }
+  }
+  
+  // Generate quick actions based on missing data
+  private generateQuickActionsForMissingData(missingFields: string[]): Array<{
+    label: string;
+    action: string;
+    icon?: string;
+    type?: 'primary' | 'secondary' | 'danger';
+  }> {
+    const quickActions = [];
+    
+    if (missingFields.includes('nama ruangan')) {
+      quickActions.push(
+        { label: 'Lihat Ruangan', action: 'view_rooms', icon: '🏢', type: 'primary' },
+        { label: 'Samudrantha', action: 'select_samudrantha', icon: '🏢', type: 'secondary' },
+        { label: 'Nusanipa', action: 'select_nusanipa', icon: '🏢', type: 'secondary' }
+      );
+    }
+    
+    if (missingFields.includes('tanggal rapat')) {
+      quickActions.push(
+        { label: 'Hari Ini', action: 'today', icon: '📅', type: 'secondary' },
+        { label: 'Besok', action: 'tomorrow', icon: '📅', type: 'secondary' }
+      );
+    }
+    
+    if (missingFields.includes('jumlah peserta')) {
+      quickActions.push(
+        { label: '5 Orang', action: 'participants_5', icon: '👥', type: 'secondary' },
+        { label: '10 Orang', action: 'participants_10', icon: '👥', type: 'secondary' },
+        { label: '15 Orang', action: 'participants_15', icon: '👥', type: 'secondary' }
+      );
+    }
+    
+    if (missingFields.includes('topik rapat')) {
+      quickActions.push(
+        { label: 'Rapat Tim', action: 'topic_team', icon: '👥', type: 'secondary' },
+        { label: 'Presentasi', action: 'topic_presentation', icon: '📊', type: 'secondary' },
+        { label: 'Training', action: 'topic_training', icon: '🎓', type: 'secondary' }
+      );
+    }
+    
+    if (missingFields.includes('jenis rapat')) {
+      quickActions.push(
+        { label: 'Internal', action: 'meeting_internal', icon: '🏢', type: 'secondary' },
+        { label: 'Eksternal', action: 'meeting_external', icon: '🌐', type: 'secondary' }
+      );
+    }
+    
+    // Add help action
+    quickActions.push({ label: 'Bantuan', action: 'help', icon: '❓', type: 'secondary' });
+    
+    return quickActions;
   }
   
   // Check if input is room selection
@@ -413,7 +1825,7 @@ export class RoomBookingAssistant {
       return response;
     } else {
       // All basic info is complete, show room selection
-      return this.handleConfirmation(updatedBooking);
+      return this.handleConfirmation();
     }
   }
   
@@ -569,7 +1981,7 @@ export class RoomBookingAssistant {
     // AI TUGAS: Validasi data lengkap sebelum pemesanan berhasil
     if (!topic || topic.trim() === '' || !pic || pic.trim() === '') {
       console.log('RBA: Data tidak lengkap, meminta topik dan PIC');
-      return this.handleConfirmation(bookingData);
+      return this.handleConfirmation();
     }
     
     // Generate final confirmation message
@@ -865,11 +2277,11 @@ export class RoomBookingAssistant {
       message: "📋 **TOPIK MEETING**\n\nApa topik atau judul meeting yang akan dilaksanakan?\n\nIni opsional, tetapi akan membantu dalam pemilihan ruangan yang sesuai.",
       action: 'continue',
       quickActions: [
-        { label: 'Rapat Tim', action: 'topik_rapat_tim', icon: '📋', type: 'secondary' },
-        { label: 'Presentasi Client', action: 'topik_presentasi_client', icon: '📋', type: 'secondary' },
-        { label: 'Brainstorming', action: 'topik_brainstorming', icon: '📋', type: 'secondary' },
-        { label: 'Training', action: 'topik_training', icon: '📋', type: 'secondary' },
-        { label: 'Review Project', action: 'topik_review_project', icon: '📋', type: 'secondary' }
+        { label: 'Rapat Tim', action: 'topic_rapat_tim', icon: '📋', type: 'secondary' },
+        { label: 'Presentasi Client', action: 'topic_presentasi_client', icon: '📋', type: 'secondary' },
+        { label: 'Brainstorming', action: 'topic_brainstorming', icon: '📋', type: 'secondary' },
+        { label: 'Training', action: 'topic_training', icon: '📋', type: 'secondary' },
+        { label: 'Review Project', action: 'topic_review_project', icon: '📋', type: 'secondary' }
       ],
       suggestions: [
         'Ketik topik meeting',
@@ -1540,7 +2952,7 @@ export class RoomBookingAssistant {
         return this.handleProcessBooking(this.context.currentBooking);
       } else {
         console.log('RBA: Data belum lengkap, meminta konfirmasi');
-        return this.handleConfirmation(this.context.currentBooking);
+        return this.handleConfirmation();
       }
     }
     
@@ -2470,6 +3882,7 @@ CARA BERBICARA SAYA (ENHANCED):
 - Menyesuaikan tone berdasarkan emosi dan urgency user
 - Memberikan solusi yang tepat dan efisien
 
+
 CONTOH RESPONS YANG SUPER CERDAS:
 - "Wah, untuk presentasi client 10 orang besok pagi, saya rekomendasikan Samudrantha! Ruangannya pas, ada proyektor, dan cocok untuk presentasi. Mau saya bookingkan sekarang?"
 - "Oke, saya lihat Anda butuh ruangan urgent untuk brainstorming tim. Ada beberapa pilihan bagus nih... Cedaya atau Celebes cocok untuk diskusi kreatif."
@@ -2484,61 +3897,610 @@ CONTOH PARSING YANG SUPER CERDAS:
 RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
   }
 
-  // Call Google Gemini API
-  private async callGeminiAPI(prompt: string): Promise<string> {
-    const requestBody = {
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.9,
-        topK: 50,
-        topP: 0.98,
-        maxOutputTokens: 2048
-      },
-      safetySettings: [
-        {
-          category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_HATE_SPEECH',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        }
+  // Handle smart booking confirmation
+  private handleSmartBookingConfirmation(): RBAResponse {
+    const bookingData = this.context.currentBooking;
+    
+    let message = "Baik, saya sudah mencatat semua detail pemesanan Anda:\n\n";
+    message += `• Ruangan: ${bookingData.roomName || 'Belum ditentukan'}\n`;
+    message += `• Topik Rapat: ${bookingData.topic || 'Belum ditentukan'}\n`;
+    message += `• PIC: ${bookingData.pic || 'Belum ditentukan'}\n`;
+    message += `• Jumlah Peserta: ${bookingData.participants || 'Belum ditentukan'} orang\n`;
+    message += `• Tanggal & Jam: ${bookingData.date || 'Belum ditentukan'}, pukul ${bookingData.time || 'Belum ditentukan'}\n`;
+    message += `• Jenis Rapat: ${bookingData.meetingType || 'Belum ditentukan'}\n\n`;
+    message += "Apakah semua informasi ini sudah benar dan siap saya proses?";
+    
+    return {
+      message: message,
+      action: 'continue',
+      quickActions: [
+        { label: 'Ya, Proses Booking', action: 'confirm_booking_yes', icon: '✅', type: 'primary' },
+        { label: 'Tidak, Ubah Detail', action: 'confirm_booking_no', icon: '✏️', type: 'secondary' }
       ]
     };
+  }
 
-    const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
+  // Handle booking confirmation yes
+  private handleBookingConfirmationYes(): RBAResponse {
+    const bookingData = this.context.currentBooking;
+    const bookingId = `AI-${Math.floor(Math.random() * 1000) + 1}`;
+    
+    console.log('🔍 Current booking data from context:', bookingData);
+    console.log('🔍 Context details:', {
+      roomName: bookingData.roomName,
+      topic: bookingData.topic,
+      pic: bookingData.pic,
+      participants: bookingData.participants,
+      date: bookingData.date,
+      time: bookingData.time,
+      meetingType: bookingData.meetingType
     });
+    
+    // Use booking data with fallback values
+    const displayData = {
+      roomName: bookingData.roomName || 'Belum dipilih',
+      topic: bookingData.topic || 'Belum ditentukan',
+      pic: bookingData.pic || 'Belum ditentukan',
+      participants: bookingData.participants || 1,
+      date: bookingData.date || 'Belum ditentukan',
+      time: bookingData.time || 'Belum ditentukan',
+      meetingType: (bookingData.meetingType || 'internal') as 'internal' | 'external'
+    };
+    
+    let message = "Pemesanan ruangan Anda berhasil! Terima kasih telah menggunakan layanan kami.\n\n";
+    message += "Berikut detail singkat pemesanan Anda:\n";
+    message += `• ID Booking: ${bookingId}\n`;
+    message += `• Ruangan: ${displayData.roomName}\n`;
+    message += `• Topik Rapat: ${displayData.topic}\n`;
+    message += `• PIC: ${displayData.pic}\n`;
+    message += `• Jumlah Peserta: ${displayData.participants} orang\n`;
+    message += `• Tanggal: ${displayData.date}\n`;
+    message += `• Waktu: ${displayData.time}\n`;
+    message += `• Jenis Rapat: ${displayData.meetingType}\n\n`;
+    message += "Silakan periksa email Anda untuk detail lebih lanjut atau mengakses form konfirmasi pemesanan lengkap.";
+    
+    const finalBookingData = {
+      id: bookingId,
+      roomName: displayData.roomName,
+      roomId: bookingData.roomId || 1,
+      topic: displayData.topic,
+      date: displayData.date,
+      time: displayData.time,
+      endTime: bookingData.endTime || '',
+      participants: displayData.participants,
+      pic: displayData.pic,
+      meetingType: displayData.meetingType,
+      facilities: bookingData.facilities || [],
+      imageUrl: bookingData.imageUrl || '',
+      urgency: bookingData.urgency || 'normal',
+      duration: bookingData.duration || 60,
+      notes: bookingData.notes || ''
+    };
+    
+    console.log('🔍 Final booking data:', finalBookingData);
+    
+    // Reset booking context after successful booking
+    this.context.currentBooking = {};
+    
+    return {
+      message: message,
+      action: 'complete',
+      bookingData: finalBookingData,
+      quickActions: [
+        { label: 'Lihat Detail Lengkap', action: 'view_booking_details', icon: '📋', type: 'primary' },
+        { label: 'Booking Lagi', action: 'booking_start', icon: '📅', type: 'secondary' }
+      ]
+    };
+  }
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`);
+  // Handle booking confirmation no
+  private handleBookingConfirmationNo(): RBAResponse {
+    return {
+      message: "Mohon maaf, bagian mana yang perlu saya perbaiki atau ubah? Silakan sebutkan informasi yang ingin Anda ubah.",
+      action: 'continue',
+      quickActions: [
+        { label: 'Ubah Ruangan', action: 'modify_room', icon: '🏢', type: 'secondary' },
+        { label: 'Ubah Tanggal & Jam', action: 'modify_datetime', icon: '📅', type: 'secondary' },
+        { label: 'Ubah Peserta', action: 'modify_participants', icon: '👥', type: 'secondary' },
+        { label: 'Ubah PIC', action: 'modify_pic', icon: '👤', type: 'secondary' },
+        { label: 'Ubah Topik', action: 'modify_topic', icon: '📝', type: 'secondary' }
+      ]
+    };
+  }
+
+  // Handle modify booking info
+  private handleModifyBookingInfo(): RBAResponse {
+    return {
+      message: "Baik, saya akan membantu Anda mengubah informasi booking. Silakan berikan informasi yang ingin Anda ubah atau gunakan tombol di bawah untuk memilih bagian yang ingin diubah.",
+      action: 'continue',
+      quickActions: [
+        { label: 'Ubah Ruangan', action: 'modify_room', icon: '🏢', type: 'secondary' },
+        { label: 'Ubah Tanggal & Jam', action: 'modify_datetime', icon: '📅', type: 'secondary' },
+        { label: 'Ubah Peserta', action: 'modify_participants', icon: '👥', type: 'secondary' },
+        { label: 'Ubah PIC', action: 'modify_pic', icon: '👤', type: 'secondary' },
+        { label: 'Ubah Topik', action: 'modify_topic', icon: '📝', type: 'secondary' },
+        { label: 'Ubah Jenis Rapat', action: 'modify_meeting_type', icon: '🏢', type: 'secondary' }
+      ]
+    };
+  }
+
+  // Start booking process
+  private startBookingProcess(): RBAResponse {
+    // Reset data collection
+    this.context.dataCollection = {};
+    
+    return {
+      message: "Baik! Mari kita lengkapi informasi pemesanan ruang rapat. Silakan berikan informasi berikut:\n\n• Topik atau tema rapat\n• PIC (atas nama siapa)\n• Jenis meeting (internal/eksternal)\n• Tanggal dan waktu\n• Jumlah peserta\n• Konsumsi (ringan/berat/tidak)\n\nSilakan berikan topik atau tema rapat Anda:",
+      action: 'continue',
+      quickActions: [
+        { label: 'Rapat Tim', action: 'topic_rapat_tim', icon: '📋', type: 'secondary' },
+        { label: 'Presentasi Client', action: 'topic_presentasi_client', icon: '📋', type: 'secondary' },
+        { label: 'Brainstorming', action: 'topic_brainstorming', icon: '📋', type: 'secondary' },
+        { label: 'Training', action: 'topic_training', icon: '📋', type: 'secondary' }
+      ]
+    };
+  }
+
+  // Call Google Gemini API
+  // Extract booking data from user input
+  private extractBookingData(userInput: string): Partial<Booking> {
+    const lower = userInput.toLowerCase();
+    const extracted: Partial<Booking> = {};
+
+    // Extract topic
+    const topicMatch = lower.match(/(?:topik|tema|subject|tentang|untuk)\s+([^,.\n;]+?)(?=(\s+(jam|pukul|besok|lusa|tanggal|orang|butuh|konsum|catering|pic|atas nama|internal|eksternal)\b)|$)/i);
+    if (topicMatch) {
+      extracted.topic = topicMatch[1].trim();
     }
 
-    const data = await response.json();
+    // Extract PIC
+    const picMatch = lower.match(/(?:atas nama|pic)\s+([a-zA-Z.\- ]{2,50}?)(?=(\s+(topik|tema|subject|jam|pukul|besok|lusa|tanggal|orang|butuh|konsum|catering|internal|eksternal)\b)|$)/i);
+    if (picMatch) {
+      extracted.pic = picMatch[1].trim();
+    }
+
+    // Extract meeting type
+    if (lower.includes('internal') || lower.includes('internal')) {
+      extracted.meetingType = 'internal';
+    } else if (lower.includes('external') || lower.includes('eksternal') || lower.includes('client') || lower.includes('klien')) {
+      extracted.meetingType = 'external';
+    }
+
+    // Extract date
+    const now = new Date();
+    if (lower.includes('hari ini')) {
+      extracted.date = now.toISOString().slice(0, 10);
+    } else if (lower.includes('besok')) {
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      extracted.date = tomorrow.toISOString().slice(0, 10);
+    } else if (lower.includes('lusa')) {
+      const dayAfterTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+      extracted.date = dayAfterTomorrow.toISOString().slice(0, 10);
+    }
+
+    // Extract time
+    const timeMatch = lower.match(/(?:jam|pukul)\s*(\d{1,2})(?::(\d{2}))?/);
+    if (timeMatch) {
+      let hour = parseInt(timeMatch[1], 10);
+      const minute = timeMatch[2] || '00';
+      
+      if (lower.includes('siang') || lower.includes('sore') || lower.includes('malam')) {
+        if (hour < 12) hour += 12;
+      }
+      
+      extracted.time = `${String(hour).padStart(2, '0')}:${minute}`;
+    }
+
+    // Extract participants
+    const participantsMatch = lower.match(/(\d{1,3})\s*(?:orang|peserta|people|org)?/);
+    if (participantsMatch) {
+      extracted.participants = parseInt(participantsMatch[1], 10);
+    }
+
+    // Extract food order
+
+    return extracted;
+  }
+
+  // Update data collection with extracted data
+  private updateDataCollection(extractedData: Partial<Booking>): void {
+    if (extractedData.topic) this.context.dataCollection.topic = extractedData.topic;
+    if (extractedData.pic) this.context.dataCollection.pic = extractedData.pic;
+    if (extractedData.meetingType) this.context.dataCollection.meetingType = extractedData.meetingType;
+    if (extractedData.date) this.context.dataCollection.date = extractedData.date;
+    if (extractedData.time) this.context.dataCollection.time = extractedData.time;
+    if (extractedData.participants) this.context.dataCollection.participants = extractedData.participants;
+  }
+
+  // Get missing data
+  private getMissingData(): string[] {
+    const missing: string[] = [];
+    const data = this.context.dataCollection;
+
+    if (!data.topic) missing.push('topik rapat');
+    if (!data.pic) missing.push('PIC (atas nama siapa)');
+    if (!data.meetingType) missing.push('jenis meeting (internal/eksternal)');
+    if (!data.date) missing.push('tanggal');
+    if (!data.time) missing.push('jam');
+    if (!data.participants) missing.push('jumlah peserta');
+
+    return missing;
+  }
+
+  // Ask for missing data
+  private async askForMissingData(missingData: string[]): Promise<RBAResponse> {
+    const data = this.context.dataCollection;
+    let message = "Baik! Mari kita lengkapi informasi pemesanan ruang rapat.\n\n";
     
-    if (data.candidates && data.candidates.length > 0) {
-      return data.candidates[0].content.parts[0].text;
-    } else {
-      throw new Error('No response from Gemini API');
+    // Show collected data
+    if (Object.keys(data).length > 0) {
+      message += "**Data yang sudah saya catat:**\n";
+      if (data.topic) message += `• Topik: ${data.topic}\n`;
+      if (data.pic) message += `• PIC: ${data.pic}\n`;
+      if (data.meetingType) message += `• Jenis Meeting: ${data.meetingType}\n`;
+      if (data.date) message += `• Tanggal: ${data.date}\n`;
+      if (data.time) message += `• Jam: ${data.time}\n`;
+      if (data.participants) message += `• Peserta: ${data.participants} orang\n`;
+      message += "\n";
+    }
+
+    // Ask for missing data
+    message += `**Masih perlu melengkapi:** ${missingData.join(', ')}\n\n`;
+    
+    // Determine what to ask next
+    const nextQuestion = this.getNextQuestion(missingData);
+    message += nextQuestion.message;
+
+    const quickActions = nextQuestion.quickActions || [];
+
+    this.addToHistory('assistant', message);
+
+    return {
+      message,
+      action: 'continue',
+      quickActions
+    };
+  }
+
+  // Get next question based on missing data
+  private getNextQuestion(missingData: string[]): { message: string; quickActions: any[] } {
+    const firstMissing = missingData[0];
+    
+    switch (firstMissing) {
+      case 'topik rapat':
+        return {
+          message: "Silakan berikan topik atau tema rapat Anda:",
+          quickActions: [
+            { label: 'Rapat Tim', action: 'topic_rapat_tim' },
+            { label: 'Presentasi', action: 'topic_presentasi' },
+            { label: 'Brainstorming', action: 'topic_brainstorming' },
+            { label: 'Training', action: 'topic_training' }
+          ]
+        };
+      
+      case 'PIC (atas nama siapa)':
+        return {
+          message: "Atas nama siapa pemesanan ini? (PIC):",
+          quickActions: []
+        };
+      
+      case 'jenis meeting (internal/eksternal)':
+        return {
+          message: "Apakah ini meeting internal atau eksternal?",
+          quickActions: [
+            { label: 'Internal', action: 'meeting_internal' },
+            { label: 'Eksternal', action: 'meeting_external' }
+          ]
+        };
+      
+      case 'tanggal':
+        return {
+          message: "Tanggal berapa rapat akan dilaksanakan?",
+          quickActions: [
+            { label: 'Hari Ini', action: 'date_hari_ini' },
+            { label: 'Besok', action: 'date_besok' },
+            { label: 'Lusa', action: 'date_lusa' }
+          ]
+        };
+      
+      case 'jam':
+        return {
+          message: "Jam berapa rapat akan dimulai?",
+          quickActions: [
+            { label: '09:00', action: 'time_09:00' },
+            { label: '10:00', action: 'time_10:00' },
+            { label: '13:00', action: 'time_13:00' },
+            { label: '14:00', action: 'time_14:00' },
+            { label: '15:00', action: 'time_15:00' }
+          ]
+        };
+      
+      case 'jumlah peserta':
+        return {
+          message: "Berapa jumlah peserta yang akan hadir?",
+          quickActions: [
+            { label: '5 Orang', action: 'participants_5' },
+            { label: '10 Orang', action: 'participants_10' },
+            { label: '15 Orang', action: 'participants_15' },
+            { label: '20 Orang', action: 'participants_20' }
+          ]
+        };
+      
+      default:
+        return {
+          message: "Silakan berikan informasi yang diperlukan:",
+          quickActions: []
+        };
     }
   }
+
+  // Show recommendations and confirmation
+  private async showRecommendationsAndConfirmation(): Promise<RBAResponse> {
+    const data = this.context.dataCollection;
+    
+    // Get room recommendations
+    const recommendations = await this.getRoomRecommendations(data);
+    
+    let message = "🎉 **Semua data sudah lengkap!**\n\n";
+    message += "**Ringkasan Pemesanan:**\n";
+    message += `• Topik: ${data.topic}\n`;
+    message += `• PIC: ${data.pic}\n`;
+    message += `• Jenis Meeting: ${data.meetingType}\n`;
+    message += `• Tanggal: ${data.date}\n`;
+    message += `• Jam: ${data.time}\n`;
+    message += `• Peserta: ${data.participants} orang\n`;
+    
+    message += "**Rekomendasi Ruangan:**\n";
+    recommendations.forEach((room, index) => {
+      message += `${index + 1}. **${room.name}** (Kapasitas: ${room.capacity} orang)\n`;
+      if (room.facilities) {
+        message += `   Fasilitas: ${room.facilities.join(', ')}\n`;
+      }
+      message += `   Status: ${room.available ? '✅ Tersedia' : '❌ Tidak tersedia'}\n\n`;
+    });
+    
+    message += "Apakah Anda ingin melanjutkan dengan pemesanan?";
+
+    const quickActions = [
+      { label: 'Konfirmasi Pemesanan', action: 'confirm_booking', type: 'primary' as const },
+      { label: 'Ubah Data', action: 'modify_data', type: 'secondary' as const },
+      { label: 'Pilih Ruangan Lain', action: 'change_room', type: 'secondary' as const }
+    ];
+
+    this.addToHistory('assistant', message);
+
+    return {
+      message,
+      action: 'recommend',
+      quickActions,
+      recommendations: {
+        rooms: recommendations,
+        reasons: ['Berdasarkan kapasitas peserta', 'Fasilitas yang sesuai', 'Ketersediaan waktu']
+      }
+    };
+  }
+
+  // Get room recommendations based on data
+  private async getRoomRecommendations(data: any): Promise<MeetingRoom[]> {
+    try {
+      // Get predefined rooms with facilities
+      const predefinedRooms = this.getPredefinedRooms();
+      
+      // Filter rooms based on capacity
+      const suitableRooms = predefinedRooms.filter((room: any) => 
+        room.capacity >= data.participants
+      );
+      
+      // Sort by capacity (closest to required capacity)
+      suitableRooms.sort((a: any, b: any) => 
+        Math.abs(a.capacity - data.participants) - Math.abs(b.capacity - data.participants)
+      );
+      
+      // Return top 3 recommendations
+      return suitableRooms.slice(0, 3);
+    } catch (error) {
+      console.error('Error getting room recommendations:', error);
+      return [];
+    }
+  }
+
+  // Get predefined rooms with their facilities
+  private getPredefinedRooms(): MeetingRoom[] {
+    return [
+      {
+        id: 1,
+        name: 'Samudrantha Meeting Room',
+        floor: '1',
+        capacity: 10,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard'],
+        image: '/images/samudrantha.jpg',
+        available: true
+      },
+      {
+        id: 2,
+        name: 'Cedaya Meeting Room',
+        floor: '2',
+        capacity: 15,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System'],
+        image: '/images/cedaya.jpg',
+        available: true
+      },
+      {
+        id: 3,
+        name: 'Celebes Meeting Room',
+        floor: '2',
+        capacity: 15,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference'],
+        image: '/images/celebes.jpg',
+        available: true
+      },
+      {
+        id: 4,
+        name: 'Kalamanthana Meeting Room',
+        floor: '3',
+        capacity: 15,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine'],
+        image: '/images/kalamanthana.jpg',
+        available: true
+      },
+      {
+        id: 5,
+        name: 'Ruang Nasionalis',
+        floor: '3',
+        capacity: 15,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer'],
+        image: '/images/nasionalis.jpg',
+        available: true
+      },
+      {
+        id: 6,
+        name: 'Ruang Meeting A',
+        floor: '1',
+        capacity: 8,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector'],
+        image: '/images/meeting-a.jpg',
+        available: true
+      },
+      {
+        id: 7,
+        name: 'Ruang Konferensi Bintang',
+        floor: '4',
+        capacity: 12,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer', 'Catering'],
+        image: '/images/bintang.jpg',
+        available: true
+      },
+      {
+        id: 8,
+        name: 'Auditorium Utama',
+        floor: '5',
+        capacity: 50,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer', 'Catering', 'Stage', 'Lighting'],
+        image: '/images/auditorium.jpg',
+        available: true
+      },
+      {
+        id: 9,
+        name: 'Ruang Kolaborasi Alpha',
+        floor: '1',
+        capacity: 6,
+        address: 'Office Building',
+        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Coffee Machine'],
+        image: '/images/alpha.jpg',
+        available: true
+      }
+    ];
+  }
+
+  // Get facilities for a specific room
+  private getRoomFacilities(roomName: string): string[] {
+    const rooms = this.getPredefinedRooms();
+    const room = rooms.find(r => r.name === roomName);
+    return room ? room.facilities : [];
+  }
+
+  // Get room by name
+  private getRoomByName(roomName: string): MeetingRoom | null {
+    const rooms = this.getPredefinedRooms();
+    return rooms.find(r => r.name === roomName) || null;
+  }
+
+  // Handle confirmation
+  private handleConfirmation(): RBAResponse {
+    const currentBooking = this.context.currentBooking;
+    
+    console.log('🔍 handleConfirmation - currentBooking:', currentBooking);
+    
+    // Final validation - ensure all required data is present
+    const requiredFields = ['roomName', 'topic', 'pic', 'participants', 'date', 'time', 'meetingType'];
+    const missingFields = requiredFields.filter(field => !currentBooking[field as keyof typeof currentBooking]);
+    
+    if (missingFields.length > 0) {
+      console.log('❌ handleConfirmation - Missing fields:', missingFields);
+      const missingMessage = `Maaf, data pemesanan belum lengkap. Masih diperlukan:\n\n` +
+        missingFields.map((field, index) => `${index + 1}. ${field}`).join('\n') +
+        `\n\nSilakan lengkapi informasi tersebut terlebih dahulu.`;
+      
+      return {
+        message: missingMessage,
+        action: 'continue',
+        bookingData: currentBooking,
+        nextState: BookingState.CONFIRMING,
+        quickActions: this.generateQuickActionsForMissingData(missingFields)
+      };
+    }
+    
+    // All data is complete, create final booking data
+    const bookingData: Partial<Booking> = {
+      ...currentBooking,
+      roomId: currentBooking.roomId || 1,
+      facilities: currentBooking.facilities || []
+    };
+
+    const message = "✅ **Pemesanan berhasil dikonfirmasi!**\n\n" +
+                   "Terima kasih telah menggunakan layanan pemesanan ruang rapat kami. " +
+                   "Anda akan diarahkan ke halaman konfirmasi untuk melihat detail lengkap.";
+
+    this.addToHistory('assistant', message);
+
+    return {
+      message,
+      action: 'complete',
+      bookingData
+    };
+  }
+
+  // Handle modify data
+  private handleModifyData(): RBAResponse {
+    const message = "Baik! Mari kita ubah data pemesanan. " +
+                   "Data mana yang ingin Anda ubah?";
+
+    const quickActions = [
+      { label: 'Ubah Topik', action: 'modify_topic', type: 'secondary' as const },
+      { label: 'Ubah PIC', action: 'modify_pic', type: 'secondary' as const },
+      { label: 'Ubah Tanggal', action: 'modify_date', type: 'secondary' as const },
+      { label: 'Ubah Jam', action: 'modify_time', type: 'secondary' as const },
+      { label: 'Ubah Peserta', action: 'modify_participants', type: 'secondary' as const }
+    ];
+
+    this.addToHistory('assistant', message);
+
+    return {
+      message,
+      action: 'clarify',
+      quickActions
+    };
+  }
+
+  // Handle change room
+  private handleChangeRoom(): RBAResponse {
+    const message = "Baik! Mari kita pilih ruangan yang berbeda. " +
+                   "Berikut adalah opsi ruangan lainnya:";
+
+    const quickActions = [
+      { label: 'Ruang Meeting B', action: 'room_meeting_b' },
+      { label: 'Ruang Meeting C', action: 'room_meeting_c' },
+      { label: 'Ruang Conference', action: 'room_conference' },
+      { label: 'Ruang Training', action: 'room_training' }
+    ];
+
+    this.addToHistory('assistant', message);
+
+    return {
+      message,
+      action: 'recommend',
+      quickActions
+    };
+  }
+
 
   // Process Gemini response and return structured data
   private async processGeminiResponse(geminiResponse: string, userInput: string, analysis: any): Promise<RBAResponse> {
@@ -2581,9 +4543,12 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
 
   // Helper methods
   private addToHistory(role: 'user' | 'assistant', content: string, intent?: string, entities?: any): void {
+    // Clean content - remove extra whitespace and normalize
+    const cleanContent = content.trim().replace(/\s+/g, ' ');
+    
     this.context.conversationHistory.push({
       role,
-      content,
+      content: cleanContent,
       timestamp: new Date(),
       intent,
       entities
@@ -2592,6 +4557,80 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
     // Keep only last 20 messages
     if (this.context.conversationHistory.length > 20) {
       this.context.conversationHistory = this.context.conversationHistory.slice(-20);
+    }
+
+    // Log conversation for debugging
+    console.log(`💬 ${role.toUpperCase()}: ${cleanContent.substring(0, 50)}${cleanContent.length > 50 ? '...' : ''}`);
+
+    // Save conversation to MongoDB
+    this.saveConversationToMongoDB(role, cleanContent, intent, entities);
+  }
+
+  // Save conversation to MongoDB
+  private async saveConversationToMongoDB(role: 'user' | 'assistant', content: string, intent?: string, entities?: any): Promise<void> {
+    try {
+      const message: ConversationMessage = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        role: role === 'assistant' ? 'ai' : 'user',
+        content,
+        timestamp: new Date(),
+        metadata: {
+          bookingData: role === 'user' ? this.context.currentBooking : undefined
+        }
+      };
+
+      // Check if conversation exists, if not create new one
+      let conversation = await this.conversationService.getConversation(this.context.sessionId);
+      
+      if (!conversation) {
+        // Create new conversation
+        const newConversation: Conversation = {
+          sessionId: this.context.sessionId,
+          userId: this.context.userId,
+          startTime: new Date(),
+          messages: [message],
+          status: 'active',
+          bookingStatus: 'none',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        await this.conversationService.saveConversation(newConversation);
+        console.log('✅ New conversation saved to MongoDB');
+      } else {
+        // Add message to existing conversation
+        await this.conversationService.addMessageToConversation(this.context.sessionId, message);
+        console.log('✅ Message added to existing conversation');
+      }
+
+      // Update booking status if needed
+      if (this.context.currentBooking && Object.keys(this.context.currentBooking).length > 0) {
+        const bookingStatus = this.getBookingStatusFromContext();
+        await this.conversationService.updateBookingStatus(
+          this.context.sessionId, 
+          this.context.currentBooking, 
+          bookingStatus
+        );
+      }
+
+    } catch (error) {
+      console.error('❌ Error saving conversation to MongoDB:', error);
+      // Don't throw error to avoid breaking the main flow
+    }
+  }
+
+  // Get booking status from context
+  private getBookingStatusFromContext(): string {
+    const data = this.context.currentBooking;
+    const requiredFields = ['roomName', 'topic', 'pic', 'participants', 'date', 'time', 'meetingType'];
+    const extractedFields = requiredFields.filter(field => data[field as keyof typeof data]);
+    
+    if (extractedFields.length === 0) {
+      return 'none';
+    } else if (extractedFields.length >= 6) {
+      return 'completed';
+    } else {
+      return 'in_progress';
     }
   }
 
@@ -2759,6 +4798,32 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
       extracted.meetingType = 'external';
     }
     
+    // Extract date
+    const now = new Date();
+    if (lowerInput.includes('hari ini')) {
+      extracted.date = now.toISOString().slice(0, 10);
+    } else if (lowerInput.includes('besok')) {
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      extracted.date = tomorrow.toISOString().slice(0, 10);
+    } else if (lowerInput.includes('lusa')) {
+      const dayAfterTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+      extracted.date = dayAfterTomorrow.toISOString().slice(0, 10);
+    }
+    
+    // Extract time
+    const timeMatch = lowerInput.match(/(?:jam|pukul)\s*(\d{1,2})(?::(\d{2}))?/);
+    if (timeMatch) {
+      const hour = parseInt(timeMatch[1]);
+      const minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+      extracted.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    }
+    
+    // Extract participants
+    const participantsMatch = lowerInput.match(/(\d+)\s*(?:orang|peserta|people|pax)/);
+    if (participantsMatch) {
+      extracted.participants = parseInt(participantsMatch[1]);
+    }
+    
     // Extract food order
     // Extract facilities from user input
     const facilityKeywords = {
@@ -2891,7 +4956,9 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
         facilityPreferences: ['tidak']
       },
       sessionId: this.context.sessionId,
-      userId: this.context.userId
+      userId: this.context.userId,
+      dataCollection: {},
+      availableRooms: []
     };
   }
 
@@ -2912,4 +4979,3 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
 export const createRoomBookingAssistant = (userId: string, sessionId: string): RoomBookingAssistant => {
   return new RoomBookingAssistant(userId, sessionId);
 };
-

@@ -301,3 +301,6 @@ const ClickableInfoRow: React.FC<{
 4. **Test Close**: Pastikan modal bisa ditutup dengan benar
 
 **Modal undangan dan browse rispat berhasil dibuat dengan tampilan yang menarik!** 📧📁✨
+
+
+

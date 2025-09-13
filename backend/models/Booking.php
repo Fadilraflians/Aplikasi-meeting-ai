@@ -42,11 +42,19 @@ class Booking {
             // Ensure optional columns
             $this->ensurePicColumnExists();
 
+            // Calculate end_time from meeting_time + duration
+            $endTime = null;
+            if (isset($data['meeting_time']) && isset($data['duration'])) {
+                $startTime = new DateTime($data['meeting_time']);
+                $startTime->add(new DateInterval('PT' . $data['duration'] . 'M'));
+                $endTime = $startTime->format('H:i:s');
+            }
+
             $query = "INSERT INTO " . $this->table_name . "
-                    (user_id, session_id, room_id, topic, meeting_date, meeting_time, 
-                     duration, participants, pic, meeting_type, food_order, booking_state)
-                    VALUES (:user_id, :session_id, :room_id, :topic, :meeting_date, :meeting_time,
-                            :duration, :participants, :pic, :meeting_type, :food_order, :booking_state)";
+                    (user_id, session_id, room_id, topic, meeting_date, meeting_time, end_time,
+                     duration, participants, pic, meeting_type, facilities, booking_state)
+                    VALUES (:user_id, :session_id, :room_id, :topic, :meeting_date, :meeting_time, :end_time,
+                            :duration, :participants, :pic, :meeting_type, :facilities, :booking_state)";
 
             $stmt = $this->conn->prepare($query);
 
@@ -57,11 +65,12 @@ class Booking {
             $stmt->bindValue(":topic", $data['topic']);
             $stmt->bindValue(":meeting_date", $data['meeting_date']);
             $stmt->bindValue(":meeting_time", $data['meeting_time']);
+            $stmt->bindValue(":end_time", $endTime);
             $stmt->bindValue(":duration", $data['duration']);
             $stmt->bindValue(":participants", $data['participants']);
             $stmt->bindValue(":pic", isset($data['pic']) ? $data['pic'] : null);
             $stmt->bindValue(":meeting_type", $data['meeting_type']);
-            $stmt->bindValue(":food_order", $data['food_order']);
+            $stmt->bindValue(":facilities", isset($data['facilities']) ? json_encode($data['facilities']) : null);
             $stmt->bindValue(":booking_state", isset($data['booking_state']) ? $data['booking_state'] : 'BOOKED');
 
             if ($stmt->execute()) {
@@ -83,11 +92,23 @@ class Booking {
             // Ensure optional columns
             $this->ensurePicColumnExists();
 
+            // Calculate end_time from meeting_time + duration if not provided
+            $endTime = null;
+            if (isset($data['end_time']) && !empty($data['end_time'])) {
+                // Use provided end_time
+                $endTime = $data['end_time'];
+            } elseif (isset($data['meeting_time']) && isset($data['duration'])) {
+                // Calculate end_time from meeting_time + duration
+                $startTime = new DateTime($data['meeting_time']);
+                $startTime->add(new DateInterval('PT' . $data['duration'] . 'M'));
+                $endTime = $startTime->format('H:i:s');
+            }
+
             $query = "INSERT INTO " . $this->table_name . "
-                    (user_id, session_id, room_id, topic, meeting_date, meeting_time, 
-                     duration, participants, pic, meeting_type, food_order, booking_state)
-                    VALUES (:user_id, :session_id, :room_id, :topic, :meeting_date, :meeting_time,
-                            :duration, :participants, :pic, :meeting_type, :food_order, :booking_state)";
+                    (user_id, session_id, room_id, topic, meeting_date, meeting_time, end_time,
+                     duration, participants, pic, meeting_type, facilities, booking_state)
+                    VALUES (:user_id, :session_id, :room_id, :topic, :meeting_date, :meeting_time, :end_time,
+                            :duration, :participants, :pic, :meeting_type, :facilities, :booking_state)";
 
             $stmt = $this->conn->prepare($query);
 
@@ -101,11 +122,12 @@ class Booking {
             $stmt->bindValue(":topic", $data['topic']);
             $stmt->bindValue(":meeting_date", $data['meeting_date']);
             $stmt->bindValue(":meeting_time", $data['meeting_time']);
+            $stmt->bindValue(":end_time", $endTime);
             $stmt->bindValue(":duration", $data['duration']);
             $stmt->bindValue(":participants", $data['participants']);
             $stmt->bindValue(":pic", isset($data['pic']) ? $data['pic'] : null);
             $stmt->bindValue(":meeting_type", $data['meeting_type']);
-            $stmt->bindValue(":food_order", $data['food_order']);
+            $stmt->bindValue(":facilities", isset($data['facilities']) ? json_encode($data['facilities']) : null);
             $stmt->bindValue(":booking_state", isset($data['booking_state']) ? $data['booking_state'] : 'BOOKED');
 
             if ($stmt->execute()) {
@@ -194,10 +216,18 @@ class Booking {
             // Ensure optional columns
             $this->ensurePicColumnExists();
 
+            // Calculate end_time from meeting_time + duration
+            $endTime = null;
+            if (isset($data['meeting_time']) && isset($data['duration'])) {
+                $startTime = new DateTime($data['meeting_time']);
+                $startTime->add(new DateInterval('PT' . $data['duration'] . 'M'));
+                $endTime = $startTime->format('H:i:s');
+            }
+
             $query = "UPDATE " . $this->table_name . "
                     SET room_id = :room_id, topic = :topic, meeting_date = :meeting_date,
-                        meeting_time = :meeting_time, duration = :duration, participants = :participants,
-                        pic = :pic, meeting_type = :meeting_type, food_order = :food_order, 
+                        meeting_time = :meeting_time, end_time = :end_time, duration = :duration, participants = :participants,
+                        pic = :pic, meeting_type = :meeting_type, 
                         updated_at = CURRENT_TIMESTAMP
                     WHERE id = :id";
 
@@ -209,11 +239,11 @@ class Booking {
             $stmt->bindParam(":topic", $data['topic']);
             $stmt->bindParam(":meeting_date", $data['meeting_date']);
             $stmt->bindParam(":meeting_time", $data['meeting_time']);
+            $stmt->bindParam(":end_time", $endTime);
             $stmt->bindParam(":duration", $data['duration']);
             $stmt->bindParam(":participants", $data['participants']);
             $stmt->bindParam(":pic", isset($data['pic']) ? $data['pic'] : null);
             $stmt->bindParam(":meeting_type", $data['meeting_type']);
-            $stmt->bindParam(":food_order", $data['food_order']);
 
             if ($stmt->execute()) {
                 return $this->getBookingById($data['id']);
@@ -364,9 +394,9 @@ class Booking {
                         abd.participants,
                         abd.pic,
                         abd.meeting_type,
-                        abd.food_order,
+                        abd.facilities,
                         u.full_name as user_name,
-                        ADDTIME(abd.meeting_time, SEC_TO_TIME(abd.duration * 60)) as end_time
+                        abd.end_time
                       FROM ai_booking_data abd
                       LEFT JOIN users u ON abd.user_id = u.id
                       WHERE abd.room_id = :room_id 

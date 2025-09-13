@@ -12,6 +12,7 @@ export enum Page {
   Reservations,
   ReservationDetail,
   History,
+  Rispat,
   Profile,
   Settings,
   HelpCenter,
@@ -25,6 +26,7 @@ export interface MeetingRoom {
   address: string;
   facilities: string[];
   image: string;
+  available?: boolean; // Status ketersediaan
 }
 
 export interface ChatMessage {
@@ -58,6 +60,8 @@ export interface Booking {
   urgency?: 'high' | 'normal' | 'low'; // Tingkat urgensi
   duration?: number; // Durasi dalam jam
   notes?: string; // Catatan tambahan
+  roomNotFound?: boolean; // Flag untuk ruangan yang tidak ditemukan di database
+  isConfirmation?: boolean; // Flag untuk konfirmasi user
 }
 
 export enum BookingState {

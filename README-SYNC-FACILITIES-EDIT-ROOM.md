@@ -210,3 +210,6 @@ const handleFacilityChange = (facility: string) => {
 4. **Test Consistency**: Pastikan tampilan sama dengan booking form
 
 **Kolom fasilitas di EditRoomPage berhasil disamakan dengan BookingFormPage!** 🏢✨
+
+
+

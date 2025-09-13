@@ -5,6 +5,9 @@
  * Adapted for spacio_meeting_db database structure
  */
 
+// Set timezone to Asia/Jakarta
+date_default_timezone_set('Asia/Jakarta');
+
 header('Content-Type: application/json');
 // CORS: allow only localhost:5173 and aplikasi-meeting-ai.test
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -183,6 +186,53 @@ try {
                     'status' => 'success',
                     'data' => $result
                 ]);
+            } elseif ($endpoint === 'auto-complete') {
+                // Auto-complete expired bookings
+                $currentTime = date('Y-m-d H:i:s');
+                
+                // Find expired bookings using end_time
+                $query = "SELECT id, topic, meeting_date, meeting_time, end_time 
+                         FROM ai_booking_data 
+                         WHERE booking_state = 'BOOKED' 
+                         AND CONCAT(meeting_date, ' ', COALESCE(end_time, ADDTIME(meeting_time, SEC_TO_TIME(duration * 60)))) < :current_time";
+                
+                $stmt = $db->prepare($query);
+                $stmt->bindParam(':current_time', $currentTime);
+                $stmt->execute();
+                
+                $expiredBookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (empty($expiredBookings)) {
+                    echo json_encode([
+                        'status' => 'success',
+                        'message' => 'No expired bookings found',
+                        'data' => []
+                    ]);
+                } else {
+                    // Update to completed using end_time
+                    $updateQuery = "UPDATE ai_booking_data 
+                                   SET booking_state = 'COMPLETED', updated_at = CURRENT_TIMESTAMP 
+                                   WHERE booking_state = 'BOOKED' 
+                                   AND CONCAT(meeting_date, ' ', COALESCE(end_time, ADDTIME(meeting_time, SEC_TO_TIME(duration * 60)))) < :current_time";
+                    
+                    $updateStmt = $db->prepare($updateQuery);
+                    $updateStmt->bindParam(':current_time', $currentTime);
+                    
+                    if ($updateStmt->execute()) {
+                        $affectedRows = $updateStmt->rowCount();
+                        echo json_encode([
+                            'status' => 'success',
+                            'message' => "Updated {$affectedRows} bookings to completed",
+                            'data' => $expiredBookings
+                        ]);
+                    } else {
+                        http_response_code(500);
+                        echo json_encode([
+                            'status' => 'error',
+                            'message' => 'Failed to update bookings'
+                        ]);
+                    }
+                }
             } elseif ($endpoint === 'ai-success') {
                 // Get AI success bookings by user ID
                 $userId = $_GET['user_id'] ?? null;
@@ -230,6 +280,23 @@ try {
                         'message' => 'Session ID required'
                     ]);
                 }
+            } elseif ($endpoint === 'ai-data') {
+                // Get AI booking data by user ID (from ai_booking_data table)
+                $userId = $_GET['user_id'] ?? null;
+                if ($userId) {
+                    // Use AiBookingSuccess model to get data from ai_bookings_success table
+                    $result = $aiBookingSuccess->getBookingsByUserId($userId);
+                    echo json_encode([
+                        'status' => 'success',
+                        'data' => $result
+                    ]);
+                } else {
+                    http_response_code(400);
+                    echo json_encode([
+                        'status' => 'error',
+                        'message' => 'User ID required'
+                    ]);
+                }
             } elseif ($endpoint === 'room-bookings') {
                 // Get bookings for a specific room
                 $roomId = $_GET['room_id'] ?? null;
@@ -263,7 +330,7 @@ try {
                 $data = json_decode(file_get_contents('php://input'), true);
                 
                 // Validate required fields (PIC wajib diisi)
-                $requiredFields = ['user_id', 'room_id', 'topic', 'meeting_date', 'meeting_time', 'duration', 'participants', 'pic', 'meeting_type', 'food_order'];
+                $requiredFields = ['user_id', 'room_id', 'topic', 'meeting_date', 'meeting_time', 'duration', 'participants', 'pic', 'meeting_type'];
                 foreach ($requiredFields as $field) {
                     if (!isset($data[$field]) || empty($data[$field])) {
                         http_response_code(400);
@@ -491,8 +558,7 @@ try {
                         'meeting_date' => $data['meeting_date'],
                         'meeting_time' => $data['meeting_time'],
                         'duration' => $data['duration'],
-                        'meeting_type' => $data['meeting_type'] ?? 'internal',
-                        'food_order' => $data['food_order'] ?? 'tidak'
+                        'meeting_type' => $data['meeting_type'] ?? 'internal'
                     ];
                     
                     error_log("Saving to ai_bookings_success table: " . json_encode($successData));
@@ -560,8 +626,7 @@ try {
                     'meeting_date' => $data['meeting_date'],
                     'meeting_time' => $data['meeting_time'],
                     'duration' => $data['duration'],
-                    'meeting_type' => $data['meeting_type'] ?? 'internal',
-                    'food_order' => $data['food_order'] ?? 'tidak'
+                    'meeting_type' => $data['meeting_type'] ?? 'internal'
                 ];
                 
                 $result = $aiBookingSuccess->createSuccessBooking($successData);
@@ -583,7 +648,7 @@ try {
                 $data = json_decode(file_get_contents('php://input'), true);
                 
                 // Validate AI booking data
-                $requiredFields = ['user_id', 'session_id', 'room_id', 'topic', 'meeting_date', 'meeting_time', 'duration', 'participants', 'meeting_type', 'food_order'];
+                $requiredFields = ['user_id', 'session_id', 'room_id', 'topic', 'meeting_date', 'meeting_time', 'duration', 'participants', 'meeting_type'];
                 foreach ($requiredFields as $field) {
                     if (!isset($data[$field]) || empty($data[$field])) {
                         http_response_code(400);

@@ -59,3 +59,6 @@ Silakan coba aplikasi di `http://localhost:5174` - RBA Assistant sekarang menggu
 - Environment variables sekarang terbaca dengan benar di frontend
 - Tidak ada lagi error "GEMINI_API_KEY not configured" atau "fallback mode"
 - RBA akan menggunakan Gemini API untuk memberikan respons yang cerdas
+
+
+

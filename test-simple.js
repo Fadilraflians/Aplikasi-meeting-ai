@@ -1,61 +1,40 @@
-// Simple test untuk Google Gemini API
-const https = require('https');
+// Test sederhana untuk Gemini API
+const API_KEY = 'AIzaSyBvOkBwqRitB6FvD2h5QpXrL8nM9sT1uV2w'; // GANTI DENGAN API KEY ANDA
 
-const API_KEY = 'AIzaSyBpv2hzlyOKPEpRU68IGCF9SAzf7WywKlU';
-const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+console.log('🔍 Testing Gemini API...');
+console.log('API Key:', API_KEY ? 'Found' : 'Not Found');
 
-const data = JSON.stringify({
-  contents: [{
-    parts: [{
-      text: "Halo, tolong jawab dalam bahasa Indonesia: Apa kabar?"
-    }]
-  }],
-  generationConfig: {
-    temperature: 0.7,
-    maxOutputTokens: 100
-  }
-});
+if (!API_KEY || API_KEY === 'AIzaSyBvOkBwqRitB6FvD2h5QpXrL8nM9sT1uV2w') {
+    console.log('❌ Silakan ganti API_KEY dengan API key Gemini Anda yang sebenarnya');
+    console.log('💡 Dapatkan API key di: https://makersuite.google.com/app/apikey');
+    process.exit(1);
+}
 
-const options = {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Content-Length': data.length
-  }
-};
-
-console.log('🧪 Testing Google Gemini API...');
-console.log('📤 Sending request...');
-
-const req = https.request(url, options, (res) => {
-  console.log(`📊 Status: ${res.statusCode}`);
-  
-  let responseData = '';
-  res.on('data', (chunk) => {
-    responseData += chunk;
-  });
-  
-  res.on('end', () => {
+async function test() {
     try {
-      const parsed = JSON.parse(responseData);
-      console.log('✅ Response received!');
-      console.log('📋 Full response:', JSON.stringify(parsed, null, 2));
-      
-      if (parsed.candidates && parsed.candidates[0] && parsed.candidates[0].content) {
-        const text = parsed.candidates[0].content.parts[0].text;
-        console.log('\n🤖 AI Response:');
-        console.log(text);
-      }
+        console.log('🚀 Mengirim request...');
+        
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: "Hello, respond with 'Success!'" }] }]
+            })
+        });
+
+        console.log('Status:', response.status);
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Success!');
+            console.log('AI Response:', data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response');
+        } else {
+            const error = await response.text();
+            console.log('❌ Error:', error);
+        }
     } catch (error) {
-      console.error('❌ Error parsing response:', error.message);
-      console.log('Raw response:', responseData);
+        console.log('❌ Connection Error:', error.message);
     }
-  });
-});
+}
 
-req.on('error', (error) => {
-  console.error('❌ Request error:', error.message);
-});
-
-req.write(data);
-req.end();
+test();

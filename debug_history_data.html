@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug History Data</title>
+</head>
+<body>
+    <h1>Debug History Data</h1>
+    <div id="output"></div>
+
+    <script>
+        // Check current history data
+        function debugHistory() {
+            const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            
+            let output = '<h2>Current History Data:</h2>';
+            output += `<p><strong>Total entries:</strong> ${history.length}</p>`;
+            
+            if (history.length === 0) {
+                output += '<p style="color: orange;">No history entries found.</p>';
+            } else {
+                output += '<table border="1" style="border-collapse: collapse; width: 100%;">';
+                output += '<tr><th>ID</th><th>Topic</th><th>Status</th><th>Source</th><th>All Fields</th></tr>';
+                
+                history.forEach((entry, index) => {
+                    output += `<tr>`;
+                    output += `<td>${entry.id}</td>`;
+                    output += `<td>${entry.topic}</td>`;
+                    output += `<td style="color: ${entry.status === 'expired' ? 'red' : 'blue'}; font-weight: bold;">${entry.status}</td>`;
+                    output += `<td>${entry.source || 'unknown'}</td>`;
+                    output += `<td>${JSON.stringify(entry)}</td>`;
+                    output += `</tr>`;
+                });
+                output += '</table>';
+            }
+            
+            // Check if any entry has status 'expired'
+            const expiredEntries = history.filter(entry => entry.status === 'expired');
+            output += `<h2>Expired Entries:</h2>`;
+            output += `<p><strong>Count:</strong> ${expiredEntries.length}</p>`;
+            
+            if (expiredEntries.length > 0) {
+                output += '<ul>';
+                expiredEntries.forEach(entry => {
+                    output += `<li>ID: ${entry.id}, Topic: ${entry.topic}, Status: ${entry.status}</li>`;
+                });
+                output += '</ul>';
+            } else {
+                output += '<p style="color: red;">No expired entries found!</p>';
+            }
+            
+            document.getElementById('output').innerHTML = output;
+        }
+
+        // Add button to refresh
+        const refreshButton = document.createElement('button');
+        refreshButton.textContent = 'Refresh Debug';
+        refreshButton.onclick = debugHistory;
+        refreshButton.style.margin = '10px';
+        refreshButton.style.padding = '10px 20px';
+        refreshButton.style.backgroundColor = '#007bff';
+        refreshButton.style.color = 'white';
+        refreshButton.style.border = 'none';
+        refreshButton.style.borderRadius = '5px';
+        refreshButton.style.cursor = 'pointer';
+        
+        document.body.appendChild(refreshButton);
+
+        // Initial debug
+        debugHistory();
+    </script>
+</body>
+</html>
+

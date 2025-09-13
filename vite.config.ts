@@ -21,13 +21,25 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       server: {
         port: 5174,
+        strictPort: true,
         proxy: {
           // Proxy API requests to PHP backend (development only)
           '/api': {
-            target: 'http://aplikasi-meeting-ai.test/backend/public',
+            target: 'http://localhost/aplikasi-meeting-ai/backend/public',
             changeOrigin: true,
             secure: false,
-            rewrite: (path) => path.replace(/^\/api/, '/api')
+            rewrite: (path) => path.replace(/^\/api/, ''),
+            configure: (proxy, options) => {
+              proxy.on('error', (err, req, res) => {
+                console.log('proxy error', err);
+              });
+              proxy.on('proxyReq', (proxyReq, req, res) => {
+                console.log('Sending Request to the Target:', req.method, req.url);
+              });
+              proxy.on('proxyRes', (proxyRes, req, res) => {
+                console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+              });
+            }
           }
         }
       },
@@ -36,12 +48,16 @@ export default defineConfig(({ mode }) => {
         minify: 'esbuild',
         sourcemap: false,
         rollupOptions: {
+          external: ['mongodb', 'mongoose'],
           output: {
             manualChunks: {
               vendor: ['react', 'react-dom'],
             },
           },
         },
+      },
+      optimizeDeps: {
+        exclude: ['mongodb', 'mongoose']
       },
     };
 });

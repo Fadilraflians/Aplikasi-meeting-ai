@@ -243,7 +243,11 @@ export class ApiService {
     }
 
     static async getAIBookingsByUserId(userId: number) {
-        return this.makeRequest(`${API_BASE_URL}/bookings.php/ai-success?user_id=${userId}`);
+        return this.makeRequest(`${API_BASE_URL}/bookings.php/ai-data?user_id=${userId}`);
+    }
+
+    static async autoCompleteExpiredBookings() {
+        return this.makeRequest(`${API_BASE_URL}/bookings.php/auto-complete`);
     }
 
     static async getRoomBookings(roomId: number, date?: string) {

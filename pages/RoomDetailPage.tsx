@@ -24,6 +24,16 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
   const [deleting, setDeleting] = useState(false);
   const { isDarkMode } = useDarkMode();
 
+  // Auto-refresh every minute to hide expired bookings
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Trigger re-filter by updating a dummy state
+      setRoomBookings(prev => [...prev]);
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     // Filter bookings untuk ruangan ini dari props bookings (yang sudah dikonfirmasi)
     const filteredBookings = bookings
@@ -43,17 +53,29 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
         const normalizedSelectedDate = normalizeDate(selectedDate);
         const dateMatch = normalizedBookingDate === normalizedSelectedDate;
         
-        return roomMatch && dateMatch;
+        // Check if booking has ended (auto-hide expired bookings)
+        const now = new Date();
+        const bookingDateTime = new Date(`${booking.date}T${booking.time}`);
+        const endTime = booking.endTime || calculateEndTime(booking.time, 60);
+        const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+        
+        const isExpired = bookingEndDateTime < now;
+        
+        if (isExpired) {
+          console.log(`🔍 Hiding expired booking: ${booking.topic} (${booking.time} - ${endTime}) - Ended at ${bookingEndDateTime.toLocaleString()}`);
+        }
+        
+        return roomMatch && dateMatch && !isExpired; // Hide expired bookings
       })
       .map(booking => ({
         topic: booking.topic,
         meeting_date: booking.date,
         meeting_time: booking.time,
-        end_time: calculateEndTime(booking.time, 60), // Default 1 hour duration
+        end_time: booking.endTime || calculateEndTime(booking.time, 60), // Use database end_time or calculate
         participants: booking.participants,
         pic: booking.pic,
         meeting_type: booking.meetingType,
-        food_order: booking.foodOrder,
+        facilities: booking.facilities || [],
         user_name: booking.pic
       }));
     
@@ -449,6 +471,11 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                               <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Waktu</div>
                               <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                 {formatTime(booking.meeting_time)}
+                                {booking.end_time && (
+                                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'} ml-1`}>
+                                    - {formatTime(booking.end_time)}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -480,8 +507,8 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                           <div className="flex items-center gap-2">
                             <span className="text-pink-600">🍽️</span>
                             <div>
-                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Makanan</div>
-                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.food_order || 'tidak'}</div>
+                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Fasilitas</div>
+                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.facilities?.join(', ') || 'Tidak ada'}</div>
                             </div>
                           </div>
                         </div>
@@ -504,6 +531,11 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                             </div>
                             <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                               Slot: {formatTime(booking.meeting_time)}
+                              {booking.end_time && (
+                                <span className="ml-1">
+                                  - {formatTime(booking.end_time)}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -594,7 +626,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                             <div>👤 PIC: {bookingForSlot.pic}</div>
                             <div>👥 Peserta: {bookingForSlot.participants} orang</div>
                             <div>🏢 Jenis: {bookingForSlot.meeting_type}</div>
-                            <div>🍽️ Makanan: {bookingForSlot.food_order}</div>
+                            <div>🔧 Fasilitas: {bookingForSlot.facilities?.join(', ') || 'Tidak ada'}</div>
                           </div>
                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                         </div>

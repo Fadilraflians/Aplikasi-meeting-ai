@@ -148,3 +148,6 @@ Status: 200 (OK) atau 429 (Quota exceeded)
 5. ✅ Logging sudah ditambahkan untuk debugging
 
 **Coba sekarang di `http://localhost:5174` - RBA Assistant seharusnya sudah menggunakan Gemini API!** 🚀🤖✨
+
+
+

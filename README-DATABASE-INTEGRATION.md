@@ -262,3 +262,6 @@ Expected: AI cek database dan berikan status ketersediaan
 - ✅ **Memberikan pengalaman user yang seamless** dengan loading states
 
 **Coba sekarang di `http://localhost:5174` - RBA Assistant akan memberikan rekomendasi ruangan yang akurat berdasarkan data database!** 🚀📊
+
+
+

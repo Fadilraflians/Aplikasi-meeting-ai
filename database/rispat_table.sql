@@ -185,3 +185,6 @@ INSERT INTO rispat_metadata (
 (1, 1920, 1080, 'iPhone 12', '2024-01-15 10:30:00', 'Meeting Room A', 'Foto ruangan sebelum rapat dimulai', '["meeting", "room", "before"]'),
 (2, 1920, 1080, 'iPhone 12', '2024-01-15 12:00:00', 'Meeting Room A', 'Foto ruangan saat rapat berlangsung', '["meeting", "room", "during"]'),
 (3, 1920, 1080, 'iPhone 12', '2024-01-15 14:30:00', 'Meeting Room B', 'Foto ruangan setelah rapat selesai', '["meeting", "room", "after"]');
+
+
+

@@ -20,10 +20,10 @@ class AiBookingSuccess {
             
             $query = "INSERT INTO " . $this->table_name . " 
                      (user_id, session_id, room_id, room_name, topic, pic, participants, 
-                      meeting_date, meeting_time, duration, meeting_type, food_order, booking_state) 
+                      meeting_date, meeting_time, end_time, duration, meeting_type, booking_state) 
                      VALUES 
                      (:user_id, :session_id, :room_id, :room_name, :topic, :pic, :participants, 
-                      :meeting_date, :meeting_time, :duration, :meeting_type, :food_order, :booking_state)";
+                      :meeting_date, :meeting_time, :end_time, :duration, :meeting_type, :booking_state)";
 
             $stmt = $this->conn->prepare($query);
 
@@ -38,18 +38,26 @@ class AiBookingSuccess {
             $meeting_date = $data['meeting_date'] ?? date('Y-m-d');
             $meeting_time = $data['meeting_time'] ?? '09:00:00';
             $duration = $data['duration'] ?? 60;
-            $meeting_type = $data['meeting_type'] ?? 'internal';
-            $food_order = $data['food_order'] ?? 'tidak';
             
-            // Keep food_order as is (ringan, berat, tidak, ya)
-            if ($food_order !== 'ringan' && $food_order !== 'berat' && $food_order !== 'ya' && $food_order !== 'tidak') {
-                $food_order = 'tidak'; // Default to 'tidak' for invalid values
+            // Calculate end_time from meeting_time + duration
+            $end_time = null;
+            if ($meeting_time && $duration) {
+                try {
+                    $startTime = new DateTime($meeting_time);
+                    $startTime->add(new DateInterval('PT' . $duration . 'M'));
+                    $end_time = $startTime->format('H:i:s');
+                } catch (Exception $e) {
+                    error_log("Error calculating end_time: " . $e->getMessage());
+                    $end_time = null;
+                }
             }
+            
+            $meeting_type = $data['meeting_type'] ?? 'internal';
             
             // Set booking state
             $booking_state = 'BOOKED';
             
-            error_log("Binding parameters: user_id=$user_id, session_id=$session_id, room_id=$room_id, room_name=$room_name, topic=$topic, pic=$pic, participants=$participants, meeting_date=$meeting_date, meeting_time=$meeting_time, duration=$duration, meeting_type=$meeting_type, food_order=$food_order");
+            error_log("Binding parameters: user_id=$user_id, session_id=$session_id, room_id=$room_id, room_name=$room_name, topic=$topic, pic=$pic, participants=$participants, meeting_date=$meeting_date, meeting_time=$meeting_time, end_time=$end_time, duration=$duration, meeting_type=$meeting_type");
             
             $stmt->bindParam(":user_id", $user_id);
             $stmt->bindParam(":session_id", $session_id);
@@ -60,9 +68,9 @@ class AiBookingSuccess {
             $stmt->bindParam(":participants", $participants);
             $stmt->bindParam(":meeting_date", $meeting_date);
             $stmt->bindParam(":meeting_time", $meeting_time);
+            $stmt->bindParam(":end_time", $end_time);
             $stmt->bindParam(":duration", $duration);
             $stmt->bindParam(":meeting_type", $meeting_type);
-            $stmt->bindParam(":food_order", $food_order);
             $stmt->bindParam(":booking_state", $booking_state);
 
             if ($stmt->execute()) {
@@ -192,6 +200,28 @@ class AiBookingSuccess {
      */
     public function deleteBooking($id) {
         return $this->deleteSuccessBooking($id);
+    }
+
+    /**
+     * Get bookings by user ID
+     */
+    public function getBookingsByUserId($userId) {
+        try {
+            $query = "SELECT b.*, r.room_name, r.capacity as room_capacity, r.image_url
+                      FROM " . $this->table_name . " b
+                      LEFT JOIN meeting_rooms r ON b.room_id = r.id
+                      WHERE b.user_id = :user_id
+                      ORDER BY b.created_at DESC";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":user_id", $userId);
+            $stmt->execute();
+
+            return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            error_log("Error getting AI bookings by user ID: " . $e->getMessage());
+            return [];
+        }
     }
 }
 ?>

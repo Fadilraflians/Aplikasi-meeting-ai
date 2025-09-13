@@ -137,3 +137,6 @@ services/
 4. **User Testing**: Test flow pemesanan ruangan end-to-end
 
 **Semua chat program telah berhasil dihapus - aplikasi sekarang hanya menggunakan AI engine dengan Google Gemini API!** 🗑️✨
+
+
+

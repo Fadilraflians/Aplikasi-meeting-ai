@@ -227,3 +227,6 @@ if (!topic || topic.trim() === '' || !pic || pic.trim() === '') {
 4. **Verify Results**: Pastikan AI tidak bisa pemesanan berhasil tanpa data lengkap
 
 **AI sekarang tidak bisa melakukan pemesanan berhasil tanpa topik dan PIC!** 🔒✨
+
+
+

@@ -1,202 +1,231 @@
-// Service untuk menangani rispat foto
-export interface RispatData {
+const API_BASE_URL = 'http://localhost/aplikasi-meeting-ai/api';
+
+export interface RispatFile {
   id: number;
   booking_id: number;
-  source_image: string;
+  file_name: string;
+  original_name: string;
+  file_path: string;
+  file_type: string;
+  file_size: number;
+  uploaded_by: string;
   uploaded_at: string;
-  status: 'active' | 'deleted';
+  created_at: string;
+  updated_at: string;
 }
 
-export interface UploadRispatData {
-  booking_id: number;
-  source_image: string;
+export interface UploadResponse {
+  success: boolean;
+  message: string;
+  id?: number;
+}
+
+export interface RispatListResponse {
+  success: boolean;
+  data: RispatFile[];
+  message?: string;
 }
 
 class RispatService {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = 'http://localhost:5174'; // Sesuaikan dengan URL backend Anda
-  }
-
-  // Mendapatkan semua rispat berdasarkan booking_id
-  async getRispatByBookingId(bookingId: number): Promise<RispatData[]> {
+  // Ambil semua risalah rapat berdasarkan booking ID
+  async getRispatByBookingId(bookingId: number): Promise<RispatFile[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/rispat-simple.php?booking_id=${bookingId}`);
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${API_BASE_URL}/rispat.php?booking_id=${bookingId}`, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
-      return data.success ? data.rispat || [] : [];
+      
+      const text = await response.text();
+      let data: RispatListResponse;
+      
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Invalid JSON response:', text);
+        throw new Error('Server mengembalikan response yang tidak valid. Pastikan API berjalan dengan benar.');
+      }
+      
+      if (data.success) {
+        return data.data || [];
+      } else {
+        throw new Error(data.message || 'Gagal mengambil data risalah rapat');
+      }
     } catch (error) {
       console.error('Error fetching rispat:', error);
-      return [];
+      
+      // Handle specific error types
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout. Silakan coba lagi.');
+        } else if (error.message.includes('Failed to fetch')) {
+          throw new Error('Tidak dapat terhubung ke server. Pastikan server berjalan dan koneksi internet stabil.');
+        }
+      }
+      
+      throw error;
     }
   }
 
-  // Upload rispat baru
-  async uploadRispat(file: File, bookingId: number): Promise<RispatData | null> {
+  // Upload file risalah rapat
+  async uploadRispat(bookingId: number, file: File, uploadedBy: string): Promise<UploadResponse> {
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('booking_id', bookingId.toString());
+      formData.append('uploaded_by', uploadedBy);
 
-      const response = await fetch(`${this.baseUrl}/rispat-simple.php`, {
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for upload
+
+      const response = await fetch(`${API_BASE_URL}/rispat.php`, {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: UploadResponse;
       
-      if (!data.success) {
-        throw new Error(data.error || 'Upload failed');
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Invalid JSON response:', text);
+        throw new Error('Server mengembalikan response yang tidak valid. Pastikan API berjalan dengan benar.');
       }
       
-      return data.rispat;
+      return data;
     } catch (error) {
       console.error('Error uploading rispat:', error);
-      throw error; // Re-throw error to be handled by caller
+      
+      // Handle specific error types
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Upload timeout. Silakan coba lagi.');
+        } else if (error.message.includes('Failed to fetch')) {
+          throw new Error('Tidak dapat terhubung ke server. Pastikan server berjalan dan koneksi internet stabil.');
+        }
+      }
+      
+      throw error;
     }
   }
 
-  // Upload multiple rispat
-  async uploadMultipleRispat(files: File[], bookingId: number): Promise<RispatData[]> {
+  // Hapus risalah rapat
+  async deleteRispat(id: number): Promise<UploadResponse> {
     try {
-      const uploadPromises = files.map(file => this.uploadRispat(file, bookingId));
-      const results = await Promise.all(uploadPromises);
-      return results.filter(rispat => rispat !== null) as RispatData[];
-    } catch (error) {
-      console.error('Error uploading multiple rispat:', error);
-      throw error; // Re-throw error to be handled by caller
-    }
-  }
-
-  // Menghapus rispat
-  async deleteRispat(rispatId: number): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/rispat-simple.php?id=${rispatId}`, {
+      console.log('Deleting rispat with ID:', id);
+      
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${API_BASE_URL}/rispat.php?id=${id}`, {
         method: 'DELETE',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
+
+      clearTimeout(timeoutId);
+      console.log('Delete response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.success;
+      const text = await response.text();
+      console.log('Delete response text:', text);
+      
+      let data: UploadResponse;
+      
+      try {
+        data = JSON.parse(text);
+        console.log('Delete parsed data:', data);
+      } catch (parseError) {
+        console.error('Invalid JSON response:', text);
+        throw new Error('Server mengembalikan response yang tidak valid. Pastikan API berjalan dengan benar.');
+      }
+      
+      return data;
     } catch (error) {
       console.error('Error deleting rispat:', error);
-      return false;
-    }
-  }
-
-  // Mendapatkan URL untuk menampilkan foto
-  getRispatUrl(filePath: string): string {
-    return `http://localhost:5174${filePath}`;
-  }
-
-  // Mendapatkan thumbnail URL
-  getThumbnailUrl(filePath: string): string {
-    // Untuk sementara, gunakan URL yang sama
-    // Nanti bisa diubah untuk menggunakan thumbnail yang sudah dibuat
-    return `http://localhost:5174${filePath}`;
-  }
-
-  // Format tanggal
-  formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
-  // Mendapatkan icon berdasarkan ekstensi file
-  getFileIcon(fileName: string): string {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg': return '📷';
-      case 'png': return '🖼️';
-      case 'gif': return '🎞️';
-      case 'bmp': return '🖼️';
-      case 'webp': return '🌐';
-      default: return '📸';
-    }
-  }
-
-  // Validasi file foto
-  validateImageFile(file: File): { valid: boolean; error?: string } {
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-
-    if (file.size > maxSize) {
-      return { valid: false, error: 'Ukuran file terlalu besar. Maksimal 10MB.' };
-    }
-
-    // Check file type and extension
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    const isValidType = allowedTypes.includes(file.type) || 
-                       (extension && allowedExtensions.includes(extension));
-
-    if (!isValidType) {
-      return { 
-        valid: false, 
-        error: `Tipe file tidak didukung. Detected: ${file.type}. Hanya JPG, PNG, GIF, dan WebP yang diizinkan.` 
-      };
-    }
-
-    return { valid: true };
-  }
-
-  // Mendapatkan metadata foto dari file
-  async getImageMetadata(file: File): Promise<{
-    width: number;
-    height: number;
-    size: number;
-    type: string;
-  }> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
       
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve({
-          width: img.naturalWidth,
-          height: img.naturalHeight,
-          size: file.size,
-          type: file.type,
-        });
-      };
+      // Handle specific error types
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout. Silakan coba lagi.');
+        } else if (error.message.includes('Failed to fetch')) {
+          throw new Error('Tidak dapat terhubung ke server. Pastikan server berjalan dan koneksi internet stabil.');
+        }
+      }
       
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Gagal membaca metadata foto'));
-      };
-      
-      img.src = url;
-    });
+      throw error;
+    }
+  }
+
+  // Download file risalah rapat
+  getDownloadUrl(fileId: number): string {
+    const downloadUrl = `${API_BASE_URL}/download_rispat.php?id=${fileId}`;
+    console.log('Download URL constructed:', downloadUrl);
+    return downloadUrl;
   }
 
   // Format ukuran file
   formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = bytes;
+    let unitIndex = 0;
+
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+  }
+
+  // Get file icon berdasarkan tipe
+  getFileIcon(fileType: string): string {
+    const type = fileType.toLowerCase();
+    if (type.includes('pdf')) return '📄';
+    if (type.includes('word') || type.includes('document')) return '📝';
+    if (type.includes('image') || type.includes('jpg') || type.includes('jpeg') || type.includes('png')) return '🖼️';
+    return '📎';
+  }
+
+  // Validasi tipe file
+  validateFileType(file: File): boolean {
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/jpg', 'image/png'];
+    return allowedTypes.includes(file.type);
+  }
+
+  // Validasi ukuran file (max 10MB)
+  validateFileSize(file: File): boolean {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    return file.size <= maxSize;
   }
 }
 
-// Export singleton instance
-export const rispatService = new RispatService();
-export default rispatService;
+export default new RispatService();
+
+

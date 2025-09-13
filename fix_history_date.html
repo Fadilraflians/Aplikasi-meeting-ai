@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix History Date</title>
+</head>
+<body>
+    <h1>Fix History Date</h1>
+    <div id="output"></div>
+
+    <script>
+        // Function to add to history (same as in ReservationsPage)
+        function addHistory(entry) {
+            const list = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            const saved = { ...entry, savedAt: new Date().toISOString() };
+            list.unshift(saved);
+            const trimmed = list.slice(0, 200);
+            localStorage.setItem('booking_history', JSON.stringify(trimmed));
+        }
+
+        // Clear existing history and add correct expired booking
+        function fixHistoryData() {
+            // Clear existing history
+            localStorage.removeItem('booking_history');
+            
+            // Add expired booking with correct date (2025-09-12)
+            const expiredBooking = {
+                id: 96,
+                roomName: 'Kalamanthana Meeting Room',
+                topic: 'teess',
+                date: '2025-09-12', // Make sure this matches the date filter
+                time: '00:22',
+                endTime: '01:22',
+                pic: 'dil',
+                participants: 10,
+                status: 'expired',
+                completedAt: new Date().toISOString(),
+                source: 'ai'
+            };
+            
+            addHistory(expiredBooking);
+            alert('History data fixed! Expired booking added for 2025-09-12');
+            displayHistory();
+        }
+
+        // Display current history
+        function displayHistory() {
+            const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            let output = '<h2>Current History:</h2>';
+            
+            if (history.length === 0) {
+                output += '<p>No history entries found.</p>';
+            } else {
+                output += '<table border="1" style="border-collapse: collapse; width: 100%;">';
+                output += '<tr><th>ID</th><th>Topic</th><th>Room</th><th>Date</th><th>Time</th><th>Status</th><th>Source</th></tr>';
+                
+                history.forEach(entry => {
+                    const color = entry.status === 'expired' ? 'red' : (entry.status === 'Selesai' ? 'green' : 'orange');
+                    output += `<tr>`;
+                    output += `<td>${entry.id}</td>`;
+                    output += `<td>${entry.topic}</td>`;
+                    output += `<td>${entry.roomName}</td>`;
+                    output += `<td>${entry.date}</td>`;
+                    output += `<td>${entry.time}${entry.endTime ? ' - ' + entry.endTime : ''}</td>`;
+                    output += `<td style="color: ${color}; font-weight: bold;">${entry.status}</td>`;
+                    output += `<td>${entry.source || 'unknown'}</td>`;
+                    output += `</tr>`;
+                });
+                output += '</table>';
+            }
+            
+            document.getElementById('output').innerHTML = output;
+        }
+
+        // Add button to fix history data
+        const fixButton = document.createElement('button');
+        fixButton.textContent = 'Fix History Data (2025-09-12)';
+        fixButton.onclick = fixHistoryData;
+        fixButton.style.margin = '10px';
+        fixButton.style.padding = '10px 20px';
+        fixButton.style.backgroundColor = '#dc3545';
+        fixButton.style.color = 'white';
+        fixButton.style.border = 'none';
+        fixButton.style.borderRadius = '5px';
+        fixButton.style.cursor = 'pointer';
+        
+        document.body.appendChild(fixButton);
+
+        // Initial display
+        displayHistory();
+    </script>
+</body>
+</html>
+

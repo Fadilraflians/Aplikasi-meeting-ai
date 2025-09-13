@@ -1,5 +1,5 @@
-[33m648fc10[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix: Perbaiki duplikasi reservasi dan implementasi one-shot booking interaktif
+[33me17c597[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m Remove invitation and rispat fields from booking form
+[33m648fc10[m[33m ([m[1;31morigin/main[m[33m)[m Fix: Perbaiki duplikasi reservasi dan implementasi one-shot booking interaktif
 [33mefee063[m feat: Add Netlify deployment configuration
 [33mad73902[m feat: Implementasi sistem multi-bahasa lengkap untuk Dashboard, Meeting Rooms, Reservations, dan Footer
 [33md76fbb9[m booking auto
-[33m1e54978[m init

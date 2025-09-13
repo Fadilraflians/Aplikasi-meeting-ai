@@ -378,3 +378,6 @@ Expected: AI menampilkan pesan error yang informatif
 - ✅ **Memberikan pengalaman chat yang natural** tanpa button yang mengganggu
 
 **Coba sekarang di `http://localhost:5174` - RBA Assistant akan menampilkan ruangan dan jadwal kosong dari database!** 🚀🏢📅
+
+
+

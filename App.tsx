@@ -16,6 +16,7 @@ import BookingConfirmationPage from './pages/BookingConfirmationPage';
 import ReservationsPage from './pages/ReservationsPage';
 import ReservationDetailPage from './pages/ReservationDetailPage';
 import HistoryPage from './pages/HistoryPage';
+import RispatPage from './pages/RispatPage';
 import { addHistory } from './services/historyService';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
@@ -124,6 +125,7 @@ const App = () => {
             // Load AI bookings from ai_bookings_success table
             const aiBookingsRes = await ApiService.getAIBookingsByUserId(userId);
             const aiBookings = aiBookingsRes.data || [];
+            console.log('🔍 App.tsx - Raw AI bookings:', aiBookings);
             
             // Format server bookings
             const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => ({
@@ -133,6 +135,7 @@ const App = () => {
                 topic: b.topic,
                 date: b.meeting_date,
                 time: b.meeting_time,
+                endTime: b.end_time ? b.end_time.slice(0, 5) : null, // Format HH:MM
                 participants: Number(b.participants || 0),
                 pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
                 meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
@@ -147,19 +150,42 @@ const App = () => {
                 topic: b.topic,
                 date: b.meeting_date,
                 time: b.meeting_time,
+                endTime: b.end_time ? b.end_time.slice(0, 5) : null, // Format HH:MM
+                duration: b.duration || 60, // Durasi dalam menit, default 60 menit
                 participants: Number(b.participants || 0),
                 pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
                 meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                facilities: (b.facilities && Array.isArray(b.facilities)) ? b.facilities : [],
+                facilities: (() => {
+                    if (b.facilities && Array.isArray(b.facilities)) {
+                        return b.facilities;
+                    } else if (b.facilities && typeof b.facilities === 'string') {
+                        try {
+                            return JSON.parse(b.facilities);
+                        } catch (e) {
+                            return [];
+                        }
+                    }
+                    return [];
+                })(),
             }));
-
-            // Combine and deduplicate bookings
-            const allBookings = [...serverBookingsFormatted, ...aiBookingsFormatted];
-            const uniqueBookings = allBookings.filter((booking, index, self) => 
-                index === self.findIndex(b => b.id === booking.id)
-            );
             
-            setBookings(uniqueBookings);
+            console.log('🔍 App.tsx - Formatted AI bookings:', aiBookingsFormatted);
+            console.log('🔍 App.tsx - Formatted server bookings:', serverBookingsFormatted);
+
+            // Gabungkan AI bookings dan server bookings
+            const allBookings = [...aiBookingsFormatted, ...serverBookingsFormatted];
+            console.log('🔍 App.tsx - Setting bookings:', allBookings);
+            console.log('🔍 App.tsx - Total bookings count:', allBookings.length);
+            console.log('🔍 App.tsx - AI bookings count:', aiBookingsFormatted.length);
+            console.log('🔍 App.tsx - Server bookings count:', serverBookingsFormatted.length);
+            console.log('🔍 App.tsx - Sample booking:', allBookings[0]);
+            setBookings(allBookings);
+            
+            // Force re-render of dashboard if it's currently active
+            if (currentPage === Page.Dashboard) {
+                console.log('🔍 App.tsx - Dashboard is active, forcing re-render');
+                setRefreshTrigger(prev => prev + 1);
+            }
         } catch (error) {
             console.error('Error loading bookings from server:', error);
         }
@@ -228,6 +254,28 @@ const App = () => {
              setCurrentPage(page);
              // Save current page to localStorage for session persistence
              localStorage.setItem('current_page', page.toString());
+             
+            // Refresh bookings when navigating to dashboard
+            if (page === Page.Dashboard) {
+                const userDataStr = localStorage.getItem('user_data');
+                if (userDataStr) {
+                    try {
+                        const userData = JSON.parse(userDataStr);
+                        if (userData.id) {
+                            console.log('🔍 Refreshing bookings for dashboard...');
+                            loadBookingsFromServer(userData.id);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing user data:', e);
+                    }
+                }
+            }
+            
+            // Force re-render when navigating to dashboard
+            if (page === Page.Dashboard) {
+                console.log('🔍 Navigating to dashboard, forcing re-render');
+                setRefreshTrigger(prev => prev + 1);
+            }
         }
     };
 
@@ -272,6 +320,16 @@ const App = () => {
     };
 
     const handleConfirmBooking = (newBooking: Booking) => {
+        console.log('🔍 App.tsx - handleConfirmBooking received:', newBooking);
+        console.log('🔍 App.tsx - booking details:', {
+            roomName: newBooking.roomName,
+            topic: newBooking.topic,
+            pic: newBooking.pic,
+            date: newBooking.date,
+            time: newBooking.time,
+            participants: newBooking.participants,
+            meetingType: newBooking.meetingType
+        });
         setBookings(prev => [newBooking, ...prev]);
         setConfirmedBooking(newBooking);
         setCurrentBookingData({});
@@ -354,7 +412,7 @@ const App = () => {
         }
         
         const pageComponents: { [key in Page]?: React.ReactNode } = {
-            [Page.Dashboard]: <DashboardPage onNavigate={navigateTo} bookings={bookings} />,
+            [Page.Dashboard]: <DashboardPage onNavigate={navigateTo} bookings={bookings} key={refreshTrigger} />,
             [Page.MeetingRooms]: <MeetingRoomsPage onNavigate={navigateTo} onBookRoom={handleBookRoom} onRoomDetail={handleRoomDetail} onAddRoom={handleAddRoom} />,
             [Page.RoomDetail]: <RoomDetailPage onNavigate={navigateTo} onBookRoom={handleBookRoom} room={selectedRoom} bookings={bookings} onEditRoom={handleEditRoom} onDeleteRoom={handleDeleteRoom} />,
             [Page.EditRoom]: <EditRoomPage onNavigate={navigateTo} room={selectedRoom} onRoomUpdated={handleRoomUpdated} />,
@@ -365,6 +423,7 @@ const App = () => {
             [Page.Reservations]: <ReservationsPage onNavigate={navigateTo} bookings={bookings} onCancelBooking={handleCancelBooking} onRemoveLocalBooking={(id:any)=> setBookings(prev=> prev.filter(b=> String(b.id) !== String(id)))} refreshTrigger={refreshTrigger} />, 
             [Page.ReservationDetail]: <ReservationDetailPage onNavigate={navigateTo} booking={detailBooking} />, 
             [Page.History]: <HistoryPage onNavigate={navigateTo} />, 
+            [Page.Rispat]: <RispatPage onNavigate={navigateTo} />, 
             [Page.Profile]: <ProfilePage onNavigate={navigateTo} user={user} />,
             [Page.Settings]: <SettingsPage onNavigate={navigateTo} />,
             [Page.HelpCenter]: <HelpCenterPage onNavigate={navigateTo} />
@@ -372,7 +431,7 @@ const App = () => {
 
         return (
             <MainLayout onLogout={handleLogout} onNavigate={navigateTo} currentPage={currentPage} user={user}>
-                {pageComponents[currentPage] || <DashboardPage onNavigate={navigateTo} bookings={bookings} />}
+                {pageComponents[currentPage] || <DashboardPage onNavigate={navigateTo} bookings={bookings} key={refreshTrigger} />}
             </MainLayout>
         );
     };
@@ -389,9 +448,14 @@ const App = () => {
                             const raw = sessionStorage.getItem('detail_booking');
                             if (raw) {
                                 try {
-                                    setDetailBooking(JSON.parse(raw));
+                                    const bookingData = JSON.parse(raw);
+                                    console.log('🔍 Detail booking data from sessionStorage:', bookingData);
+                                    console.log('🔍 EndTime in detail booking:', bookingData.endTime);
+                                    setDetailBooking(bookingData);
                                     navigateTo(Page.ReservationDetail);
-                                } catch {}
+                                } catch (e) {
+                                    console.error('Error parsing detail booking:', e);
+                                }
                             }
                         });
                         window.addEventListener('storage', (e: any) => {

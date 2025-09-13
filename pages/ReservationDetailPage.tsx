@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Page, type Booking } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { useDarkMode } from '../contexts/DarkModeContext';
+import RispatService, { RispatFile } from '../services/rispatService';
 
 interface Props {
   onNavigate: (page: Page) => void;
@@ -38,8 +39,15 @@ const ClickableInfoRow: React.FC<{
   );
 };
 
+
 const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
   const { isDarkMode } = useDarkMode();
+  const [showInvitationCard, setShowInvitationCard] = useState(false);
+  const [rispatFiles, setRispatFiles] = useState<RispatFile[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showRispatModal, setShowRispatModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
 
   
@@ -62,6 +70,131 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
   }
 
   const displayTime = (booking.time || '').slice(0,5);
+  const displayEndTime = (booking.endTime || '').slice(0,5);
+
+  // Load risalah rapat saat component mount
+  useEffect(() => {
+    if (booking?.id) {
+      loadRispatFiles();
+    }
+  }, [booking?.id]);
+
+  // Fungsi untuk load risalah rapat
+  const loadRispatFiles = async () => {
+    if (!booking?.id) return;
+    
+    try {
+      // Debug: Log booking data
+      console.log('Debug loadRispatFiles - booking object:', booking);
+      console.log('Debug loadRispatFiles - booking.id:', booking.id, 'type:', typeof booking.id);
+      
+      // Handle AI bookings (id dengan prefix 'ai_')
+      let bookingId: number;
+      if (typeof booking.id === 'string' && booking.id.startsWith('ai_')) {
+        // Untuk AI bookings, gunakan ID numerik dari database
+        const numericId = booking.id.replace('ai_', '');
+        bookingId = parseInt(numericId, 10);
+        console.log('Debug loadRispatFiles - AI booking, original ID:', booking.id);
+        console.log('Debug loadRispatFiles - AI booking, numeric ID:', numericId);
+        console.log('Debug loadRispatFiles - AI booking, converted ID:', bookingId);
+      } else {
+        // Untuk regular bookings
+        bookingId = typeof booking.id === 'string' ? parseInt(booking.id, 10) : booking.id;
+        console.log('Debug loadRispatFiles - Regular booking, original ID:', booking.id);
+        console.log('Debug loadRispatFiles - Regular booking, converted ID:', bookingId);
+      }
+      
+      if (isNaN(bookingId) || bookingId <= 0) {
+        console.error('Invalid booking ID:', booking.id);
+        return;
+      }
+      
+      console.log('Debug loadRispatFiles - Calling API with bookingId:', bookingId);
+      console.log('Debug loadRispatFiles - API URL will be:', `http://localhost/aplikasi-meeting-ai/api/rispat.php?booking_id=${bookingId}`);
+      const files = await RispatService.getRispatByBookingId(bookingId);
+      console.log('Debug loadRispatFiles - API returned files:', files);
+      console.log('Debug loadRispatFiles - Files count:', files.length);
+      setRispatFiles(files);
+    } catch (error) {
+      console.error('Error loading rispat files:', error);
+    }
+  };
+
+  // Fungsi untuk membuat undangan
+  const handleCreateInvitation = () => {
+    setShowInvitationCard(true);
+  };
+
+  // Fungsi untuk handle upload file
+  const handleFileUpload = async () => {
+    if (!selectedFile || !booking?.id) return;
+
+    // Debug: Log booking data
+    console.log('Debug - booking object:', booking);
+    console.log('Debug - booking.id:', booking.id, 'type:', typeof booking.id);
+
+    // Handle AI bookings (id dengan prefix 'ai_')
+    let bookingId: number;
+    if (typeof booking.id === 'string' && booking.id.startsWith('ai_')) {
+      // Untuk AI bookings, gunakan ID numerik dari database
+      const numericId = booking.id.replace('ai_', '');
+      bookingId = parseInt(numericId, 10);
+      console.log('Debug - AI booking detected, numeric ID:', bookingId);
+    } else {
+      // Untuk regular bookings
+      bookingId = typeof booking.id === 'string' ? parseInt(booking.id, 10) : booking.id;
+    }
+    
+    console.log('Debug - final bookingId:', bookingId, 'isNaN:', isNaN(bookingId));
+    
+    if (isNaN(bookingId) || bookingId <= 0) {
+      console.error('Invalid booking ID:', booking.id);
+      alert(`ID reservasi tidak valid: "${booking.id}". Silakan refresh halaman dan coba lagi.`);
+      return;
+    }
+
+    // Validasi file
+    if (!RispatService.validateFileType(selectedFile)) {
+      alert('Tipe file tidak didukung. Hanya PDF, Word, dan JPG yang diperbolehkan.');
+      return;
+    }
+
+    if (!RispatService.validateFileSize(selectedFile)) {
+      alert('Ukuran file terlalu besar. Maksimal 10MB.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const result = await RispatService.uploadRispat(
+        bookingId,
+        selectedFile,
+        booking.pic || 'Unknown'
+      );
+
+      if (result.success) {
+        alert('Risalah rapat berhasil diupload!');
+        setShowUploadModal(false);
+        setSelectedFile(null);
+        loadRispatFiles(); // Reload data
+      } else {
+        alert('Gagal mengupload file: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Terjadi kesalahan saat mengupload file');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Fungsi untuk handle file selection
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
@@ -105,13 +238,52 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <InfoRow label="📅 Tanggal" value={booking.date} />
-                  <InfoRow label="🕐 Waktu" value={displayTime} />
+                  <InfoRow label="🕐 Waktu Mulai" value={displayTime} />
+                  <InfoRow label="🕐 Waktu Berakhir" value={displayEndTime || '—'} />
                   <InfoRow label="👤 PIC" value={booking.pic || '—'} />
                 </div>
                 <div className="space-y-4">
                   <InfoRow label="👥 Peserta" value={`${booking.participants} orang`} />
                   <InfoRow label="📋 Jenis Rapat" value={booking.meetingType} />
                   <InfoRow label="⚙️ Fasilitas" value={booking.facilities ? booking.facilities.join(', ') : '—'} />
+                  
+                  {/* Kolom Risalah Rapat */}
+                  <div className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-gray-600 font-medium flex items-center">
+                        <span className="mr-2">📋</span>
+                        Risalah Rapat
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowUploadModal(true)}
+                          className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          📤 Upload
+                        </button>
+                        <button
+                          onClick={() => {
+                            console.log('Debug - Tombol Lihat diklik');
+                            console.log('Debug - rispatFiles state:', rispatFiles);
+                            console.log('Debug - rispatFiles length:', rispatFiles.length);
+                            setShowRispatModal(true);
+                          }}
+                          className="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
+                        >
+                          👁️ Lihat
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {rispatFiles.length > 0 ? (
+                        <span className="text-green-600 font-semibold">
+                          {rispatFiles.length} file tersedia
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">Belum ada file risalah</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -146,6 +318,9 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-800">{booking.date} {displayTime}</p>
+                    {displayEndTime && (
+                      <p className="text-sm text-gray-600">Sampai {displayEndTime}</p>
+                    )}
                     <p className="text-sm text-gray-600">Jadwal Meeting</p>
                   </div>
                 </div>
@@ -163,17 +338,376 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                 </div>
               </div>
               
-              <button 
-                onClick={() => onNavigate(Page.Reservations)} 
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                ← Kembali ke Reservasi
-              </button>
+              <div className="space-y-3">
+                <button 
+                  onClick={handleCreateInvitation} 
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  🎉 Undangan Rapat
+                </button>
+                
+                <button 
+                  onClick={() => onNavigate(Page.Reservations)} 
+                  className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  ← Kembali ke Reservasi
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+
+      {/* Kartu Undangan yang Bagus */}
+      {showInvitationCard && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header Kartu Undangan */}
+            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-8 text-white rounded-t-3xl relative overflow-hidden">
+              <div className="absolute inset-0 bg-black opacity-10"></div>
+              <div className="relative z-10 text-center">
+                <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+                  <span className="text-4xl">🎉</span>
+                </div>
+                <h2 className="text-3xl font-bold mb-2">Anda Diundang</h2>
+                <h3 className="text-xl font-semibold text-indigo-100">untuk mengikuti rapat</h3>
+                <div className="w-24 h-1 bg-white bg-opacity-50 rounded-full mx-auto mt-4"></div>
+              </div>
+              
+              {/* Dekorasi Background */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white bg-opacity-10 rounded-full -translate-y-16 translate-x-16"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white bg-opacity-10 rounded-full translate-y-12 -translate-x-12"></div>
+            </div>
+            
+            {/* Detail Rapat */}
+            <div className="p-8">
+              <div className="text-center mb-8">
+                <h4 className="text-2xl font-bold text-gray-800 mb-2">{booking.topic}</h4>
+                <p className="text-gray-600">Rapat penting yang membutuhkan kehadiran Anda</p>
+              </div>
+
+              {/* Informasi Rapat dalam Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-200">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-white text-xl">🏢</span>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-gray-800">Lokasi</h5>
+                      <p className="text-gray-600 text-sm">Ruangan Rapat</p>
+                    </div>
+                  </div>
+                  <p className="text-lg font-semibold text-blue-700">{booking.roomName}</p>
+                </div>
+
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-200">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-white text-xl">📅</span>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-gray-800">Tanggal</h5>
+                      <p className="text-gray-600 text-sm">Hari Rapat</p>
+                    </div>
+                  </div>
+                  <p className="text-lg font-semibold text-green-700">{booking.date}</p>
+                </div>
+
+                <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-6 rounded-2xl border border-orange-200">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-white text-xl">🕐</span>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-gray-800">Waktu</h5>
+                      <p className="text-gray-600 text-sm">Jadwal Rapat</p>
+                    </div>
+                  </div>
+                  <p className="text-lg font-semibold text-orange-700">
+                    {displayTime}{displayEndTime ? ` - ${displayEndTime}` : ''}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-200">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-white text-xl">👥</span>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-gray-800">Peserta</h5>
+                      <p className="text-gray-600 text-sm">Jumlah Orang</p>
+                    </div>
+                  </div>
+                  <p className="text-lg font-semibold text-purple-700">{booking.participants} orang</p>
+                </div>
+              </div>
+
+              {/* Informasi Tambahan */}
+              <div className="bg-gray-50 rounded-2xl p-6 mb-8">
+                <h5 className="font-semibold text-gray-800 mb-4 flex items-center">
+                  <span className="mr-2">ℹ️</span>
+                  Informasi Tambahan
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">PIC Rapat:</span>
+                    <p className="font-semibold text-gray-800">{booking.pic}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Jenis Rapat:</span>
+                    <p className="font-semibold text-gray-800">{booking.meetingType}</p>
+                  </div>
+                  {booking.facilities && booking.facilities.length > 0 && (
+                    <div className="md:col-span-2">
+                      <span className="text-gray-600">Fasilitas:</span>
+                      <p className="font-semibold text-gray-800">{booking.facilities.join(', ')}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Pesan Undangan */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-6 text-white text-center mb-8">
+                <h5 className="text-lg font-semibold mb-2">Kami Menunggu Kehadiran Anda!</h5>
+                <p className="text-indigo-100">
+                  Rapat ini sangat penting dan membutuhkan partisipasi aktif dari semua peserta. 
+                  Harap hadir tepat waktu dan siap dengan materi yang diperlukan.
+                </p>
+              </div>
+
+              {/* Tombol Aksi */}
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowInvitationCard(false)}
+                  className="flex-1 bg-gray-500 text-white font-semibold py-4 px-6 rounded-xl hover:bg-gray-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  Tutup
+                </button>
+                <button
+                  onClick={() => {
+                    // Simulasi konfirmasi kehadiran
+                    alert('Terima kasih! Kehadiran Anda telah dikonfirmasi.');
+                    setShowInvitationCard(false);
+                  }}
+                  className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold py-4 px-6 rounded-xl hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  Konfirmasi Kehadiran
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Upload Risalah Rapat */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 p-6 text-white rounded-t-2xl">
+              <h3 className="text-xl font-bold mb-2">📤 Upload Risalah Rapat</h3>
+              <p className="text-blue-100 text-sm">Upload file risalah rapat (PDF, Word, JPG)</p>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Pilih File
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={handleFileSelect}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Format yang didukung: PDF, Word, JPG (Maksimal 10MB)
+                </p>
+              </div>
+
+              {selectedFile && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center">
+                    <span className="text-2xl mr-3">
+                      {RispatService.getFileIcon(selectedFile.type)}
+                    </span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800">{selectedFile.name}</p>
+                      <p className="text-sm text-gray-600">
+                        {RispatService.formatFileSize(selectedFile.size)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setSelectedFile(null);
+                  }}
+                  className="flex-1 bg-gray-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors"
+                  disabled={uploading}
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleFileUpload}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  disabled={!selectedFile || uploading}
+                >
+                  {uploading ? '⏳ Uploading...' : '📤 Upload'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Lihat Risalah Rapat */}
+      {showRispatModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 text-white rounded-t-2xl">
+              <h3 className="text-xl font-bold mb-2">📋 Risalah Rapat</h3>
+              <p className="text-green-100 text-sm">Daftar file risalah rapat yang tersedia</p>
+            </div>
+            
+            <div className="p-6">
+              {(() => {
+                console.log('Debug Modal - rispatFiles:', rispatFiles);
+                console.log('Debug Modal - rispatFiles.length:', rispatFiles.length);
+                return null;
+              })()}
+              {rispatFiles.length > 0 ? (
+                <div className="space-y-4">
+                  {rispatFiles.map((file) => (
+                    <div key={file.id} className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center flex-1">
+                          <span className="text-3xl mr-4">
+                            {RispatService.getFileIcon(file.file_type)}
+                          </span>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-800">{file.original_name}</h4>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                              <span>{RispatService.formatFileSize(file.file_size)}</span>
+                              <span>•</span>
+                              <span>Upload: {new Date(file.uploaded_at).toLocaleDateString('id-ID')}</span>
+                              <span>•</span>
+                              <span>Oleh: {file.uploaded_by}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <a
+                            href={RispatService.getDownloadUrl(file.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
+                            onClick={(e) => {
+                              // Test download URL
+                              console.log('Download URL:', RispatService.getDownloadUrl(file.id));
+                            }}
+                          >
+                            📥 Download
+                          </a>
+                          <button
+                            onClick={async () => {
+                              if (confirm('Apakah Anda yakin ingin menghapus file ini?')) {
+                                console.log('Attempting to delete file ID:', file.id);
+                                try {
+                                  const result = await RispatService.deleteRispat(file.id);
+                                  console.log('Delete result:', result);
+                                  if (result.success) {
+                                    alert('File berhasil dihapus');
+                                    loadRispatFiles(); // Reload data
+                                  } else {
+                                    alert('Gagal menghapus file: ' + result.message);
+                                  }
+                                } catch (error) {
+                                  console.error('Delete error:', error);
+                                  console.error('Error details:', error);
+                                  
+                                  // Handle different types of errors
+                                  let errorMessage = 'Terjadi kesalahan saat menghapus file';
+                                  
+                                  if (error instanceof Error) {
+                                    if (error.message.includes('Failed to fetch')) {
+                                      errorMessage = 'Tidak dapat terhubung ke server. Pastikan server berjalan dan koneksi internet stabil.';
+                                    } else if (error.message.includes('timeout')) {
+                                      errorMessage = 'Request timeout. Silakan coba lagi.';
+                                    } else {
+                                      errorMessage = error.message;
+                                    }
+                                  } else if (typeof error === 'string') {
+                                    errorMessage = error;
+                                  } else if (error && typeof error === 'object' && 'message' in error) {
+                                    errorMessage = (error as any).message;
+                                  }
+                                  
+                                  alert(errorMessage);
+                                }
+                              }
+                            }}
+                            className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
+                          >
+                            🗑️ Hapus
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  {(() => {
+                    console.log('Debug Modal - Menampilkan "Belum ada file risalah"');
+                    console.log('Debug Modal - rispatFiles saat ini:', rispatFiles);
+                    return null;
+                  })()}
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">📄</span>
+                  </div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">Belum Ada File Risalah</h4>
+                  <p className="text-gray-600 mb-4">
+                    Belum ada file risalah rapat yang diupload untuk rapat ini
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowRispatModal(false);
+                      setShowUploadModal(true);
+                    }}
+                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    📤 Upload File Pertama
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowRispatModal(false)}
+                  className="flex-1 bg-gray-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Tutup
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRispatModal(false);
+                    setShowUploadModal(true);
+                  }}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  📤 Upload File Baru
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

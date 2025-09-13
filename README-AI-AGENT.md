@@ -327,3 +327,6 @@ npm run build
 Spacio AI Agent adalah solusi canggih untuk pemesanan ruang rapat yang menggunakan teknologi Google Gemini API. Dengan interface yang user-friendly dan kemampuan AI yang cerdas, pengguna dapat memesan ruangan dengan cara yang natural dan efisien.
 
 AI Agent ini tidak bergantung pada chat program eksternal dan dirancang khusus untuk kebutuhan pemesanan ruangan, memberikan pengalaman yang lebih baik dibandingkan sistem chat biasa.
+
+
+

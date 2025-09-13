@@ -1,4 +1,4 @@
-export type HistoryStatus = 'Selesai' | 'Dibatalkan';
+export type HistoryStatus = 'Selesai' | 'Dibatalkan' | 'expired';
 
 export interface HistoryEntry {
   id: string | number;
@@ -6,9 +6,23 @@ export interface HistoryEntry {
   topic: string;
   date: string;
   time: string;
+  endTime?: string;
   participants: number;
+  pic?: string;
   status: HistoryStatus;
   savedAt: string; // ISO timestamp
+  completedAt?: string; // ISO timestamp for expired bookings
+  source?: string; // 'server' or 'ai'
+  rispatFiles?: Array<{
+    id: number;
+    file_name: string;
+    original_name: string;
+    file_path: string;
+    file_type: string;
+    file_size: number;
+    uploaded_by: string;
+    uploaded_at: string;
+  }>; // Data rispat yang dibackup
 }
 
 const STORAGE_KEY = 'booking_history';

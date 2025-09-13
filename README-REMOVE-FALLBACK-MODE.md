@@ -162,3 +162,6 @@ public async processInput(userInput: string): Promise<RBAResponse> {
 4. **Test Functionality**: Test flow pemesanan ruangan end-to-end
 
 **Fallback mode telah dihapus sepenuhnya - AI sekarang hanya menggunakan Google Gemini API!** 🚫✨
+
+
+
