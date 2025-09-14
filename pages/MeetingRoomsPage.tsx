@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Page, type MeetingRoom } from '../types';
+import { Page, type MeetingRoom, type Booking } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { ApiService } from '../src/config/api';
 import { useDarkMode } from '../contexts/DarkModeContext';
@@ -123,21 +123,44 @@ const MeetingRoomCard: React.FC<{ room: MeetingRoom, onBook: (room: MeetingRoom)
 };
 
 interface MeetingRoomsPageProps {
-  onNavigate: (page: Page) => void;
-  onBookRoom: (room: MeetingRoom) => void;
-  onRoomDetail: (room: MeetingRoom) => void;
-  onAddRoom: () => void;
+    onNavigate: (page: Page) => void;
+    onBookRoom: (room: MeetingRoom) => void;
+    onRoomDetail: (room: MeetingRoom) => void;
+    onAddRoom: () => void;
+    bookings?: Booking[];
 }
-const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookRoom, onRoomDetail, onAddRoom }) => {
+const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookRoom, onRoomDetail, onAddRoom, bookings = [] }) => {
     const [rooms, setRooms] = React.useState<MeetingRoom[]>([]);
-    const [filteredRooms, setFilteredRooms] = React.useState<MeetingRoom[]>([]);
     const [loading, setLoading] = React.useState<boolean>(true);
     const [error, setError] = React.useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = React.useState<string>('');
-    const [capacityFilter, setCapacityFilter] = React.useState<string>('');
-    const [facilityFilter, setFacilityFilter] = React.useState<string>('');
     const { isDarkMode } = useDarkMode();
     const { t } = useLanguage();
+    
+    // Calculate rooms currently in use based on current time
+    const getRoomsInUse = () => {
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0];
+        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+        
+        const activeBookings = bookings.filter(booking => {
+            // Check if booking is today
+            if (booking.date !== currentDate) return false;
+            
+            // Check if current time is within booking time range
+            const startTime = booking.time;
+            const endTime = booking.endTime || booking.time; // fallback to start time if no end time
+            
+            return currentTime >= startTime && currentTime <= endTime;
+        });
+        
+        const uniqueRooms = new Set(activeBookings.map(booking => booking.roomName));
+        return uniqueRooms.size;
+    };
+    
+    // Calculate available rooms (total - in use)
+    const getAvailableRooms = () => {
+        return rooms.length - getRoomsInUse();
+    };
 
     React.useEffect(() => {
         const load = async () => {
@@ -175,7 +198,6 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                 
                 console.log('Mapped rooms:', mapped);
                 setRooms(mapped);
-                setFilteredRooms(mapped);
             } catch (e) {
                 console.error('Failed to load rooms:', e);
                 setError(`Failed to load data: ${e instanceof Error ? e.message : 'Unknown error'}`);
@@ -185,36 +207,6 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
         };
         load();
     }, []);
-
-    // Filter rooms based on search and filters
-    React.useEffect(() => {
-        let filtered = rooms;
-
-        // Search by name
-        if (searchTerm) {
-            filtered = filtered.filter(room => 
-                room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                room.address.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-        }
-
-        // Filter by capacity
-        if (capacityFilter) {
-            const capacity = parseInt(capacityFilter);
-            filtered = filtered.filter(room => room.capacity >= capacity);
-        }
-
-        // Filter by facility
-        if (facilityFilter) {
-            filtered = filtered.filter(room => 
-                room.facilities.some(facility => 
-                    facility.toLowerCase().includes(facilityFilter.toLowerCase())
-                )
-            );
-        }
-
-        setFilteredRooms(filtered);
-    }, [rooms, searchTerm, capacityFilter, facilityFilter]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
@@ -290,7 +282,7 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-gray-600 text-sm font-medium">{t('meetingRooms.availableRooms')}</p>
-                                <p className="text-3xl font-bold text-green-600">{rooms.length}</p>
+                                <p className="text-3xl font-bold text-green-600">{getAvailableRooms()}</p>
                             </div>
                             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
                                 <span className="text-green-600 text-xl">✅</span>
@@ -301,94 +293,14 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                     <div className="bg-white rounded-2xl p-6 shadow-lg">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-gray-600 text-sm font-medium">{t('meetingRooms.totalCapacity')}</p>
-                                <p className="text-3xl font-bold text-purple-600">{rooms.reduce((sum, room) => sum + room.capacity, 0)}</p>
+                                <p className="text-gray-600 text-sm font-medium">Rooms Used</p>
+                                <p className="text-3xl font-bold text-purple-600">{getRoomsInUse()}</p>
                             </div>
                             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                                <span className="text-purple-600 text-xl">👥</span>
+                                <span className="text-purple-600 text-xl">🏢</span>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                {/* Search and Filter Section */}
-                <div className="bg-white rounded-2xl p-6 shadow-lg mb-8">
-                    <div className="flex flex-col lg:flex-row gap-4">
-                        {/* Search Input */}
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                🔍 Cari Ruangan
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="Cari berdasarkan nama ruangan atau alamat..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
-                            />
-                        </div>
-
-                        {/* Capacity Filter */}
-                        <div className="lg:w-48">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                👥 Kapasitas Min
-                            </label>
-                            <select
-                                value={capacityFilter}
-                                onChange={(e) => setCapacityFilter(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
-                            >
-                                <option value="">Semua</option>
-                                <option value="2">2+ orang</option>
-                                <option value="5">5+ orang</option>
-                                <option value="10">10+ orang</option>
-                                <option value="20">20+ orang</option>
-                                <option value="50">50+ orang</option>
-                            </select>
-                        </div>
-
-                        {/* Facility Filter */}
-                        <div className="lg:w-48">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                🏢 Fasilitas
-                            </label>
-                            <select
-                                value={facilityFilter}
-                                onChange={(e) => setFacilityFilter(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
-                            >
-                                <option value="">Semua</option>
-                                <option value="AC">AC</option>
-                                <option value="Projector">Projector</option>
-                                <option value="WiFi">WiFi</option>
-                                <option value="Whiteboard">Whiteboard</option>
-                                <option value="Sound System">Sound System</option>
-                                <option value="Video Conference">Video Conference</option>
-                                <option value="Coffee Machine">Coffee Machine</option>
-                            </select>
-                        </div>
-
-                        {/* Clear Filters */}
-                        <div className="lg:w-32 flex items-end">
-                            <button
-                                onClick={() => {
-                                    setSearchTerm('');
-                                    setCapacityFilter('');
-                                    setFacilityFilter('');
-                                }}
-                                className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium"
-                            >
-                                Reset
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Results Count */}
-                    {!loading && !error && (
-                        <div className="mt-4 text-sm text-gray-600">
-                            Menampilkan {filteredRooms.length} dari {rooms.length} ruangan
-                        </div>
-                    )}
                 </div>
 
                 {/* Content */}
@@ -436,29 +348,9 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                                         {t('meetingRooms.addFirstRoom')}
                                     </button>
                                 </div>
-                            ) : filteredRooms.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                                        <span className="text-gray-400 text-4xl">🔍</span>
-                                    </div>
-                                    <h3 className="text-2xl font-bold text-gray-800 mb-3">Tidak ada ruangan yang sesuai</h3>
-                                    <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                                        Coba ubah filter atau kata kunci pencarian Anda
-                                    </p>
-                                    <button 
-                                        onClick={() => {
-                                            setSearchTerm('');
-                                            setCapacityFilter('');
-                                            setFacilityFilter('');
-                                        }}
-                                        className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-8 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                                    >
-                                        Reset Filter
-                                    </button>
-                                </div>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {filteredRooms.map(room => (
+                                    {rooms.map(room => (
                                         <MeetingRoomCard 
                                             key={room.id} 
                                             room={room} 

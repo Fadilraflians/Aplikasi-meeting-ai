@@ -56,7 +56,7 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       <div className="mb-6 flex flex-col md:flex-row gap-4">
-        <input type="date" value={date} onChange={e=> setDate(e.target.value)} className="p-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:ring-cyan-500 focus:border-cyan-500" />
+        <input type="date" value={date} onChange={e=> setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="p-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:ring-cyan-500 focus:border-cyan-500" />
         <div className="text-gray-600 self-center">Menampilkan pemesanan (dibatalkan & selesai) pada tanggal yang dipilih.</div>
       </div>
 

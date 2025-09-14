@@ -63,9 +63,11 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // Focus input when component mounts
+    // Auto focus input field when component mounts
     useEffect(() => {
-        inputRef.current?.focus();
+        if (inputRef.current) {
+            inputRef.current.focus();
+        }
     }, []);
 
     const handleSendMessage = async () => {
@@ -113,6 +115,13 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
+            
+            // Auto focus input after sending message
+            setTimeout(() => {
+                if (inputRef.current) {
+                    inputRef.current.focus();
+                }
+            }, 100);
         }
     };
 
@@ -189,34 +198,52 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
     };
 
     return (
-        <div className="min-h-screen bg-white flex items-center justify-center p-2">
+        <div className="h-screen overflow-hidden relative">
+            {/* Background Image */}
+            <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url(/images/view.jpeg)'}}></div>
+            
+            {/* Overlay untuk meningkatkan kontras */}
+            <div className="absolute inset-0 bg-white/2 backdrop-blur-sm"></div>
+            
+            {/* Animated Background Elements */}
+            <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-pulse"></div>
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-200 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-pulse"></div>
+                <div className="absolute top-40 left-40 w-60 h-60 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-pulse"></div>
+            </div>
+            
             {/* Chat Container */}
-            <div className="bg-white rounded-2xl shadow-lg h-[98vh] flex flex-col w-full max-w-6xl">
+            <div className="relative shadow-2xl h-screen flex flex-col w-full border border-white/30 overflow-hidden">
+                {/* Background Image untuk Chat Container */}
+                <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url(/images/view.jpeg)'}}></div>
+                
+                {/* Overlay untuk kontras yang lebih baik */}
+                <div className="absolute inset-0 bg-white/25 backdrop-blur-sm"></div>
                 {/* Chat Header */}
-                <header className="p-3 border-b flex justify-between items-center flex-shrink-0">
+                <header className="relative p-5 border-b border-blue-200/50 flex justify-between items-center flex-shrink-0 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 backdrop-blur-xl z-10">
                     <div className="flex items-center">
                         <button 
                             onClick={() => onNavigate(Page.Dashboard)} 
-                            className="mr-4 p-2 rounded-full hover:bg-gray-200 transition-colors"
+                            className="mr-4 p-3 rounded-full hover:bg-blue-200 transition-all duration-300 text-blue-700 hover:text-blue-900"
                         >
                             <BackArrowIcon />
                         </button>
                         <AiIcon />
                         <div className="ml-3">
-                            <h2 className="text-lg font-bold text-gray-800">Asisten AI Spacio</h2>
-                            <p className="text-sm text-gray-500">Online</p>
+                            <h2 className="text-xl font-bold text-blue-800">Asisten AI Spacio</h2>
+                            <p className="text-sm text-blue-600">Online</p>
                         </div>
                     </div>
                 </header>
 
                 {/* Messages */}
-                <div className="flex-1 p-3 overflow-y-auto bg-white min-h-0">
+                <div className="relative flex-1 p-6 overflow-y-auto min-h-0 backdrop-blur-sm z-10">
                     {messages.map((message) => (
                         <div key={message.id} className={`flex items-end ${message.sender === 'user' ? 'justify-end' : 'justify-start'} mb-6`}>
                             {message.sender === 'ai' && <div className="mr-3"><AiIcon /></div>}
                             
                             <div className={`max-w-2xl ${message.sender === 'user' ? 'text-right' : ''}`}>
-                                <div className={`px-4 py-3 rounded-2xl inline-block shadow-md ${message.sender === 'user' ? 'bg-gradient-to-br from-cyan-500 to-blue-500 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
+                                <div className={`px-6 py-5 rounded-3xl inline-block shadow-lg backdrop-blur-sm ${message.sender === 'user' ? 'bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-br-none border border-blue-400/30 shadow-blue-500/25' : 'bg-white/90 text-gray-800 rounded-bl-none border border-blue-200/50 shadow-blue-200/50 backdrop-blur-sm'}`}>
                                     <p className="text-left" style={{ whiteSpace: 'pre-wrap'}} dangerouslySetInnerHTML={{ __html: message.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></p>
                                 </div>
                                 
@@ -269,7 +296,7 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                 </div>
                 
                 {/* Input Area */}
-                <div className="p-3 border-t bg-white rounded-b-2xl flex-shrink-0">
+                <div className="relative p-6 border-t border-blue-200/50 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 flex-shrink-0 backdrop-blur-xl z-10">
                     <div className="relative">
                         <input 
                             ref={inputRef}
@@ -279,12 +306,12 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                             onKeyPress={handleKeyPress}
                             placeholder={isLoading ? "Menunggu balasan AI..." : "Ketik pesan Anda atau tekan Enter..."}
                             disabled={isLoading}
-                            className="w-full pl-5 pr-14 py-3 border border-gray-200 bg-gray-50 rounded-full focus:outline-none focus:ring-2 focus:ring-cyan-400 transition-shadow disabled:bg-gray-100 text-black placeholder-gray-700"
+                            className="w-full pl-6 pr-16 py-5 border-2 border-blue-200/50 bg-white/95 backdrop-blur-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-lg disabled:bg-blue-100 text-gray-800 placeholder-blue-500 text-lg font-medium"
                         />
                         <button 
                             onClick={handleSendMessage} 
                             disabled={!inputValue.trim() || isLoading} 
-                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-cyan-500 p-2.5 rounded-full text-white hover:bg-cyan-600 transition disabled:bg-cyan-300 disabled:cursor-not-allowed"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-gradient-to-r from-blue-500 to-indigo-500 p-4 rounded-xl text-white hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed hover:scale-105 transform"
                         >
                             <SendIcon />
                         </button>

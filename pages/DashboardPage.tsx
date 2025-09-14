@@ -395,7 +395,19 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
               <span className="text-sm font-medium text-gray-500">Fasilitas</span>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-              {booking.facilities && booking.facilities.length > 0 ? booking.facilities.join(', ') : 'Tidak ada'}
+              {(() => {
+                if (booking.facilities && Array.isArray(booking.facilities) && booking.facilities.length > 0) {
+                  return booking.facilities.join(', ');
+                } else if (booking.facilities && typeof booking.facilities === 'string') {
+                  try {
+                    const parsed = JSON.parse(booking.facilities);
+                    return Array.isArray(parsed) ? parsed.join(', ') : booking.facilities;
+                  } catch (e) {
+                    return booking.facilities;
+                  }
+                }
+                return 'Tidak ada';
+              })()}
             </span>
           </div>
         </div>

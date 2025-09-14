@@ -45,70 +45,160 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
         }
     }, [time, endTime]);
 
-    // Load available rooms from database
+    // Auto-fill PIC with logged in user's name
+    useEffect(() => {
+        if (!pic) { // Only auto-fill if PIC is empty
+            const userDataStr = localStorage.getItem('user_data');
+            if (userDataStr) {
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    const userName = userData.full_name || userData.username || userData.email?.split('@')[0];
+                    if (userName) {
+                        setPic(userName);
+                    }
+                } catch (e) {
+                    console.log('Failed to parse user data for PIC auto-fill');
+                }
+            }
+        }
+    }, [pic]);
+
+    // Auto-fill PIC when component mounts (for AI bookings)
+    useEffect(() => {
+        if (!pic && bookingData?.pic) {
+            setPic(bookingData.pic);
+        } else if (!pic) {
+            // If no PIC from booking data, use logged in user
+            const userDataStr = localStorage.getItem('user_data');
+            if (userDataStr) {
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    const userName = userData.full_name || userData.username || userData.email?.split('@')[0];
+                    if (userName) {
+                        setPic(userName);
+                    }
+                } catch (e) {
+                    console.log('Failed to parse user data for PIC auto-fill');
+                }
+            }
+        }
+    }, [bookingData?.pic]);
+
+    // Load available rooms with predefined data
     useEffect(() => {
         const loadRooms = async () => {
             try {
                 setLoadingRooms(true);
                 
-                // Load rooms from database using the same API as MeetingRoomsPage
-                const res = await ApiService.getAllRooms();
-                console.log('API Response for rooms:', res);
+                // Use predefined rooms with facilities
+                const predefinedRooms: MeetingRoom[] = [
+                    {
+                        id: 1,
+                        name: 'Samudrantha Meeting Room',
+                        floor: '1',
+                        capacity: 10,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard'],
+                        image: '/images/samudrantha.jpg',
+                        available: true
+                    },
+                    {
+                        id: 2,
+                        name: 'Cedaya Meeting Room',
+                        floor: '2',
+                        capacity: 15,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System'],
+                        image: '/images/cedaya.jpg',
+                        available: true
+                    },
+                    {
+                        id: 3,
+                        name: 'Celebes Meeting Room',
+                        floor: '2',
+                        capacity: 15,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference'],
+                        image: '/images/celebes.jpg',
+                        available: true
+                    },
+                    {
+                        id: 4,
+                        name: 'Kalamanthana Meeting Room',
+                        floor: '3',
+                        capacity: 15,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine'],
+                        image: '/images/kalamanthana.jpg',
+                        available: true
+                    },
+                    {
+                        id: 5,
+                        name: 'Ruang Nasionalis',
+                        floor: '3',
+                        capacity: 15,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer'],
+                        image: '/images/nasionalis.jpg',
+                        available: true
+                    },
+                    {
+                        id: 6,
+                        name: 'Ruang Meeting A',
+                        floor: '1',
+                        capacity: 8,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector'],
+                        image: '/images/meeting-a.jpg',
+                        available: true
+                    },
+                    {
+                        id: 7,
+                        name: 'Ruang Konferensi Bintang',
+                        floor: '4',
+                        capacity: 12,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer', 'Catering'],
+                        image: '/images/bintang.jpg',
+                        available: true
+                    },
+                    {
+                        id: 8,
+                        name: 'Auditorium Utama',
+                        floor: '5',
+                        capacity: 50,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer', 'Catering', 'Stage', 'Lighting'],
+                        image: '/images/auditorium.jpg',
+                        available: true
+                    },
+                    {
+                        id: 9,
+                        name: 'Ruang Kolaborasi Alpha',
+                        floor: '1',
+                        capacity: 6,
+                        address: 'Office Building',
+                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Coffee Machine'],
+                        image: '/images/alpha.jpg',
+                        available: true
+                    }
+                ];
                 
-                const raw = (res && (res as any).data) ? (res as any).data : res;
-                console.log('Raw room data:', raw);
+                setAvailableRooms(predefinedRooms);
                 
-                if (!raw || !Array.isArray(raw)) {
-                    throw new Error('Invalid data format from API');
-                }
-                
-                const mapped: MeetingRoom[] = (raw || []).map((r: any) => ({
-                    id: r.id ?? r.room_id,
-                    name: r.name ?? r.room_name,
-                    floor: r.floor || '-',
-                    capacity: Number(r.capacity || 0),
-                    address: r.building || r.description || '-',
-                    facilities: (() => {
-                        const f = r.features;
-                        if (Array.isArray(f)) return f as string[];
-                        if (typeof f === 'string') {
-                            try { 
-                                const j = JSON.parse(f); 
-                                if (Array.isArray(j)) return j; 
-                            } catch {}
-                            return f.split(',').map((s: string) => s.trim()).filter(Boolean);
-                        }
-                        return [] as string[];
-                    })(),
-                    image: r.image_url || '/images/meeting-rooms/default-room.jpg',
-                    available: r.is_available === 1 || r.is_available === true
-                }));
-                
-                console.log('Mapped rooms for booking form:', mapped);
-                setAvailableRooms(mapped);
-                
-                // Only auto-select first room if no room was passed as prop
-                if (!selectedRoom && !room && mapped.length > 0) {
-                    setSelectedRoom(mapped[0]);
+                // If no room is selected, select the first one
+                if (!selectedRoom && predefinedRooms.length > 0) {
+                    setSelectedRoom(predefinedRooms[0]);
                 }
             } catch (error) {
                 console.error('Error loading rooms:', error);
-                // Fallback to empty array if API fails
-                setAvailableRooms([]);
             } finally {
                 setLoadingRooms(false);
             }
         };
 
         loadRooms();
-    }, []);
-
-    // Effect to handle room prop changes
-    useEffect(() => {
-        if (room && !selectedRoom) {
-            setSelectedRoom(room);
-        }
-    }, [room, selectedRoom]);
+    }, [selectedRoom]);
 
     // Optimized handlers to prevent re-renders
     const handleTopicChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,15 +221,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
     }, []);
 
     const handleDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedDate = e.target.value;
-        const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
-        
-        // Only allow today and future dates
-        if (selectedDate >= today) {
-            setDate(selectedDate);
-        } else {
-            alert('Tidak dapat memilih tanggal yang sudah lewat. Silakan pilih tanggal hari ini atau ke depan.');
-        }
+        setDate(e.target.value);
     }, []);
 
     const handleParticipantsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,7 +374,6 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
             topic,
             meeting_date: date,
             meeting_time: normalizeTime(times.start || time),
-            end_time: normalizeTime(times.end || endTime),
             duration: durationMinutes,
             participants,
             pic, // kirim PIC yang diinput user ke backend
@@ -314,7 +395,6 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                 topic,
                 date,
                 time: times.start,
-                endTime: times.end,
                 participants,
                 pic,
                 meetingType,
@@ -525,7 +605,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         name="date" 
                                         value={date} 
                                         onChange={handleDateChange}
-                                        min={new Date().toISOString().split('T')[0]} // Set minimum date to today
+                                        min={new Date().toISOString().split('T')[0]}
                                         className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300" 
                                     />
                                 </div>

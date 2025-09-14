@@ -46,16 +46,16 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const items = useMemo(() => {
-    // Hanya tampilkan histori dengan status 'expired'
+    // Hanya tampilkan histori dengan status 'Selesai' (COMPLETE)
     const local = getHistory();
     console.log('RispatPage - All history entries:', local);
     console.log('RispatPage - Selected date:', date);
     
-    const filtered = local.filter(h => h.date === date && h.status === 'expired');
-    console.log('RispatPage - Filtered expired entries for date:', filtered);
+    const filtered = local.filter(h => h.date === date && h.status === 'Selesai');
+    console.log('RispatPage - Filtered complete entries for date:', filtered);
     
     const sorted = filtered.sort((a,b)=> (a.time>b.time?1:-1));
-    console.log('RispatPage - Final sorted expired entries:', sorted);
+    console.log('RispatPage - Final sorted complete entries:', sorted);
     
     return sorted;
   }, [date]);
@@ -70,8 +70,8 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       <div className="mb-6 flex flex-col md:flex-row gap-4">
-        <input type="date" value={date} onChange={e=> setDate(e.target.value)} className="p-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-        <div className="text-gray-600 self-center">Menampilkan pemesanan expired untuk melihat risalah rapat.</div>
+        <input type="date" value={date} onChange={e=> setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="p-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+        <div className="text-gray-600 self-center">Menampilkan pemesanan yang sudah selesai untuk melihat risalah rapat.</div>
       </div>
 
       <div className="space-y-4">
@@ -80,17 +80,17 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
             <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="text-gray-500">Tidak ada pemesanan expired pada tanggal ini.</p>
+            <p className="text-gray-500">Tidak ada pemesanan yang sudah selesai pada tanggal ini.</p>
           </div>
         )}
         {items.map((h:any)=> {
-          console.log('RispatPage - Rendering expired item:', h);
+          console.log('RispatPage - Rendering complete item:', h);
           
           return (
           <div key={`${h.id}-${h.savedAt || ''}`} className="bg-white p-5 rounded-xl border shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100">
+                <div className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center border border-green-100">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1ZM3 10h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8Zm4 3a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2H7Z"/></svg>
                 </div>
                 <div>
@@ -105,8 +105,8 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="text-right text-sm">
-                <span className="inline-block px-3 py-1 rounded-full font-semibold bg-orange-100 text-orange-700">
-                  Expired
+                <span className="inline-block px-3 py-1 rounded-full font-semibold bg-green-100 text-green-700">
+                  Selesai
                 </span>
                 <div className="text-gray-500 mt-1">
                   {h.date} {String(h.time).slice(0,5)}
@@ -114,8 +114,8 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
                     <span className="ml-1">- {String(h.endTime).slice(0,5)}</span>
                   )}
                   {h.completedAt && (
-                    <div className="text-xs text-orange-600 mt-1">
-                      Expired: {new Date(h.completedAt).toLocaleString('id-ID')}
+                    <div className="text-xs text-green-600 mt-1">
+                      Selesai: {new Date(h.completedAt).toLocaleString('id-ID')}
                     </div>
                   )}
                 </div>

@@ -25,10 +25,9 @@ export default defineConfig(({ mode }) => {
         proxy: {
           // Proxy API requests to PHP backend (development only)
           '/api': {
-            target: 'http://localhost/aplikasi-meeting-ai/backend/public',
+            target: 'http://localhost/aplikasi-meeting-ai',
             changeOrigin: true,
             secure: false,
-            rewrite: (path) => path.replace(/^\/api/, ''),
             configure: (proxy, options) => {
               proxy.on('error', (err, req, res) => {
                 console.log('proxy error', err);

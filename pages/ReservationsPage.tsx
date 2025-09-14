@@ -6,8 +6,9 @@ import { ApiService } from '../src/config/api';
 import { addHistory } from '../services/historyService';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import RispatService from '../services/rispatService';
 
-const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | number) => void, onDetail: (b: Booking) => void, onComplete: (b: Booking) => void, getBookingStatus: (date: string, startTime: string, endTime?: string, serverTime?: any) => string }> = ({ booking, onCancel, onDetail, onComplete, getBookingStatus }) => {
+const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | number) => void, onDetail: (b: Booking) => void, onComplete: (b: Booking) => void, getBookingStatus: (date: string, startTime: string, endTime?: string, serverTime?: any) => string, hasRispat?: boolean }> = ({ booking, onCancel, onDetail, onComplete, getBookingStatus, hasRispat = false }) => {
   const { isDarkMode } = useDarkMode();
   const { t } = useLanguage();
   const getRoomImage = (roomName?: string, imageUrl?: string) => {
@@ -89,6 +90,20 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
   };
 
   const handleDetail = () => {
+    const facilitiesText = (() => {
+      if (booking.facilities && Array.isArray(booking.facilities) && booking.facilities.length > 0) {
+        return booking.facilities.join(', ');
+      } else if (booking.facilities && typeof booking.facilities === 'string') {
+        try {
+          const parsed = JSON.parse(booking.facilities);
+          return Array.isArray(parsed) ? parsed.join(', ') : booking.facilities;
+        } catch (e) {
+          return booking.facilities;
+        }
+      }
+      return 'Tidak ada fasilitas khusus';
+    })();
+    
     alert(
       `Rincian Reservasi\n\n`+
       `Ruangan : ${booking.roomName}\n`+
@@ -98,7 +113,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
       `Peserta : ${booking.participants}\n`+
       `PIC     : ${booking.pic || '-'}\n`+
       `Jenis   : ${booking.meetingType}\n`+
-      `Makanan : ${booking.foodOrder}`
+      `Fasilitas : ${facilitiesText}`
     );
   };
 
@@ -174,7 +189,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
             </div>
             
             {/* Details Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
               <div className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-gray-600' : 'bg-gray-100'}`}>
                   <span className="text-blue-600 text-sm">📅</span>
@@ -222,6 +237,54 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                   </div>
                 </div>
               </div>
+              
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-gray-600' : 'bg-gray-100'}`}>
+                  <span className="text-cyan-600 text-sm">⚙️</span>
+                </div>
+                <div>
+                  <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Fasilitas</div>
+                  <div className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                    {(() => {
+                      if (booking.facilities && Array.isArray(booking.facilities) && booking.facilities.length > 0) {
+                        return booking.facilities.slice(0, 2).join(', ') + (booking.facilities.length > 2 ? '...' : '');
+                      } else if (booking.facilities && typeof booking.facilities === 'string') {
+                        try {
+                          const parsed = JSON.parse(booking.facilities);
+                          if (Array.isArray(parsed) && parsed.length > 0) {
+                            return parsed.slice(0, 2).join(', ') + (parsed.length > 2 ? '...' : '');
+                          }
+                        } catch (e) {
+                          return booking.facilities.length > 20 ? booking.facilities.substring(0, 20) + '...' : booking.facilities;
+                        }
+                      }
+                      return 'Tidak ada';
+                    })()}
+                  </div>
+                </div>
+                
+                {/* Rispat Status Indicator */}
+                <div className="flex items-center gap-2">
+                  <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Risalah Rapat</div>
+                  <div className={`font-semibold text-sm ${hasRispat ? 'text-green-600' : 'text-orange-600'}`}>
+                    {hasRispat ? (
+                      <div className="flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span>Tersedia</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span>Belum Upload</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
             
             {/* Action Buttons */}
@@ -241,9 +304,15 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                     <>
                       <button 
                         onClick={handleComplete} 
-                        className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'} text-white shadow-md hover:shadow-lg`}
+                        disabled={!hasRispat}
+                        className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                          hasRispat 
+                            ? (isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600') + ' text-white shadow-md hover:shadow-lg'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                        title={hasRispat ? 'Klik untuk menyelesaikan reservasi' : 'Upload risalah rapat terlebih dahulu untuk menyelesaikan reservasi'}
                       >
-                        ✅ {t('reservations.complete')}
+                        ✅ {hasRispat ? t('reservations.complete') : 'Upload Rispat Dulu'}
                       </button>
                       <button 
                         onClick={() => onCancel(booking.id)} 
@@ -277,8 +346,59 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     const [serverBookings, setServerBookings] = useState<any[]>([]);
     const [aiBookings, setAiBookings] = useState<any[]>([]);
     const [serverCurrentTime, setServerCurrentTime] = useState<any>(null);
+    const [rispatStatus, setRispatStatus] = useState<{[key: string]: boolean}>({}); // Track rispat status for each booking
+    
+    // Calculate active reservations based on current time
+    const getActiveReservations = () => {
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0];
+        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+        
+        return filteredSorted.filter(booking => {
+            // Check if booking is today
+            if (booking.date !== currentDate) return false;
+            
+            // Check if current time is within booking time range
+            const startTime = booking.time;
+            const endTime = booking.endTime || booking.time; // fallback to start time if no end time
+            
+            return currentTime >= startTime && currentTime <= endTime;
+        });
+    };
+    
+    // Calculate rooms currently in use
+    const getRoomsInUse = () => {
+        const activeReservations = getActiveReservations();
+        const uniqueRooms = new Set(activeReservations.map(booking => booking.roomName));
+        return uniqueRooms.size;
+    };
     const { isDarkMode } = useDarkMode();
     const { t } = useLanguage();
+
+    // Function to check rispat status for all bookings
+    const checkRispatStatus = async () => {
+        const statusMap: {[key: string]: boolean} = {};
+        
+        // Check rispat status for all bookings
+        const allBookings = [...serverBookings, ...aiBookings];
+        
+        for (const booking of allBookings) {
+            try {
+                let actualBookingId = booking.id;
+                if (String(booking.id).startsWith('ai_')) {
+                    actualBookingId = String(booking.id).replace('ai_', '');
+                }
+                
+                const rispatFiles = await RispatService.getRispatByBookingId(Number(actualBookingId));
+                statusMap[String(booking.id)] = rispatFiles.length > 0;
+            } catch (error) {
+                console.error('Error checking rispat for booking', booking.id, error);
+                statusMap[String(booking.id)] = false;
+            }
+        }
+        
+        setRispatStatus(statusMap);
+    };
 
     const fetchServerTime = async () => {
         // Use browser time directly since it's already in WIB
@@ -567,6 +687,13 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
         }
     }, [refreshTrigger]);
 
+    // Check rispat status when bookings change
+    useEffect(() => {
+        if (serverBookings.length > 0 || aiBookings.length > 0) {
+            checkRispatStatus();
+        }
+    }, [serverBookings, aiBookings]);
+
     // Refresh data when component becomes visible (after booking)
     useEffect(() => {
         const handleVisibilityChange = () => {
@@ -679,7 +806,8 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                 date: b.date,
                 time: b.time,
                 participants: b.participants,
-                status: 'Selesai'
+                status: 'Selesai',
+                completedAt: new Date().toISOString()
             });
             
             // Remove from all states - PERMANENT REMOVAL
@@ -690,6 +818,9 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             
             // Remove from AI bookings (AI bookings)
             setAiBookings(prev => prev.filter((x:any) => String(x.id) !== String(String(b.id).replace('ai_', ''))));
+            
+            // Show success message
+            alert('✅ Reservasi berhasil diselesaikan! Risalah rapat dapat dilihat di halaman View Rispat.');
             
         } catch (e) {
             console.error('Error completing booking:', e);
@@ -784,7 +915,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-gray-600 text-sm font-medium">{t('reservations.activeReservations')}</p>
-                                <p className="text-3xl font-bold text-green-600">{filteredSorted.length}</p>
+                                <p className="text-3xl font-bold text-green-600">{getActiveReservations().length}</p>
                             </div>
                             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
                                 <span className="text-green-600 text-xl">✅</span>
@@ -796,7 +927,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-gray-600 text-sm font-medium">{t('reservations.roomsUsed')}</p>
-                                <p className="text-3xl font-bold text-purple-600">{new Set(filteredSorted.map(b => b.roomName)).size}</p>
+                                <p className="text-3xl font-bold text-purple-600">{getRoomsInUse()}</p>
                             </div>
                             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
                                 <span className="text-purple-600 text-xl">🏢</span>
@@ -844,7 +975,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                         sessionStorage.setItem('detail_booking', JSON.stringify(b));
                         const ev = new CustomEvent('set_detail_booking');
                         window.dispatchEvent(ev as any);
-                    }} onComplete={handleCompleteBooking} getBookingStatus={(date, startTime, endTime) => getBookingStatusWithServerTime(date, startTime, endTime, serverCurrentTime)} />)
+                    }} onComplete={handleCompleteBooking} getBookingStatus={(date, startTime, endTime) => getBookingStatusWithServerTime(date, startTime, endTime, serverCurrentTime)} hasRispat={rispatStatus[String(booking.id)] || false} />)
                 ) : (
                         <div className="bg-white rounded-2xl p-12 shadow-lg text-center">
                             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">

@@ -128,46 +128,81 @@ const App = () => {
             console.log('🔍 App.tsx - Raw AI bookings:', aiBookings);
             
             // Format server bookings
-            const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => ({
-                id: b.id,
-                roomId: b.room_id || 0,
-                roomName: b.room_name || `Room ${b.room_id}` || '—',
-                topic: b.topic,
-                date: b.meeting_date,
-                time: b.meeting_time,
-                endTime: b.end_time ? b.end_time.slice(0, 5) : null, // Format HH:MM
-                participants: Number(b.participants || 0),
-                pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-                meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                facilities: (b.facilities && Array.isArray(b.facilities)) ? b.facilities : [],
-            }));
-
-            // Format AI bookings
-            const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => ({
-                id: `ai_${b.id}`, // Prefix dengan 'ai_' untuk membedakan dari form bookings
-                roomId: b.room_id || 0,
-                roomName: b.room_name || `Room ${b.room_id}` || '—',
-                topic: b.topic,
-                date: b.meeting_date,
-                time: b.meeting_time,
-                endTime: b.end_time ? b.end_time.slice(0, 5) : null, // Format HH:MM
-                duration: b.duration || 60, // Durasi dalam menit, default 60 menit
-                participants: Number(b.participants || 0),
-                pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-                meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
-                facilities: (() => {
+            const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => {
+                console.log('🔍 App.tsx - Raw server booking facilities:', b.facilities, 'Type:', typeof b.facilities);
+                
+                const formattedFacilities = (() => {
                     if (b.facilities && Array.isArray(b.facilities)) {
                         return b.facilities;
                     } else if (b.facilities && typeof b.facilities === 'string') {
                         try {
-                            return JSON.parse(b.facilities);
+                            const parsed = JSON.parse(b.facilities);
+                            if (Array.isArray(parsed)) {
+                                return parsed;
+                            }
                         } catch (e) {
-                            return [];
+                            // If not JSON, split by comma
+                            return b.facilities.split(',').map((s: string) => s.trim()).filter(Boolean);
                         }
                     }
                     return [];
-                })(),
-            }));
+                })();
+                
+                console.log('🔍 App.tsx - Formatted server booking facilities:', formattedFacilities);
+                
+                return {
+                    id: b.id,
+                    roomId: b.room_id || 0,
+                    roomName: b.room_name || `Room ${b.room_id}` || '—',
+                    topic: b.topic,
+                    date: b.meeting_date,
+                    time: b.meeting_time,
+                    endTime: b.end_time ? b.end_time.slice(0, 5) : null, // Format HH:MM
+                    participants: Number(b.participants || 0),
+                    pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
+                    meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
+                    facilities: formattedFacilities,
+                };
+            });
+
+            // Format AI bookings
+            const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => {
+                console.log('🔍 App.tsx - Raw AI booking facilities:', b.facilities, 'Type:', typeof b.facilities);
+                
+                const formattedFacilities = (() => {
+                    if (b.facilities && Array.isArray(b.facilities)) {
+                        return b.facilities;
+                    } else if (b.facilities && typeof b.facilities === 'string') {
+                        try {
+                            const parsed = JSON.parse(b.facilities);
+                            if (Array.isArray(parsed)) {
+                                return parsed;
+                            }
+                        } catch (e) {
+                            // If not JSON, split by comma
+                            return b.facilities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                        }
+                    }
+                    return [];
+                })();
+                
+                console.log('🔍 App.tsx - Formatted AI booking facilities:', formattedFacilities);
+                
+                return {
+                    id: `ai_${b.id}`, // Prefix dengan 'ai_' untuk membedakan dari form bookings
+                    roomId: b.room_id || 0,
+                    roomName: b.room_name || `Room ${b.room_id}` || '—',
+                    topic: b.topic,
+                    date: b.meeting_date,
+                    time: b.meeting_time,
+                    endTime: b.end_time ? b.end_time.slice(0, 5) : null, // Format HH:MM
+                    duration: b.duration || 60, // Durasi dalam menit, default 60 menit
+                    participants: Number(b.participants || 0),
+                    pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
+                    meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
+                    facilities: formattedFacilities,
+                };
+            });
             
             console.log('🔍 App.tsx - Formatted AI bookings:', aiBookingsFormatted);
             console.log('🔍 App.tsx - Formatted server bookings:', serverBookingsFormatted);
@@ -413,7 +448,7 @@ const App = () => {
         
         const pageComponents: { [key in Page]?: React.ReactNode } = {
             [Page.Dashboard]: <DashboardPage onNavigate={navigateTo} bookings={bookings} key={refreshTrigger} />,
-            [Page.MeetingRooms]: <MeetingRoomsPage onNavigate={navigateTo} onBookRoom={handleBookRoom} onRoomDetail={handleRoomDetail} onAddRoom={handleAddRoom} />,
+            [Page.MeetingRooms]: <MeetingRoomsPage onNavigate={navigateTo} onBookRoom={handleBookRoom} onRoomDetail={handleRoomDetail} onAddRoom={handleAddRoom} bookings={bookings} />,
             [Page.RoomDetail]: <RoomDetailPage onNavigate={navigateTo} onBookRoom={handleBookRoom} room={selectedRoom} bookings={bookings} onEditRoom={handleEditRoom} onDeleteRoom={handleDeleteRoom} />,
             [Page.EditRoom]: <EditRoomPage onNavigate={navigateTo} room={selectedRoom} onRoomUpdated={handleRoomUpdated} />,
             [Page.AddRoom]: <AddRoomPage onNavigate={navigateTo} onRoomAdded={handleRoomAdded} />,

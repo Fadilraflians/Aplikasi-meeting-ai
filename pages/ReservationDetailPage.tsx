@@ -49,6 +49,16 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Debug logging untuk fasilitas
+  useEffect(() => {
+    if (booking) {
+      console.log('🔍 ReservationDetailPage - booking data:', booking);
+      console.log('🔍 ReservationDetailPage - facilities:', booking.facilities);
+      console.log('🔍 ReservationDetailPage - facilities type:', typeof booking.facilities);
+      console.log('🔍 ReservationDetailPage - facilities is array:', Array.isArray(booking.facilities));
+    }
+  }, [booking]);
+
 
   
   if (!booking) {
@@ -85,8 +95,10 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
     
     try {
       // Debug: Log booking data
-      console.log('Debug loadRispatFiles - booking object:', booking);
-      console.log('Debug loadRispatFiles - booking.id:', booking.id, 'type:', typeof booking.id);
+      console.log('🔍 Debug loadRispatFiles - booking object:', booking);
+      console.log('🔍 Debug loadRispatFiles - booking.id:', booking.id, 'type:', typeof booking.id);
+      console.log('🔍 Debug loadRispatFiles - booking.roomName:', booking.roomName);
+      console.log('🔍 Debug loadRispatFiles - booking.topic:', booking.topic);
       
       // Handle AI bookings (id dengan prefix 'ai_')
       let bookingId: number;
@@ -109,11 +121,19 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
         return;
       }
       
-      console.log('Debug loadRispatFiles - Calling API with bookingId:', bookingId);
-      console.log('Debug loadRispatFiles - API URL will be:', `http://localhost/aplikasi-meeting-ai/api/rispat.php?booking_id=${bookingId}`);
+      console.log('🔍 Debug loadRispatFiles - Calling API with bookingId:', bookingId);
+      console.log('🔍 Debug loadRispatFiles - API URL will be:', `/api/rispat.php?booking_id=${bookingId}`);
+      
       const files = await RispatService.getRispatByBookingId(bookingId);
-      console.log('Debug loadRispatFiles - API returned files:', files);
-      console.log('Debug loadRispatFiles - Files count:', files.length);
+      console.log('🔍 Debug loadRispatFiles - API returned files:', files);
+      console.log('🔍 Debug loadRispatFiles - Files count:', files.length);
+      console.log('🔍 Debug loadRispatFiles - Files type:', typeof files);
+      console.log('🔍 Debug loadRispatFiles - Files is array:', Array.isArray(files));
+      
+      if (files && files.length > 0) {
+        console.log('🔍 Debug loadRispatFiles - First file:', files[0]);
+      }
+      
       setRispatFiles(files);
     } catch (error) {
       console.error('Error loading rispat files:', error);
@@ -245,7 +265,19 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                 <div className="space-y-4">
                   <InfoRow label="👥 Peserta" value={`${booking.participants} orang`} />
                   <InfoRow label="📋 Jenis Rapat" value={booking.meetingType} />
-                  <InfoRow label="⚙️ Fasilitas" value={booking.facilities ? booking.facilities.join(', ') : '—'} />
+                  <InfoRow label="⚙️ Fasilitas" value={(() => {
+                    if (booking.facilities && Array.isArray(booking.facilities) && booking.facilities.length > 0) {
+                      return booking.facilities.join(', ');
+                    } else if (booking.facilities && typeof booking.facilities === 'string') {
+                      try {
+                        const parsed = JSON.parse(booking.facilities);
+                        return Array.isArray(parsed) ? parsed.join(', ') : booking.facilities;
+                      } catch (e) {
+                        return booking.facilities;
+                      }
+                    }
+                    return 'Tidak ada fasilitas khusus';
+                  })()} />
                   
                   {/* Kolom Risalah Rapat */}
                   <div className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
@@ -577,8 +609,13 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
             
             <div className="p-6">
               {(() => {
-                console.log('Debug Modal - rispatFiles:', rispatFiles);
-                console.log('Debug Modal - rispatFiles.length:', rispatFiles.length);
+                console.log('🔍 Debug Modal - rispatFiles:', rispatFiles);
+                console.log('🔍 Debug Modal - rispatFiles.length:', rispatFiles.length);
+                console.log('🔍 Debug Modal - rispatFiles type:', typeof rispatFiles);
+                console.log('🔍 Debug Modal - rispatFiles is array:', Array.isArray(rispatFiles));
+                if (rispatFiles.length > 0) {
+                  console.log('🔍 Debug Modal - First file:', rispatFiles[0]);
+                }
                 return null;
               })()}
               {rispatFiles.length > 0 ? (

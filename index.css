@@ -48,6 +48,26 @@ body {
   display: none;  /* Safari and Chrome */
 }
 
+/* Scrollbar styling - Shorter */
+body::-webkit-scrollbar {
+  width: 8px;
+}
+
+body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  min-height: 20px;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 /* Button styles */
 .btn {
   display: inline-flex;

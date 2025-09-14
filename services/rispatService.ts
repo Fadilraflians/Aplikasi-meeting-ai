@@ -1,4 +1,7 @@
-const API_BASE_URL = 'http://localhost/aplikasi-meeting-ai/api';
+// Import API configuration
+const API_BASE_URL = process.env.NODE_ENV === 'production'
+    ? (process.env.VITE_PROD_API_URL || `${(typeof window !== 'undefined' ? window.location.origin : '')}/api`)
+    : '/api'; // Use relative path for development (Vite proxy will handle it)
 
 export interface RispatFile {
   id: number;
@@ -48,18 +51,23 @@ class RispatService {
       }
       
       const text = await response.text();
+      console.log('🔍 RispatService - Raw response text:', text);
+      
       let data: RispatListResponse;
       
       try {
         data = JSON.parse(text);
+        console.log('🔍 RispatService - Parsed data:', data);
       } catch (parseError) {
-        console.error('Invalid JSON response:', text);
+        console.error('❌ RispatService - Invalid JSON response:', text);
         throw new Error('Server mengembalikan response yang tidak valid. Pastikan API berjalan dengan benar.');
       }
       
       if (data.success) {
+        console.log('🔍 RispatService - Success response, data:', data.data);
         return data.data || [];
       } else {
+        console.error('❌ RispatService - Error response:', data.message);
         throw new Error(data.message || 'Gagal mengambil data risalah rapat');
       }
     } catch (error) {
