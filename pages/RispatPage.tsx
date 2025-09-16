@@ -14,6 +14,8 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
   const [rispatFiles, setRispatFiles] = useState<any[]>([]);
   const [showRispatModal, setShowRispatModal] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | number | null>(null);
+  const [serverBookings, setServerBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const { t } = useLanguage();
 
   // Fungsi untuk load rispat files
@@ -38,6 +40,42 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
     }
   };
 
+  // Fungsi untuk load bookings dari server
+  const loadServerBookings = async () => {
+    try {
+      setLoading(true);
+      const userDataStr = localStorage.getItem('user_data');
+      const userData = userDataStr ? JSON.parse(userDataStr) : null;
+      const userId = userData?.id;
+      
+      if (!userId) {
+        console.log('No user ID found');
+        setServerBookings([]);
+        return;
+      }
+      
+      // Load all bookings from server (including completed ones)
+      const response = await fetch(`/api/bookings.php?user_id=${userId}`);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setServerBookings(result.data);
+      } else {
+        setServerBookings([]);
+      }
+    } catch (error) {
+      console.error('Error loading server bookings:', error);
+      setServerBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load server bookings on component mount
+  useEffect(() => {
+    loadServerBookings();
+  }, []);
+
   // Fungsi untuk handle view rispat
   const handleViewRispat = async (bookingId: string | number) => {
     setSelectedBookingId(bookingId);
@@ -46,19 +84,52 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const items = useMemo(() => {
-    // Hanya tampilkan histori dengan status 'Selesai' (COMPLETE)
+    // Gabungkan data dari localStorage dan server
     const local = getHistory();
     console.log('RispatPage - All history entries:', local);
+    console.log('RispatPage - Server bookings:', serverBookings);
     console.log('RispatPage - Selected date:', date);
     
-    const filtered = local.filter(h => h.date === date && h.status === 'Selesai');
-    console.log('RispatPage - Filtered complete entries for date:', filtered);
+    // Filter data lokal dengan status 'Selesai'
+    const localFiltered = local.filter(h => h.date === date && h.status === 'Selesai');
     
-    const sorted = filtered.sort((a,b)=> (a.time>b.time?1:-1));
-    console.log('RispatPage - Final sorted complete entries:', sorted);
+    // Filter data server untuk tanggal yang sama dan status complete
+    const serverFiltered = serverBookings.filter(booking => {
+      const bookingDate = booking.meeting_date || booking.date;
+      const isComplete = booking.booking_state === 'COMPLETED' || booking.status === 'completed';
+      return bookingDate === date && isComplete;
+    });
+    
+    // Gabungkan dan format data
+    const combinedItems = [
+      ...localFiltered.map(item => ({
+        ...item,
+        source: 'local'
+      })),
+      ...serverFiltered.map(booking => ({
+        id: booking.id,
+        roomName: booking.room_name,
+        topic: booking.topic,
+        date: booking.meeting_date || booking.date,
+        time: booking.start_time || booking.time,
+        endTime: booking.end_time,
+        participants: booking.participants,
+        pic: booking.pic,
+        status: 'Selesai', // Server bookings dianggap selesai
+        source: 'server'
+      }))
+    ];
+    
+    // Remove duplicates berdasarkan ID
+    const uniqueItems = combinedItems.filter((item, index, self) => 
+      index === self.findIndex(t => t.id === item.id)
+    );
+    
+    const sorted = uniqueItems.sort((a,b)=> (a.time>b.time?1:-1));
+    console.log('RispatPage - Final combined entries:', sorted);
     
     return sorted;
-  }, [date]);
+  }, [date, serverBookings]);
 
   return (
     <div className="bg-white/80 backdrop-blur-sm p-6 md:p-8 rounded-2xl shadow-lg">

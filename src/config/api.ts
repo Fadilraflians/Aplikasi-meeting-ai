@@ -5,13 +5,13 @@
 
 // Base API URL: use environment variables for different environments
 export const API_BASE_URL = process.env.NODE_ENV === 'production'
-    ? (process.env.VITE_PROD_API_URL || `${(typeof window !== 'undefined' ? window.location.origin : '')}/backend/api`)
-    : (process.env.VITE_API_URL || 'http://localhost:8080/backend/api');
+    ? (process.env.VITE_PROD_API_URL || `${(typeof window !== 'undefined' ? window.location.origin : '')}/api`)
+    : (process.env.VITE_API_URL || '/api');
 
 // Separate base for Auth endpoints (lives under /api, not /backend/api)
 export const AUTH_API_BASE_URL = process.env.NODE_ENV === 'production'
     ? (process.env.VITE_PROD_API_URL || `${(typeof window !== 'undefined' ? window.location.origin : '')}/api`)
-    : (process.env.VITE_API_URL || 'http://localhost:8080/api');
+    : (process.env.VITE_API_URL || '/api');
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -25,8 +25,8 @@ export const API_ENDPOINTS = {
     
     // Meeting Rooms
     ROOMS: {
-        GET_ALL: `${API_BASE_URL}/bookings.php/rooms`,
-        GET_BY_ID: (id: number) => `${API_BASE_URL}/bookings.php/rooms/${id}`,
+        GET_ALL: `${API_BASE_URL}/meeting_rooms.php`,
+        GET_BY_ID: (id: number) => `${API_BASE_URL}/meeting_rooms.php?action=get_by_id&room_id=${id}`,
         GET_AVAILABLE: (startTime: string, endTime: string) => 
             `${API_BASE_URL}/bookings.php/availability?start_time=${startTime}&end_time=${endTime}`,
         GET_AVAILABILITY: (roomId: number, date: string, startTime: string, endTime: string) =>
@@ -65,7 +65,7 @@ export const API_ENDPOINTS = {
             if (userId) url += `&user_id=${userId}`;
             return url;
         },
-        CREATE: `${API_BASE_URL}/bookings.php/bookings`,
+        CREATE: `${API_BASE_URL}/bookings.php`,
         UPDATE: `${API_BASE_URL}/bookings.php/bookings`,
         // Backend expects /bookings.php/{id} for DELETE
         CANCEL: (id: number) => `${API_BASE_URL}/bookings.php/${id}`,
@@ -257,7 +257,10 @@ export class ApiService {
     static async createBooking(bookingData: any) {
         return this.makeRequest(API_ENDPOINTS.RESERVATIONS.CREATE, {
             method: 'POST',
-            body: JSON.stringify(bookingData)
+            body: JSON.stringify({
+                action: 'create',
+                booking_data: bookingData
+            })
         });
     }
 
@@ -312,6 +315,38 @@ export class ApiService {
             // For form bookings, use regular endpoint
             return this.makeRequest(API_ENDPOINTS.RESERVATIONS.CANCEL(Number(id)), {
                 method: 'DELETE'
+            });
+        }
+    }
+
+    static async completeBooking(id: number | string) {
+        // Check if this is an AI booking
+        const isAiBooking = String(id).startsWith('ai_');
+        
+        if (isAiBooking) {
+            // For AI bookings, remove prefix and use complete endpoint
+            const aiId = String(id).replace('ai_', '');
+            return this.makeRequest(`${API_BASE_URL}/bookings.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'complete',
+                    booking_id: aiId
+                })
+            });
+        } else {
+            // For form bookings, use complete endpoint
+            return this.makeRequest(`${API_BASE_URL}/bookings.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'complete',
+                    booking_id: id
+                })
             });
         }
     }

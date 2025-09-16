@@ -197,8 +197,19 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
         setShowUploadModal(false);
         setSelectedFile(null);
         loadRispatFiles(); // Reload data
+        
+        // Notify ReservationsPage to refresh rispat status
+        const refreshEvent = new CustomEvent('rispatUploaded', {
+          detail: { bookingId: bookingId }
+        });
+        window.dispatchEvent(refreshEvent);
       } else {
-        alert('Gagal mengupload file: ' + result.message);
+        // Handle specific database errors
+        let errorMessage = result.message || 'Gagal mengupload file';
+        if (errorMessage.includes('Data too long for column')) {
+          errorMessage = 'File type tidak didukung atau terlalu besar. Silakan gunakan file yang lebih kecil atau format yang berbeda.';
+        }
+        alert('Gagal mengupload file: ' + errorMessage);
       }
     } catch (error) {
       console.error('Upload error:', error);

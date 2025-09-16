@@ -624,8 +624,28 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
     const upcomingBookings = unified.filter(booking => {
         const status = getBookingStatus(booking.date, booking.time, booking.endTime);
         console.log(`🔍 Dashboard Booking ${booking.topic} (${booking.date} ${booking.time}): Status = ${status}`);
+        
+        // Filter out expired bookings (same logic as ReservationsPage)
+        const isExpired = status === 'expired';
+        if (isExpired) {
+            console.log('🔍 Dashboard Filtering out expired booking:', booking.topic, 'Status:', status);
+            return false;
+        }
+        
         const isUpcoming = status === 'upcoming' || status === 'ongoing';
         console.log(`🔍 Dashboard Is upcoming: ${isUpcoming}`);
+        
+        // Filter out completed bookings (same logic as ReservationsPage)
+        const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+        const isCompleted = history.some((h: any) => 
+            String(h.id) === String(booking.id) && h.status === 'Selesai'
+        );
+        
+        if (isCompleted) {
+            console.log('🔍 Dashboard Filtering out completed booking:', booking.topic, 'ID:', booking.id);
+            return false;
+        }
+        
         return isUpcoming;
     });
     

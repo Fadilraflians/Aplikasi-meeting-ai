@@ -348,13 +348,14 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     const [serverCurrentTime, setServerCurrentTime] = useState<any>(null);
     const [rispatStatus, setRispatStatus] = useState<{[key: string]: boolean}>({}); // Track rispat status for each booking
     
-    // Calculate active reservations based on current time
+    // Calculate active reservations based on current time and status
     const getActiveReservations = () => {
         const now = new Date();
         const currentDate = now.toISOString().split('T')[0];
         const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
         
-        return filteredSorted.filter(booking => {
+        // Use bookings from props (not filteredSorted) to get all bookings
+        return bookings.filter(booking => {
             // Check if booking is today
             if (booking.date !== currentDate) return false;
             
@@ -362,7 +363,16 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             const startTime = booking.time;
             const endTime = booking.endTime || booking.time; // fallback to start time if no end time
             
-            return currentTime >= startTime && currentTime <= endTime;
+            // Check if booking is currently active (time-wise)
+            const isTimeActive = currentTime >= startTime && currentTime <= endTime;
+            
+            // Also check if booking is not completed
+            const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            const isCompleted = history.some((h: any) => 
+                String(h.id) === String(booking.id) && h.status === 'Selesai'
+            );
+            
+            return isTimeActive && !isCompleted;
         });
     };
     
@@ -379,10 +389,8 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     const checkRispatStatus = async () => {
         const statusMap: {[key: string]: boolean} = {};
         
-        // Check rispat status for all bookings
-        const allBookings = [...serverBookings, ...aiBookings];
-        
-        for (const booking of allBookings) {
+        // Check rispat status for all bookings from props
+        for (const booking of bookings) {
             try {
                 let actualBookingId = booking.id;
                 if (String(booking.id).startsWith('ai_')) {
@@ -391,6 +399,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                 
                 const rispatFiles = await RispatService.getRispatByBookingId(Number(actualBookingId));
                 statusMap[String(booking.id)] = rispatFiles.length > 0;
+                console.log(`Rispat status for booking ${booking.id}: ${rispatFiles.length > 0 ? 'HAS RISPAT' : 'NO RISPAT'}`);
             } catch (error) {
                 console.error('Error checking rispat for booking', booking.id, error);
                 statusMap[String(booking.id)] = false;
@@ -398,6 +407,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
         }
         
         setRispatStatus(statusMap);
+        console.log('Updated rispat status:', statusMap);
     };
 
     const fetchServerTime = async () => {
@@ -521,72 +531,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
         return finalStatus;
     };
 
-    const loadServerBookings = () => {
-        const userDataStr = localStorage.getItem('user_data');
-        let userData: any = null;
-        try {
-            userData = userDataStr ? JSON.parse(userDataStr) : null;
-        } catch (e) {
-            // Jika localStorage berisi string non-JSON, jangan crash
-            userData = null;
-        }
-        const primaryUserId = userData?.id || 1;
-        const fallbackUserId = 1;
-
-
-
-        // Load MySQL bookings (form-based)
-        console.log('Loading server bookings for user:', primaryUserId);
-        ApiService.getUserBookings(primaryUserId)
-            .then(res => {
-                console.log('Server bookings response:', res);
-                const rows = res.data || [];
-                if (rows.length > 0 || primaryUserId === fallbackUserId) {
-                    setServerBookings(rows);
-                } else {
-                    // Fallback ke user default agar kompatibel dengan data sample
-                    return ApiService.getUserBookings(fallbackUserId)
-                        .then(res2 => {
-                            console.log('Fallback server bookings response:', res2);
-                            setServerBookings(res2.data || []);
-                        })
-                        .catch((e) => {
-                            console.error('Fallback server bookings error:', e);
-                            setServerBookings([]);
-                        });
-                }
-            })
-            .catch((e) => {
-                console.error('Server bookings error:', e);
-                setServerBookings([]);
-            });
-
-        // Load AI bookings from ai_bookings_success table
-        console.log('Loading AI bookings for user:', primaryUserId);
-        ApiService.getAIBookingsByUserId(primaryUserId)
-            .then(res => {
-                console.log('AI bookings response:', res);
-                const rows = res.data || [];
-                if (rows.length > 0 || primaryUserId === fallbackUserId) {
-                    setAiBookings(rows);
-                } else {
-                    // Fallback ke user default agar kompatibel dengan data sample
-                    return ApiService.getAIBookingsByUserId(fallbackUserId)
-                        .then(res2 => {
-                            console.log('Fallback AI bookings response:', res2);
-                            setAiBookings(res2.data || []);
-                        })
-                        .catch((e) => {
-                            console.error('Fallback AI bookings error:', e);
-                            setAiBookings([]);
-                        });
-                }
-            })
-            .catch((e) => {
-                console.error('AI bookings error:', e);
-                setAiBookings([]);
-            });
-    };
+    // REMOVED loadServerBookings function - using bookings from props instead to prevent duplication
 
     // Fungsi untuk memindahkan meeting expired ke history
     const moveExpiredToHistory = useCallback(async (bookings: any[]) => {
@@ -657,7 +602,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
 
     useEffect(() => {
         fetchServerTime();
-        loadServerBookings();
+        // loadServerBookings(); // REMOVED - using bookings from props instead
     }, []);
 
     // Pindahkan meeting expired ke history setelah data dimuat
@@ -683,37 +628,45 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     useEffect(() => {
         if (refreshTrigger) {
             console.log('Refresh trigger changed, refreshing bookings...');
-            loadServerBookings();
+            // Refresh rispat status when data changes
+            checkRispatStatus();
         }
     }, [refreshTrigger]);
 
     // Check rispat status when bookings change
     useEffect(() => {
-        if (serverBookings.length > 0 || aiBookings.length > 0) {
+        if (bookings.length > 0) {
             checkRispatStatus();
         }
-    }, [serverBookings, aiBookings]);
+    }, [bookings]);
 
     // Refresh data when component becomes visible (after booking)
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (!document.hidden) {
                 console.log('Page became visible, refreshing bookings...');
-                loadServerBookings();
+                // loadServerBookings(); // REMOVED - using bookings from props instead
             }
         };
 
         const handleFocus = () => {
             console.log('Window focused, refreshing bookings...');
-            loadServerBookings();
+            // loadServerBookings(); // REMOVED - using bookings from props instead
+        };
+
+        const handleRispatUploaded = () => {
+            console.log('Rispat uploaded, refreshing rispat status...');
+            checkRispatStatus();
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('focus', handleFocus);
+        window.addEventListener('rispatUploaded', handleRispatUploaded);
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('rispatUploaded', handleRispatUploaded);
         };
     }, []);
 
@@ -790,12 +743,12 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             const isAiBooking = String(b.id).startsWith('ai_');
             
             if (isAiBooking) {
-                // For AI bookings, call the AI cancel endpoint
-                await ApiService.cancelBooking(b.id);
+                // For AI bookings, call the complete endpoint
+                await ApiService.completeBooking(b.id);
                 console.log('AI booking completed via API:', b.id);
             } else {
-                // For form bookings, call the regular API
-                await ApiService.cancelBooking(Number(b.id));
+                // For form bookings, call the complete endpoint
+                await ApiService.completeBooking(Number(b.id));
             }
             
             // Add to history
@@ -810,14 +763,12 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                 completedAt: new Date().toISOString()
             });
             
-            // Remove from all states - PERMANENT REMOVAL
+            // Remove booking from active list completely
+            // This will make it disappear from ReservationsPage
             onRemoveLocalBooking?.(Number(b.id));
             
-            // Remove from server bookings (form bookings)
-            setServerBookings(prev => prev.filter((x:any) => String(x.id) !== String(b.id)));
-            
-            // Remove from AI bookings (AI bookings)
-            setAiBookings(prev => prev.filter((x:any) => String(x.id) !== String(String(b.id).replace('ai_', ''))));
+            // The completed booking will now appear in RispatPage and HistoryPage
+            // The filteredSorted useMemo will automatically filter out completed bookings
             
             // Show success message
             alert('✅ Reservasi berhasil diselesaikan! Risalah rapat dapat dilihat di halaman View Rispat.');
@@ -834,8 +785,63 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
         console.log('🔍 ReservationsPage - Using bookings from props:', bookings);
         console.log('🔍 ReservationsPage - Props bookings count:', bookings.length);
         
-        // Gunakan hanya bookings dari props (yang sudah di-format dari App.tsx)
-        const list = bookings.filter(b => {
+        // Log all booking details for debugging
+        bookings.forEach((booking, index) => {
+            console.log(`🔍 ReservationsPage - Booking ${index}:`, {
+                id: booking.id,
+                topic: booking.topic,
+                date: booking.date,
+                time: booking.time,
+                roomName: booking.roomName,
+                pic: booking.pic
+            });
+        });
+        
+        // Check for potential duplicates by content (not just ID)
+        const contentDuplicates = [];
+        for (let i = 0; i < bookings.length; i++) {
+            for (let j = i + 1; j < bookings.length; j++) {
+                const b1 = bookings[i];
+                const b2 = bookings[j];
+                if (b1.topic === b2.topic && 
+                    b1.date === b2.date && 
+                    b1.time === b2.time && 
+                    b1.roomName === b2.roomName && 
+                    b1.pic === b2.pic) {
+                    contentDuplicates.push({
+                        index1: i,
+                        index2: j,
+                        booking1: b1,
+                        booking2: b2
+                    });
+                }
+            }
+        }
+        
+        if (contentDuplicates.length > 0) {
+            console.log('🔍 ReservationsPage - Content duplicates found:', contentDuplicates);
+        }
+        
+        // Deduplicate bookings by ID first
+        const uniqueByIdBookings = bookings.filter((booking, index, self) => 
+            index === self.findIndex(b => String(b.id) === String(booking.id))
+        );
+        console.log('🔍 ReservationsPage - After ID deduplication:', uniqueByIdBookings.length);
+        
+        // Additional deduplication by content (topic, date, time, room, pic)
+        const uniqueBookings = uniqueByIdBookings.filter((booking, index, self) => 
+            index === self.findIndex(b => 
+                b.topic === booking.topic && 
+                b.date === booking.date && 
+                b.time === booking.time && 
+                b.roomName === booking.roomName && 
+                b.pic === booking.pic
+            )
+        );
+        console.log('🔍 ReservationsPage - After content deduplication:', uniqueBookings.length);
+        
+        // Filter bookings
+        const list = uniqueBookings.filter(b => {
             const hay = `${b.topic} ${b.roomName}`.toLowerCase();
             const matchesSearch = hay.includes(search.toLowerCase());
             
@@ -850,8 +856,21 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                 }
             }
             
+            // Filter out completed bookings (they should appear in View Rispat/History)
+            // Check if booking is completed in localStorage history
+            const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            const isCompleted = history.some((h: any) => 
+                String(h.id) === String(b.id) && h.status === 'Selesai'
+            );
+            
+            if (isCompleted) {
+                console.log('Filtering out completed booking:', b.topic, 'ID:', b.id);
+                return false;
+            }
+            
             return matchesSearch;
         });
+        
         const toDate = (b: Booking) => new Date(`${b.date} ${b.time}`).getTime();
         return list.slice().sort((a, b) => sort === 'Terbaru' ? toDate(b) - toDate(a) : toDate(a) - toDate(b));
     }, [bookings, search, sort, serverCurrentTime]);

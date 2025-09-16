@@ -68,21 +68,58 @@ class RispatAPI {
     }
 
     private function getRispatByBookingId($bookingId) {
-        $stmt = $this->db->prepare("
-            SELECT 
-                r.id, r.booking_id, r.filename, r.original_filename, r.file_path,
-                r.file_size, r.file_type, r.mime_type, r.uploaded_at, r.uploaded_by,
-                rm.image_width, rm.image_height, rm.camera_model, rm.taken_at,
-                rm.location, rm.description, rm.tags
-            FROM rispat r
-            LEFT JOIN rispat_metadata rm ON r.id = rm.rispat_id
-            WHERE r.booking_id = ? AND r.status = 'active'
-            ORDER BY r.uploaded_at DESC
-        ");
-        $stmt->execute([$bookingId]);
-        $rispat = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $this->sendResponse(['rispat' => $rispat]);
+        try {
+            // Try with old column names first
+            $stmt = $this->db->prepare("
+                SELECT 
+                    r.id, r.booking_id, r.file_name, r.original_name, r.file_path,
+                    r.file_size, r.file_type, r.uploaded_at, r.uploaded_by
+                FROM rispat r
+                WHERE r.booking_id = ? AND r.status = 'active'
+                ORDER BY r.uploaded_at DESC
+            ");
+            $stmt->execute([$bookingId]);
+            $rispat = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Format response with consistent column names
+            $formattedRispat = array_map(function($item) {
+                return [
+                    'id' => $item['id'],
+                    'booking_id' => $item['booking_id'],
+                    'filename' => $item['file_name'],
+                    'original_filename' => $item['original_name'],
+                    'file_path' => $item['file_path'],
+                    'file_size' => $item['file_size'],
+                    'file_type' => $item['file_type'],
+                    'uploaded_at' => $item['uploaded_at'],
+                    'uploaded_by' => $item['uploaded_by']
+                ];
+            }, $rispat);
+            
+            $this->sendResponse(['rispat' => $formattedRispat]);
+        } catch (PDOException $e) {
+            // If old columns don't exist, try with new column names
+            if (strpos($e->getMessage(), 'Unknown column') !== false) {
+                try {
+                    $stmt = $this->db->prepare("
+                        SELECT 
+                            r.id, r.booking_id, r.filename, r.original_filename, r.file_path,
+                            r.file_size, r.file_type, r.mime_type, r.uploaded_at, r.uploaded_by
+                        FROM rispat r
+                        WHERE r.booking_id = ? AND r.status = 'active'
+                        ORDER BY r.uploaded_at DESC
+                    ");
+                    $stmt->execute([$bookingId]);
+                    $rispat = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    $this->sendResponse(['rispat' => $rispat]);
+                } catch (PDOException $e2) {
+                    $this->sendResponse(['error' => 'Database error: ' . $e2->getMessage()], 500);
+                }
+            } else {
+                $this->sendResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
+            }
+        }
     }
 
     private function getAllRispat() {
@@ -145,21 +182,77 @@ class RispatAPI {
         // Create thumbnail
         $this->createThumbnail($filePath, $filename, 300);
 
-        // Save to database
-        $stmt = $this->db->prepare("
-            INSERT INTO rispat (booking_id, filename, original_filename, file_path, file_size, file_type, mime_type, uploaded_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
-            $bookingId,
-            $filename,
-            $file['name'],
-            '/uploads/rispat/' . $filename,
-            $file['size'],
-            'image',
-            $file['type'],
-            $uploadedBy
-        ]);
+        // Determine file type based on extension
+        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $fileType = 'document'; // Default
+        if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            $fileType = 'image';
+        } elseif (in_array($extension, ['pdf'])) {
+            $fileType = 'pdf';
+        } elseif (in_array($extension, ['doc', 'docx'])) {
+            $fileType = 'word';
+        }
+
+        // Truncate MIME type if too long (max 100 chars for database)
+        $mimeType = $file['type'];
+        if (strlen($mimeType) > 100) {
+            $mimeType = substr($mimeType, 0, 100);
+        }
+        
+        // Ensure file_type is also not too long
+        if (strlen($fileType) > 100) {
+            $fileType = substr($fileType, 0, 100);
+        }
+
+        // Save to database with error handling
+        try {
+            // Try with old column names first (more compatible)
+            $stmt = $this->db->prepare("
+                INSERT INTO rispat (booking_id, file_name, original_name, file_path, file_size, file_type, uploaded_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $bookingId,
+                $filename,
+                $file['name'],
+                '/uploads/rispat/' . $filename,
+                $file['size'],
+                $fileType,
+                $uploadedBy
+            ]);
+        } catch (PDOException $e) {
+            // If old columns don't exist, try with new column names
+            if (strpos($e->getMessage(), 'Unknown column') !== false) {
+                try {
+                    $stmt = $this->db->prepare("
+                        INSERT INTO rispat (booking_id, filename, original_filename, file_path, file_size, file_type, mime_type, uploaded_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $bookingId,
+                        $filename,
+                        $file['name'],
+                        '/uploads/rispat/' . $filename,
+                        $file['size'],
+                        $fileType,
+                        $mimeType,
+                        $uploadedBy
+                    ]);
+                } catch (PDOException $e2) {
+                    // Delete uploaded file if database insert fails
+                    if (file_exists($filePath)) {
+                        unlink($filePath);
+                    }
+                    throw $e2;
+                }
+            } else {
+                // Delete uploaded file if database insert fails
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
+                throw $e;
+            }
+        }
 
         $rispatId = $this->db->lastInsertId();
 
@@ -172,21 +265,54 @@ class RispatAPI {
             $stmt->execute([$rispatId, $imageWidth, $imageHeight]);
         }
 
-        // Get the created rispat
-        $stmt = $this->db->prepare("
-            SELECT 
-                r.id, r.booking_id, r.filename, r.original_filename, r.file_path,
-                r.file_size, r.file_type, r.mime_type, r.uploaded_at, r.uploaded_by,
-                rm.image_width, rm.image_height, rm.camera_model, rm.taken_at,
-                rm.location, rm.description, rm.tags
-            FROM rispat r
-            LEFT JOIN rispat_metadata rm ON r.id = rm.rispat_id
-            WHERE r.id = ?
-        ");
-        $stmt->execute([$rispatId]);
-        $rispat = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        $this->sendResponse(['rispat' => $rispat, 'message' => 'File uploaded successfully']);
+        // Get the created rispat with proper column mapping
+        try {
+            $stmt = $this->db->prepare("
+                SELECT 
+                    r.id, r.booking_id, r.file_name, r.original_name, r.file_path,
+                    r.file_size, r.file_type, r.uploaded_at, r.uploaded_by
+                FROM rispat r
+                WHERE r.id = ?
+            ");
+            $stmt->execute([$rispatId]);
+            $rispat = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Format response with consistent column names
+            $formattedRispat = [
+                'id' => $rispat['id'],
+                'booking_id' => $rispat['booking_id'],
+                'filename' => $rispat['file_name'],
+                'original_filename' => $rispat['original_name'],
+                'file_path' => $rispat['file_path'],
+                'file_size' => $rispat['file_size'],
+                'file_type' => $rispat['file_type'],
+                'uploaded_at' => $rispat['uploaded_at'],
+                'uploaded_by' => $rispat['uploaded_by']
+            ];
+            
+            $this->sendResponse(['success' => true, 'rispat' => $formattedRispat, 'message' => 'File uploaded successfully']);
+        } catch (PDOException $e) {
+            // If old columns don't exist, try with new column names
+            if (strpos($e->getMessage(), 'Unknown column') !== false) {
+                try {
+                    $stmt = $this->db->prepare("
+                        SELECT 
+                            r.id, r.booking_id, r.filename, r.original_filename, r.file_path,
+                            r.file_size, r.file_type, r.mime_type, r.uploaded_at, r.uploaded_by
+                        FROM rispat r
+                        WHERE r.id = ?
+                    ");
+                    $stmt->execute([$rispatId]);
+                    $rispat = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    $this->sendResponse(['success' => true, 'rispat' => $rispat, 'message' => 'File uploaded successfully']);
+                } catch (PDOException $e2) {
+                    $this->sendResponse(['error' => 'Database error: ' . $e2->getMessage()], 500);
+                }
+            } else {
+                $this->sendResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
+            }
+        }
     }
 
     private function createThumbnail($sourcePath, $filename, $maxSize) {

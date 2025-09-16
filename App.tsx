@@ -207,14 +207,34 @@ const App = () => {
             console.log('🔍 App.tsx - Formatted AI bookings:', aiBookingsFormatted);
             console.log('🔍 App.tsx - Formatted server bookings:', serverBookingsFormatted);
 
-            // Gabungkan AI bookings dan server bookings
+            // Gabungkan AI bookings dan server bookings dengan deduplication
             const allBookings = [...aiBookingsFormatted, ...serverBookingsFormatted];
-            console.log('🔍 App.tsx - Setting bookings:', allBookings);
-            console.log('🔍 App.tsx - Total bookings count:', allBookings.length);
+            
+            // Deduplicate by ID first
+            const uniqueByIdBookings = allBookings.filter((booking, index, self) => 
+                index === self.findIndex(b => String(b.id) === String(booking.id))
+            );
+            
+            // Additional deduplication by content (topic, date, time, room, pic)
+            const uniqueBookings = uniqueByIdBookings.filter((booking, index, self) => 
+                index === self.findIndex(b => 
+                    b.topic === booking.topic && 
+                    b.date === booking.date && 
+                    b.time === booking.time && 
+                    b.roomName === booking.roomName && 
+                    b.pic === booking.pic
+                )
+            );
+            
+            console.log('🔍 App.tsx - Setting bookings:', uniqueBookings);
+            console.log('🔍 App.tsx - Total bookings count:', uniqueBookings.length);
             console.log('🔍 App.tsx - AI bookings count:', aiBookingsFormatted.length);
             console.log('🔍 App.tsx - Server bookings count:', serverBookingsFormatted.length);
-            console.log('🔍 App.tsx - Sample booking:', allBookings[0]);
-            setBookings(allBookings);
+            console.log('🔍 App.tsx - After ID deduplication:', uniqueByIdBookings.length);
+            console.log('🔍 App.tsx - After content deduplication:', uniqueBookings.length);
+            console.log('🔍 App.tsx - Total duplicates removed:', allBookings.length - uniqueBookings.length);
+            console.log('🔍 App.tsx - Sample booking:', uniqueBookings[0]);
+            setBookings(uniqueBookings);
             
             // Force re-render of dashboard if it's currently active
             if (currentPage === Page.Dashboard) {
@@ -365,9 +385,25 @@ const App = () => {
             participants: newBooking.participants,
             meetingType: newBooking.meetingType
         });
-        setBookings(prev => [newBooking, ...prev]);
+        
+        // Don't add to local state to prevent duplication
+        // Data will be refreshed from server instead
         setConfirmedBooking(newBooking);
         setCurrentBookingData({});
+        
+        // Refresh bookings from server to get the latest data
+        const userDataStr = localStorage.getItem('user_data');
+        if (userDataStr) {
+            try {
+                const userData = JSON.parse(userDataStr);
+                if (userData.id) {
+                    loadBookingsFromServer(userData.id);
+                }
+            } catch (e) {
+                console.error('Error parsing user data for refresh:', e);
+            }
+        }
+        
         // Trigger refresh for ReservationsPage
         setRefreshTrigger(prev => prev + 1);
         // Catatan: histori 'Selesai' tidak dibuat saat konfirmasi.

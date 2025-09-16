@@ -209,6 +209,50 @@ class Booking {
     }
 
     /**
+     * Get bookings by user ID including completed ones
+     */
+    public function getAllBookingsByUserId($userId) {
+        try {
+            $query = "SELECT b.*, r.room_name, r.capacity as room_capacity, r.image_url
+                      FROM " . $this->table_name . " b
+                      LEFT JOIN meeting_rooms r ON b.room_id = r.id
+                      WHERE b.user_id = :user_id
+                      ORDER BY b.created_at DESC";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":user_id", $userId);
+            $stmt->execute();
+
+            return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            error_log("Error getting all bookings by user ID: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Complete booking
+     */
+    public function completeBooking($id) {
+        try {
+            $query = "UPDATE " . $this->table_name . " 
+                     SET booking_state = 'COMPLETED', updated_at = CURRENT_TIMESTAMP 
+                     WHERE id = :id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":id", $id);
+            
+            if ($stmt->execute()) {
+                return true;
+            }
+            return false;
+        } catch (PDOException $e) {
+            error_log("Error completing booking: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Update booking
      */
     public function updateBooking($data) {

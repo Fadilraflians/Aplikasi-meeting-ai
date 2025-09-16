@@ -18,7 +18,7 @@ class MeetingRoom {
     public function getAllRooms() {
         try {
             // Match actual columns in meeting_rooms: room_name, is_available, is_maintenance
-            $query = "SELECT id, room_name AS name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at
+            $query = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at
                       FROM " . $this->table_name . "
                       WHERE is_available = 1
                       ORDER BY room_name";
@@ -37,7 +37,7 @@ class MeetingRoom {
      */
     public function getRoomById($id) {
         try {
-            $query = "SELECT id, room_name AS name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at
+            $query = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at
                       FROM " . $this->table_name . " WHERE id = :id AND is_available = 1";
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":id", $id);

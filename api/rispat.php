@@ -1,4 +1,8 @@
 <?php
+// Disable error reporting untuk mencegah warning muncul di response JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
@@ -88,11 +92,29 @@ switch ($method) {
 
             // Upload file
             if (move_uploaded_file($file['tmp_name'], $filePath)) {
+                // Determine file type based on extension
+                $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                $fileType = 'document'; // Default
+                if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                    $fileType = 'image';
+                } elseif (in_array($extension, ['pdf'])) {
+                    $fileType = 'pdf';
+                } elseif (in_array($extension, ['doc', 'docx'])) {
+                    $fileType = 'word';
+                }
+                
+                // Truncate MIME type if too long (max 100 chars for database)
+                $mimeType = $file['type'];
+                if (strlen($mimeType) > 100) {
+                    $mimeType = substr($mimeType, 0, 100);
+                }
+                
                 $fileData = array(
-                    'file_name' => $fileName,
-                    'original_name' => $file['name'],
+                    'filename' => $fileName,
+                    'original_filename' => $file['name'],
                     'file_path' => $filePath,
-                    'file_type' => $file['type'],
+                    'file_type' => $fileType,
+                    'mime_type' => $mimeType,
                     'file_size' => $file['size']
                 );
 

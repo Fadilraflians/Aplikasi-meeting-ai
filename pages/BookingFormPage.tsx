@@ -23,6 +23,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
     const [pic, setPic] = useState(bookingData?.pic || '');
     const [meetingType, setMeetingType] = useState<'internal' | 'external'>(bookingData?.meetingType || 'internal');
     const [selectedFacilities, setSelectedFacilities] = useState<string[]>(bookingData?.facilities || []);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Get facilities based on selected room
     const getRoomFacilities = (room: MeetingRoom | null): string[] => {
@@ -84,114 +85,54 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
         }
     }, [bookingData?.pic]);
 
-    // Load available rooms with predefined data
+    // Load available rooms from database
     useEffect(() => {
         const loadRooms = async () => {
             try {
                 setLoadingRooms(true);
                 
-                // Use predefined rooms with facilities
-                const predefinedRooms: MeetingRoom[] = [
-                    {
-                        id: 1,
-                        name: 'Samudrantha Meeting Room',
-                        floor: '1',
-                        capacity: 10,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard'],
-                        image: '/images/samudrantha.jpg',
-                        available: true
-                    },
-                    {
-                        id: 2,
-                        name: 'Cedaya Meeting Room',
-                        floor: '2',
-                        capacity: 15,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System'],
-                        image: '/images/cedaya.jpg',
-                        available: true
-                    },
-                    {
-                        id: 3,
-                        name: 'Celebes Meeting Room',
-                        floor: '2',
-                        capacity: 15,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference'],
-                        image: '/images/celebes.jpg',
-                        available: true
-                    },
-                    {
-                        id: 4,
-                        name: 'Kalamanthana Meeting Room',
-                        floor: '3',
-                        capacity: 15,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine'],
-                        image: '/images/kalamanthana.jpg',
-                        available: true
-                    },
-                    {
-                        id: 5,
-                        name: 'Ruang Nasionalis',
-                        floor: '3',
-                        capacity: 15,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer'],
-                        image: '/images/nasionalis.jpg',
-                        available: true
-                    },
-                    {
-                        id: 6,
-                        name: 'Ruang Meeting A',
-                        floor: '1',
-                        capacity: 8,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector'],
-                        image: '/images/meeting-a.jpg',
-                        available: true
-                    },
-                    {
-                        id: 7,
-                        name: 'Ruang Konferensi Bintang',
-                        floor: '4',
-                        capacity: 12,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer', 'Catering'],
-                        image: '/images/bintang.jpg',
-                        available: true
-                    },
-                    {
-                        id: 8,
-                        name: 'Auditorium Utama',
-                        floor: '5',
-                        capacity: 50,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Sound System', 'Video Conference', 'Coffee Machine', 'Printer', 'Catering', 'Stage', 'Lighting'],
-                        image: '/images/auditorium.jpg',
-                        available: true
-                    },
-                    {
-                        id: 9,
-                        name: 'Ruang Kolaborasi Alpha',
-                        floor: '1',
-                        capacity: 6,
-                        address: 'Office Building',
-                        facilities: ['AC', 'Kursi', 'Meja', 'Makan', 'Projector', 'Whiteboard', 'Coffee Machine'],
-                        image: '/images/alpha.jpg',
-                        available: true
+                // Load rooms from API
+                const response = await fetch('/api/meeting_rooms.php?action=get_all');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const roomsFromDB: MeetingRoom[] = result.data.map((room: any) => ({
+                        id: room.id,
+                        name: room.room_name || room.name,
+                        floor: room.floor || '-',
+                        capacity: Number(room.capacity || 0),
+                        address: room.building || room.description || '-',
+                        facilities: (() => {
+                            const f = room.features;
+                            if (Array.isArray(f)) return f as string[];
+                            if (typeof f === 'string') {
+                                try { 
+                                    const j = JSON.parse(f); 
+                                    if (Array.isArray(j)) return j; 
+                                } catch {}
+                                return f.split(',').map((s: string) => s.trim()).filter(Boolean);
+                            }
+                            return [] as string[];
+                        })(),
+                        image: room.image_url || '/images/meeting-rooms/default-room.jpg',
+                        available: room.is_available === 1 || room.is_available === true
+                    }));
+                    
+                    setAvailableRooms(roomsFromDB);
+                    
+                    // If no room is selected, select the first one
+                    if (!selectedRoom && roomsFromDB.length > 0) {
+                        setSelectedRoom(roomsFromDB[0]);
                     }
-                ];
-                
-                setAvailableRooms(predefinedRooms);
-                
-                // If no room is selected, select the first one
-                if (!selectedRoom && predefinedRooms.length > 0) {
-                    setSelectedRoom(predefinedRooms[0]);
+                } else {
+                    console.error('Failed to load rooms from API:', result.message);
+                    // Fallback to empty array if API fails
+                    setAvailableRooms([]);
                 }
             } catch (error) {
                 console.error('Error loading rooms:', error);
+                // Fallback to empty array if error occurs
+                setAvailableRooms([]);
             } finally {
                 setLoadingRooms(false);
             }
@@ -254,6 +195,12 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Prevent double submission
+        if (isSubmitting) {
+            console.log('Form is already being submitted, ignoring duplicate submission');
+            return;
+        }
         
         if (!selectedRoom) {
             alert('Error: No room selected. Please select a room.');
@@ -383,6 +330,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
         } as any;
 
         try {
+            setIsSubmitting(true);
             console.log('Sending booking payload:', payload);
             const res = await ApiService.createBooking(payload);
             console.log('Booking response:', res);
@@ -424,6 +372,8 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
             }
             
             alert(errorMessage);
+        } finally {
+            setIsSubmitting(false);
         }
     }
 
@@ -769,11 +719,25 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold py-4 px-6 rounded-xl hover:from-teal-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                                    disabled={isSubmitting}
+                                    className={`flex-1 font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg ${
+                                        isSubmitting 
+                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                                            : 'bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700 hover:shadow-xl transform hover:-translate-y-0.5'
+                                    }`}
                                 >
                                     <span className="flex items-center justify-center gap-2">
-                                        <span>✅</span>
-                                        Konfirmasi Pemesanan
+                                        {isSubmitting ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Memproses...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>✅</span>
+                                                Konfirmasi Pemesanan
+                                            </>
+                                        )}
                                     </span>
                                 </button>
                             </div>

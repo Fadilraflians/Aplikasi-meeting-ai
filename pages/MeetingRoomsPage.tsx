@@ -150,16 +150,52 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
             const startTime = booking.time;
             const endTime = booking.endTime || booking.time; // fallback to start time if no end time
             
-            return currentTime >= startTime && currentTime <= endTime;
+            // Check if booking is currently active (time-wise)
+            const isTimeActive = currentTime >= startTime && currentTime <= endTime;
+            
+            // Also check if booking is not completed
+            const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            const isCompleted = history.some((h: any) => 
+                String(h.id) === String(booking.id) && h.status === 'Selesai'
+            );
+            
+            return isTimeActive && !isCompleted;
         });
         
         const uniqueRooms = new Set(activeBookings.map(booking => booking.roomName));
+        
+        console.log('🔍 MeetingRoomsPage - Room stats calculation:', {
+            currentDate,
+            currentTime,
+            totalBookings: bookings.length,
+            activeBookings: activeBookings.length,
+            activeBookingsDetails: activeBookings.map(b => ({
+                id: b.id,
+                topic: b.topic,
+                roomName: b.roomName,
+                date: b.date,
+                time: b.time,
+                endTime: b.endTime
+            })),
+            uniqueRooms: Array.from(uniqueRooms),
+            roomsInUse: uniqueRooms.size
+        });
+        
         return uniqueRooms.size;
     };
     
     // Calculate available rooms (total - in use)
     const getAvailableRooms = () => {
-        return rooms.length - getRoomsInUse();
+        const roomsInUse = getRoomsInUse();
+        const availableRooms = rooms.length - roomsInUse;
+        
+        console.log('🔍 MeetingRoomsPage - Available rooms calculation:', {
+            totalRooms: rooms.length,
+            roomsInUse,
+            availableRooms
+        });
+        
+        return availableRooms;
     };
 
     React.useEffect(() => {
@@ -177,6 +213,9 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                 if (!raw || !Array.isArray(raw)) {
                     throw new Error('Invalid data format from API');
                 }
+                
+                console.log('🔍 MeetingRoomsPage - Raw rooms data:', raw);
+                console.log('🔍 MeetingRoomsPage - Total rooms from API:', raw.length);
                 
                 const mapped: MeetingRoom[] = (raw || []).map((r: any) => ({
                     id: r.id ?? r.room_id,
@@ -197,6 +236,7 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                 }));
                 
                 console.log('Mapped rooms:', mapped);
+                console.log('🔍 MeetingRoomsPage - Setting rooms:', mapped.length);
                 setRooms(mapped);
             } catch (e) {
                 console.error('Failed to load rooms:', e);

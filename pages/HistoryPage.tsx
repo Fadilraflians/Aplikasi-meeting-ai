@@ -32,19 +32,55 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
   }, []);
 
     const items = useMemo(() => {
-    // hanya tampilkan histori (Selesai/Dibatalkan) yang tersimpan lokal, EXCLUDE expired
+    // Gabungkan data dari localStorage dan server
     const local = getHistory();
     console.log('HistoryPage - All history entries:', local);
+    console.log('HistoryPage - Server bookings:', serverBookings);
     console.log('HistoryPage - Selected date:', date);
     
-    const filtered = local.filter(h => h.date === date && h.status !== 'expired');
-    console.log('HistoryPage - Filtered entries for date (excluding expired):', filtered);
+    // Filter data lokal dengan status 'Selesai' atau 'Dibatalkan' (EXCLUDE expired)
+    const localFiltered = local.filter(h => h.date === date && h.status !== 'expired');
     
-    const sorted = filtered.sort((a,b)=> (a.time>b.time?1:-1));
-    console.log('HistoryPage - Final sorted entries:', sorted);
+    // Filter data server untuk tanggal yang sama dan status complete/cancelled
+    const serverFiltered = serverBookings.filter(booking => {
+      const bookingDate = booking.meeting_date || booking.date;
+      const isCompleteOrCancelled = booking.booking_state === 'COMPLETED' || 
+                                   booking.booking_state === 'CANCELLED' ||
+                                   booking.status === 'completed' ||
+                                   booking.status === 'cancelled';
+      return bookingDate === date && isCompleteOrCancelled;
+    });
+    
+    // Gabungkan dan format data
+    const combinedItems = [
+      ...localFiltered.map(item => ({
+        ...item,
+        source: 'local'
+      })),
+      ...serverFiltered.map(booking => ({
+        id: booking.id,
+        roomName: booking.room_name,
+        topic: booking.topic,
+        date: booking.meeting_date || booking.date,
+        time: booking.start_time || booking.time,
+        endTime: booking.end_time,
+        participants: booking.participants,
+        pic: booking.pic,
+        status: booking.booking_state === 'COMPLETED' || booking.status === 'completed' ? 'Selesai' : 'Dibatalkan',
+        source: 'server'
+      }))
+    ];
+    
+    // Remove duplicates berdasarkan ID
+    const uniqueItems = combinedItems.filter((item, index, self) => 
+      index === self.findIndex(t => t.id === item.id)
+    );
+    
+    const sorted = uniqueItems.sort((a,b)=> (a.time>b.time?1:-1));
+    console.log('HistoryPage - Final combined entries:', sorted);
     
     return sorted;
-  }, [date]);
+  }, [date, serverBookings]);
 
   return (
     <div className="bg-white/80 backdrop-blur-sm p-6 md:p-8 rounded-2xl shadow-lg">

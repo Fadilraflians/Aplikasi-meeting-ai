@@ -25,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../config/database.php';
-require_once '../models/Booking.php';
-require_once '../models/MeetingRoom.php';
-require_once '../models/User.php';
-require_once '../models/AiBookingSuccess.php';
+require_once '../backend/models/Booking.php';
+require_once '../backend/models/MeetingRoom.php';
+require_once '../backend/models/User.php';
+require_once '../backend/models/AiBookingSuccess.php';
 
 $database = new Database();
 $db = $database->getConnection();
