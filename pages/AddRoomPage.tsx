@@ -16,11 +16,20 @@ const AddRoomPage: React.FC<AddRoomPageProps> = ({ onNavigate, onRoomAdded }) =>
     facilities: '',
     image_url: ''
   });
+  const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Available facilities list (same as EditRoomPage)
+  const availableFacilities = [
+    'AC', 'Projector', 'Sound System', 'Whiteboard', 'TV', 'WiFi',
+    'Microphone', 'Camera', 'Flipchart', 'Coffee Machine', 'Water Dispenser',
+    'Printer', 'Scanner', 'Video Conference', 'Presentation Screen',
+    'Laptop Connection', 'Power Outlets', 'Air Purifier', 'Blinds/Curtains', 'Lighting Control'
+  ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -28,6 +37,22 @@ const AddRoomPage: React.FC<AddRoomPageProps> = ({ onNavigate, onRoomAdded }) =>
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleFacilityChange = (facility: string) => {
+    setSelectedFacilities(prev => {
+      const newFacilities = prev.includes(facility)
+        ? prev.filter(f => f !== facility)
+        : [...prev, facility];
+      
+      // Update formData.facilities to match selectedFacilities
+      setFormData(prevForm => ({
+        ...prevForm,
+        facilities: newFacilities.join(', ')
+      }));
+      
+      return newFacilities;
+    });
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,17 +131,11 @@ const AddRoomPage: React.FC<AddRoomPageProps> = ({ onNavigate, onRoomAdded }) =>
     setError(null);
 
     try {
-      // Parse facilities dari string ke array
-      const facilitiesArray = formData.facilities
-        .split(',')
-        .map(f => f.trim())
-        .filter(f => f.length > 0);
-
       const roomData = {
         name: formData.name.trim(),
         capacity: parseInt(formData.capacity),
         address: formData.address.trim(),
-        facilities: facilitiesArray,
+        facilities: selectedFacilities,
         image_url: formData.image_url || '/images/meeting-rooms/default-room.jpg'
       };
 
@@ -147,6 +166,7 @@ const AddRoomPage: React.FC<AddRoomPageProps> = ({ onNavigate, onRoomAdded }) =>
           facilities: '',
           image_url: ''
         });
+        setSelectedFacilities([]);
         setSelectedFile(null);
         
         // Navigate back after 2 seconds
@@ -281,26 +301,54 @@ const AddRoomPage: React.FC<AddRoomPageProps> = ({ onNavigate, onRoomAdded }) =>
               </div>
 
               <div>
-                <label htmlFor="facilities" className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
                   <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                     Fasilitas
                   </span>
                 </label>
-                <textarea
-                  id="facilities"
-                  name="facilities"
-                  value={formData.facilities}
-                  onChange={handleInputChange}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300 resize-none"
-                  placeholder="Masukkan fasilitas, pisahkan dengan koma (contoh: AC, Projector, Sound System)"
-                  rows={3}
-                  disabled={loading}
-                />
-                <p className="text-sm text-gray-500 mt-2 flex items-center gap-2">
-                  <span className="text-blue-500">💡</span>
-                  Pisahkan setiap fasilitas dengan koma
-                </p>
+                <div className="text-sm text-gray-600 mb-4 flex items-center gap-2">
+                  <span className="text-green-600">✓</span>
+                  Pilih fasilitas yang tersedia di ruangan meeting ini
+                </div>
+                <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {availableFacilities.map((facility) => (
+                      <label key={facility} className="flex items-center gap-3 cursor-pointer hover:bg-blue-50 p-3 rounded-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 hover:shadow-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedFacilities.includes(facility)}
+                          onChange={() => handleFacilityChange(facility)}
+                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                          disabled={loading}
+                        />
+                        <span className="text-sm font-medium text-gray-700">{facility}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedFacilities.length > 0 && (
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="text-sm font-medium text-blue-800 mb-2">
+                        Fasilitas yang dipilih ({selectedFacilities.length}):
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedFacilities.map((facility) => (
+                          <span key={facility} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            {facility}
+                            <button
+                              type="button"
+                              onClick={() => handleFacilityChange(facility)}
+                              className="ml-1 text-blue-600 hover:text-blue-800"
+                              disabled={loading}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Image Upload Section */}
