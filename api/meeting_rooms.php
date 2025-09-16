@@ -95,6 +95,20 @@ function handlePostRequest($meetingRoom) {
             }
             break;
             
+        case 'update':
+            $roomData = $input;
+            if (!$roomData || !isset($roomData['id'])) {
+                sendResponse(false, 'Room ID required', null, 400);
+                return;
+            }
+            $room = $meetingRoom->updateRoom($roomData);
+            if ($room) {
+                sendResponse(true, 'Room updated successfully', $room);
+            } else {
+                sendResponse(false, 'Failed to update room', null, 500);
+            }
+            break;
+            
         default:
             sendResponse(false, 'Invalid action', null, 400);
     }
