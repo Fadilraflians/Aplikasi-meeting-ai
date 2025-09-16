@@ -734,38 +734,68 @@ try {
                     ]);
                 }
             } elseif ($endpoint === 'rooms') {
-                // Create new room
                 $data = json_decode(file_get_contents('php://input'), true);
                 
-                error_log("Create room request received: " . json_encode($data));
-                
-                // Validate required fields
-                $requiredFields = ['name', 'capacity', 'address'];
-                foreach ($requiredFields as $field) {
-                    if (!isset($data[$field]) || empty($data[$field])) {
+                // Check if this is an update request
+                if (isset($data['action']) && $data['action'] === 'update') {
+                    // Update room
+                    error_log("Update room request received: " . json_encode($data));
+                    
+                    if (!$data || !isset($data['id'])) {
                         http_response_code(400);
                         echo json_encode([
                             'status' => 'error',
-                            'message' => "Field '$field' is required"
+                            'message' => 'Room ID required'
                         ]);
                         exit;
                     }
-                }
-                
-                // Create room
-                $result = $meetingRoom->createRoom($data);
-                if ($result) {
-                    echo json_encode([
-                        'status' => 'success',
-                        'message' => 'Room created successfully',
-                        'data' => $result
-                    ]);
+                    
+                    $result = $meetingRoom->updateRoom($data);
+                    if ($result) {
+                        echo json_encode([
+                            'status' => 'success',
+                            'message' => 'Room updated successfully',
+                            'data' => $result
+                        ]);
+                    } else {
+                        http_response_code(500);
+                        echo json_encode([
+                            'status' => 'error',
+                            'message' => 'Failed to update room'
+                        ]);
+                    }
                 } else {
-                    http_response_code(500);
-                    echo json_encode([
-                        'status' => 'error',
-                        'message' => 'Failed to create room'
-                    ]);
+                    // Create new room
+                    error_log("Create room request received: " . json_encode($data));
+                    
+                    // Validate required fields
+                    $requiredFields = ['name', 'capacity', 'address'];
+                    foreach ($requiredFields as $field) {
+                        if (!isset($data[$field]) || empty($data[$field])) {
+                            http_response_code(400);
+                            echo json_encode([
+                                'status' => 'error',
+                                'message' => "Field '$field' is required"
+                            ]);
+                            exit;
+                        }
+                    }
+                    
+                    // Create room
+                    $result = $meetingRoom->createRoom($data);
+                    if ($result) {
+                        echo json_encode([
+                            'status' => 'success',
+                            'message' => 'Room created successfully',
+                            'data' => $result
+                        ]);
+                    } else {
+                        http_response_code(500);
+                        echo json_encode([
+                            'status' => 'error',
+                            'message' => 'Failed to create room'
+                        ]);
+                    }
                 }
             } else {
                 http_response_code(404);

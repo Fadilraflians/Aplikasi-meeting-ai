@@ -217,10 +217,23 @@ export class ApiService {
     }
 
     static async updateRoom(roomData: any) {
-        return this.makeRequest(API_ENDPOINTS.ROOMS.UPDATE, {
-            method: 'PUT',
-            body: JSON.stringify(roomData)
-        });
+        // Try PUT method first, fallback to POST with action
+        try {
+            return await this.makeRequest(API_ENDPOINTS.ROOMS.UPDATE, {
+                method: 'PUT',
+                body: JSON.stringify(roomData)
+            });
+        } catch (error) {
+            // Fallback to POST method with action parameter
+            console.log('PUT method failed, trying POST method:', error);
+            return await this.makeRequest(API_ENDPOINTS.ROOMS.CREATE, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'update',
+                    ...roomData
+                })
+            });
+        }
     }
 
     static async deleteRoom(roomId: number) {
