@@ -6,7 +6,7 @@
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 // Handle preflight OPTIONS request
@@ -32,6 +32,9 @@ try {
             break;
         case 'POST':
             handlePostRequest($meetingRoom);
+            break;
+        case 'DELETE':
+            handleDeleteRequest($meetingRoom);
             break;
         default:
             sendResponse(false, 'Method not allowed', null, 405);
@@ -111,6 +114,37 @@ function handlePostRequest($meetingRoom) {
             
         default:
             sendResponse(false, 'Invalid action', null, 400);
+    }
+}
+
+function handleDeleteRequest($meetingRoom) {
+    // Get room ID from query parameter
+    $roomId = $_GET['id'] ?? null;
+    
+    if (!$roomId) {
+        sendResponse(false, 'Room ID required', null, 400);
+        return;
+    }
+    
+    // Validate room ID
+    if (!is_numeric($roomId)) {
+        sendResponse(false, 'Invalid room ID', null, 400);
+        return;
+    }
+    
+    // Check if room exists
+    $room = $meetingRoom->getRoomById($roomId);
+    if (!$room) {
+        sendResponse(false, 'Room not found', null, 404);
+        return;
+    }
+    
+    // Delete the room
+    $result = $meetingRoom->deleteRoom($roomId);
+    if ($result) {
+        sendResponse(true, 'Room deleted successfully', null);
+    } else {
+        sendResponse(false, 'Failed to delete room', null, 500);
     }
 }
 

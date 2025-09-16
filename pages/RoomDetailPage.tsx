@@ -27,6 +27,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
   // Auto-refresh every minute to hide expired bookings
   useEffect(() => {
     const interval = setInterval(() => {
+      console.log('🔍 RoomDetailPage - Auto-refresh triggered');
       // Trigger re-filter by updating a dummy state
       setRoomBookings(prev => [...prev]);
     }, 60000); // Check every minute
@@ -35,9 +36,22 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
   }, []);
 
   useEffect(() => {
+    console.log('🔍 RoomDetailPage - Filtering bookings for room:', room.name);
+    console.log('🔍 RoomDetailPage - Total bookings received:', bookings.length);
+    console.log('🔍 RoomDetailPage - Selected date:', selectedDate);
+    
     // Filter bookings untuk ruangan ini dari props bookings (yang sudah dikonfirmasi)
     const filteredBookings = bookings
       .filter(booking => {
+        console.log('🔍 RoomDetailPage - Checking booking:', {
+          id: booking.id,
+          topic: booking.topic,
+          roomName: booking.roomName,
+          date: booking.date,
+          time: booking.time,
+          endTime: booking.endTime
+        });
+        
         // Check for exact match first
         let roomMatch = booking.roomName === room.name;
         
@@ -61,11 +75,24 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
         
         const isExpired = bookingEndDateTime < now;
         
+        // Check if booking is completed (same logic as ReservationsPage)
+        const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+        const isCompleted = history.some((h: any) => 
+          String(h.id) === String(booking.id) && h.status === 'Selesai'
+        );
+        
         if (isExpired) {
-          console.log(`🔍 Hiding expired booking: ${booking.topic} (${booking.time} - ${endTime}) - Ended at ${bookingEndDateTime.toLocaleString()}`);
+          console.log(`🔍 RoomDetailPage - Hiding expired booking: ${booking.topic} (${booking.time} - ${endTime}) - Ended at ${bookingEndDateTime.toLocaleString()}`);
         }
         
-        return roomMatch && dateMatch && !isExpired; // Hide expired bookings
+        if (isCompleted) {
+          console.log(`🔍 RoomDetailPage - Hiding completed booking: ${booking.topic} (ID: ${booking.id})`);
+        }
+        
+        const shouldShow = roomMatch && dateMatch && !isExpired && !isCompleted;
+        console.log(`🔍 RoomDetailPage - Booking ${booking.topic}: roomMatch=${roomMatch}, dateMatch=${dateMatch}, isExpired=${isExpired}, isCompleted=${isCompleted}, shouldShow=${shouldShow}`);
+        
+        return shouldShow;
       })
       .map(booking => ({
         topic: booking.topic,
@@ -78,6 +105,9 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
         facilities: booking.facilities || [],
         user_name: booking.pic
       }));
+    
+    console.log('🔍 RoomDetailPage - Filtered bookings count:', filteredBookings.length);
+    console.log('🔍 RoomDetailPage - Filtered bookings:', filteredBookings);
     
     setRoomBookings(filteredBookings);
   }, [room.name, bookings, selectedDate]);
