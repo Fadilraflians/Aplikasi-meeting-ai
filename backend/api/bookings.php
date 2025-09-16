@@ -62,6 +62,8 @@ $prevSegment = (count($pathParts) >= 2) ? $pathParts[count($pathParts) - 2] : ''
 
 // Debug logging
 error_log("API Request - Method: $method, Path: $path, Endpoint: $endpoint, PrevSegment: $prevSegment");
+error_log("Full REQUEST_URI: " . $_SERVER['REQUEST_URI']);
+error_log("Path parts: " . json_encode($pathParts));
 
 
 
@@ -779,6 +781,12 @@ try {
             
             // Debug logging
             error_log('PUT request - Endpoint: ' . $endpoint . ', Data: ' . json_encode($data));
+            error_log('PUT request - Checking room update conditions...');
+            error_log('Endpoint === rooms: ' . ($endpoint === 'rooms' ? 'true' : 'false'));
+            error_log('Has name field: ' . (isset($data['name']) ? 'true' : 'false'));
+            error_log('Has floor field: ' . (isset($data['floor']) ? 'true' : 'false'));
+            error_log('Has capacity field: ' . (isset($data['capacity']) ? 'true' : 'false'));
+            error_log('Has address field: ' . (isset($data['address']) ? 'true' : 'false'));
             
             // Check if this is a room update request
             if ($endpoint === 'rooms' || (isset($data['name']) && isset($data['floor']) && isset($data['capacity']) && isset($data['address']))) {
@@ -828,10 +836,17 @@ try {
                     ]);
                 }
             } else {
+                error_log('PUT request - No matching condition found');
+                error_log('PUT request - Endpoint: ' . $endpoint . ', Data keys: ' . json_encode(array_keys($data)));
                 http_response_code(404);
                 echo json_encode([
                     'status' => 'error',
-                    'message' => 'Endpoint not found'
+                    'message' => 'Endpoint not found for PUT request',
+                    'debug' => [
+                        'endpoint' => $endpoint,
+                        'data_keys' => array_keys($data),
+                        'has_room_fields' => isset($data['name']) && isset($data['floor']) && isset($data['capacity']) && isset($data['address'])
+                    ]
                 ]);
             }
             break;
