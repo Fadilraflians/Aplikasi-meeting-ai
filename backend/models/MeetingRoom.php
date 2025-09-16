@@ -199,6 +199,11 @@ class MeetingRoom {
             $facilities = $data['facilities'];
             if (is_array($facilities)) {
                 $facilities = json_encode($facilities);
+            } else if (is_string($facilities)) {
+                // If it's a string, keep it as is
+                $facilities = $facilities;
+            } else {
+                $facilities = '';
             }
 
             error_log("Update room - Data: " . json_encode($data));

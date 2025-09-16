@@ -122,11 +122,13 @@ const AddRoomPage: React.FC<AddRoomPageProps> = ({ onNavigate, onRoomAdded }) =>
 
       const result = await ApiService.createRoom(roomData);
       
-      if (result) {
+      console.log('Create room result:', result);
+      
+      if (result && (result.status === 'success' || result.success)) {
         setSuccess(true);
         // Simpan data ruangan yang baru dibuat
         const newRoom: MeetingRoom = {
-          id: result.id || Date.now(), // Fallback ID
+          id: result.data?.id || result.id || Date.now(), // Fallback ID
           name: roomData.name,
           floor: '-', // Default value since floor is removed
           capacity: roomData.capacity,
@@ -152,7 +154,8 @@ const AddRoomPage: React.FC<AddRoomPageProps> = ({ onNavigate, onRoomAdded }) =>
           onNavigate(Page.MeetingRooms);
         }, 2000);
       } else {
-        setError('Gagal menambahkan ruangan');
+        const errorMessage = result?.message || 'Gagal menambahkan ruangan';
+        setError(errorMessage);
       }
     } catch (err) {
       console.error('Error creating room:', err);

@@ -176,6 +176,7 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
         }, 2000);
       } else {
         const errorMessage = response?.message || 'Gagal memperbarui informasi ruangan';
+        console.error('Update room error:', response);
         setError(errorMessage);
       }
     } catch (err) {

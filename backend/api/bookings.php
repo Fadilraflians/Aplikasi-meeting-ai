@@ -781,7 +781,7 @@ try {
             error_log('PUT request - Endpoint: ' . $endpoint . ', Data: ' . json_encode($data));
             
             // Check if this is a room update request
-            if (isset($data['name']) && isset($data['floor']) && isset($data['capacity']) && isset($data['address'])) {
+            if ($endpoint === 'rooms' || (isset($data['name']) && isset($data['floor']) && isset($data['capacity']) && isset($data['address']))) {
                 // This is a room update request
                 if (!$data || !isset($data['id'])) {
                     http_response_code(400);

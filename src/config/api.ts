@@ -39,7 +39,7 @@ export const API_ENDPOINTS = {
             return url;
         },
         CREATE: `${API_BASE_URL}/bookings.php/rooms`,
-        UPDATE: `${API_BASE_URL}/bookings.php`,
+        UPDATE: `${API_BASE_URL}/bookings.php/rooms`,
         DELETE: `${API_BASE_URL}/bookings.php/rooms`,
     },
     
