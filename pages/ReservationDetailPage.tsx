@@ -49,6 +49,68 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Fungsi untuk menentukan status booking
+  const getBookingStatus = (date: string, startTime: string, endTime?: string) => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    // Jika bukan hari ini, tentukan status berdasarkan tanggal
+    if (date !== today) {
+      const bookingDate = new Date(date);
+      const todayDate = new Date(today);
+      
+      if (bookingDate < todayDate) {
+        return 'expired';
+      } else {
+        return 'upcoming';
+      }
+    }
+    
+    // Jika hari ini, cek waktu
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    
+    const formatTime = (timeStr: string) => {
+      if (!timeStr) return '';
+      return timeStr.slice(0, 5); // Ambil hanya HH:MM
+    };
+    
+    const formattedStartTime = formatTime(startTime);
+    const formattedEndTime = endTime ? formatTime(endTime) : null;
+    const formattedCurrentTime = formatTime(currentTime);
+    
+    // Konversi waktu ke menit untuk perbandingan yang akurat
+    const timeToMinutes = (timeStr: string) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    
+    const currentMinutes = timeToMinutes(formattedCurrentTime);
+    const startMinutes = timeToMinutes(formattedStartTime);
+    const endMinutes = formattedEndTime ? timeToMinutes(formattedEndTime) : null;
+    
+    // Jika tidak ada end time, cek berdasarkan start time saja
+    if (!endMinutes) {
+      if (currentMinutes > startMinutes) {
+        return 'expired';
+      } else {
+        return 'upcoming';
+      }
+    }
+    
+    // Jika ada end time, cek status lengkap
+    if (currentMinutes < startMinutes) {
+      return 'upcoming';
+    } else if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+      return 'ongoing';
+    } else {
+      return 'expired';
+    }
+  };
+
+  // Tentukan status booking saat ini
+  const bookingStatus = getBookingStatus(booking.date, booking.time, booking.endTime);
+  const canUploadRispat = bookingStatus === 'ongoing';
+
   // Debug logging untuk fasilitas
   useEffect(() => {
     if (booking) {
@@ -299,8 +361,20 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                       </span>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setShowUploadModal(true)}
-                          className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
+                          onClick={() => {
+                            if (canUploadRispat) {
+                              setShowUploadModal(true);
+                            } else {
+                              alert(`Upload risalah rapat hanya bisa dilakukan saat rapat sedang berlangsung.\n\nStatus saat ini: ${bookingStatus === 'upcoming' ? 'Belum dimulai' : bookingStatus === 'expired' ? 'Sudah selesai' : 'Tidak diketahui'}`);
+                            }
+                          }}
+                          disabled={!canUploadRispat}
+                          className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                            canUploadRispat 
+                              ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                          title={canUploadRispat ? 'Upload risalah rapat' : 'Upload hanya bisa dilakukan saat rapat sedang berlangsung'}
                         >
                           📤 Upload
                         </button>
@@ -324,6 +398,18 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                         </span>
                       ) : (
                         <span className="text-gray-500">Belum ada file risalah</span>
+                      )}
+                    </div>
+                    {/* Status indicator */}
+                    <div className="mt-2 text-xs">
+                      {bookingStatus === 'ongoing' && (
+                        <span className="text-green-600 font-semibold">✅ Rapat sedang berlangsung - Upload tersedia</span>
+                      )}
+                      {bookingStatus === 'upcoming' && (
+                        <span className="text-orange-600 font-semibold">⏳ Rapat belum dimulai - Upload tidak tersedia</span>
+                      )}
+                      {bookingStatus === 'expired' && (
+                        <span className="text-gray-600 font-semibold">🔒 Rapat sudah selesai - Upload tidak tersedia</span>
                       )}
                     </div>
                   </div>
@@ -744,10 +830,20 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                 </button>
                 <button
                   onClick={() => {
-                    setShowRispatModal(false);
-                    setShowUploadModal(true);
+                    if (canUploadRispat) {
+                      setShowRispatModal(false);
+                      setShowUploadModal(true);
+                    } else {
+                      alert(`Upload risalah rapat hanya bisa dilakukan saat rapat sedang berlangsung.\n\nStatus saat ini: ${bookingStatus === 'upcoming' ? 'Belum dimulai' : bookingStatus === 'expired' ? 'Sudah selesai' : 'Tidak diketahui'}`);
+                    }
                   }}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  disabled={!canUploadRispat}
+                  className={`flex-1 font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl ${
+                    canUploadRispat 
+                      ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600' 
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                  title={canUploadRispat ? 'Upload file risalah rapat baru' : 'Upload hanya bisa dilakukan saat rapat sedang berlangsung'}
                 >
                   📤 Upload File Baru
                 </button>

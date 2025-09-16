@@ -100,9 +100,43 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
             // If booking is confirmed, navigate to confirmation page
             if (response.action === 'complete' && response.bookingData) {
                 console.log('🔍 RBAPage - Sending booking data to confirmation:', response.bookingData);
-                setTimeout(() => {
-                    onBookingConfirmed(response.bookingData as any);
-                }, 1000);
+                console.log('🔍 RBAPage - Booking data details:', {
+                    roomName: response.bookingData.roomName,
+                    topic: response.bookingData.topic,
+                    pic: response.bookingData.pic,
+                    date: response.bookingData.date,
+                    time: response.bookingData.time,
+                    endTime: response.bookingData.endTime,
+                    participants: response.bookingData.participants,
+                    meetingType: response.bookingData.meetingType
+                });
+                
+                // Validate data before sending
+                const hasValidData = response.bookingData.roomName && 
+                                   response.bookingData.topic && 
+                                   response.bookingData.pic && 
+                                   response.bookingData.date && 
+                                   response.bookingData.time && 
+                                   response.bookingData.participants && 
+                                   response.bookingData.meetingType;
+                
+                if (hasValidData) {
+                    console.log('✅ RBAPage - All booking data is valid, proceeding to confirmation');
+                    setTimeout(() => {
+                        onBookingConfirmed(response.bookingData as any);
+                    }, 1000);
+                } else {
+                    console.log('❌ RBAPage - Booking data is incomplete, not proceeding to confirmation');
+                    console.log('❌ RBAPage - Missing fields:', {
+                        roomName: !response.bookingData.roomName,
+                        topic: !response.bookingData.topic,
+                        pic: !response.bookingData.pic,
+                        date: !response.bookingData.date,
+                        time: !response.bookingData.time,
+                        participants: !response.bookingData.participants,
+                        meetingType: !response.bookingData.meetingType
+                    });
+                }
             }
         } catch (error) {
             console.error('Error processing message:', error);
@@ -249,26 +283,61 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                                 
                                 {/* Options */}
                                 {message.options && (
-                                    <div className={`mt-2.5 flex flex-wrap gap-2 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        {message.options.map((option, index) => (
-                                            <button
-                                                key={index}
-                                                onClick={() => handleOptionClick(option)}
-                                                className="bg-sky-100/80 border border-sky-200 text-sky-700 font-medium rounded-lg px-3 py-2 text-sm flex items-center hover:bg-sky-200/80 transition-colors shadow-sm"
-                                            >
-                                                {option === 'Pesan Ruangan' && (
-                                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                    </svg>
-                                                )}
-                                                {option === 'Bantuan' && (
-                                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                )}
-                                                {option}
-                                            </button>
-                                        ))}
+                                    <div className={`mt-3 flex flex-wrap gap-2 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        {message.options.map((option, index) => {
+                                            // Determine button style based on option type
+                                            const isPrimary = option.includes('Booking') || option.includes('Ya') || option.includes('Pesan');
+                                            const isSecondary = option.includes('Tidak') || option.includes('Batal') || option.includes('Lihat');
+                                            const isHelp = option.includes('Bantuan') || option.includes('Help');
+                                            
+                                            return (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => handleOptionClick(option)}
+                                                    className={`
+                                                        font-medium rounded-xl px-4 py-2.5 text-sm flex items-center 
+                                                        transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105
+                                                        ${isPrimary 
+                                                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border border-blue-400 hover:from-blue-600 hover:to-indigo-600' 
+                                                            : isSecondary 
+                                                            ? 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border border-gray-300 hover:from-gray-200 hover:to-gray-300'
+                                                            : isHelp
+                                                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-300 hover:from-green-200 hover:to-emerald-200'
+                                                            : 'bg-gradient-to-r from-sky-100 to-blue-100 text-sky-700 border border-sky-300 hover:from-sky-200 hover:to-blue-200'
+                                                        }
+                                                    `}
+                                                >
+                                                    {/* Icons for different options */}
+                                                    {(option.includes('Pesan') || option.includes('Booking')) && (
+                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    )}
+                                                    {(option.includes('Bantuan') || option.includes('Help')) && (
+                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    )}
+                                                    {(option.includes('Ya') || option.includes('Confirm')) && (
+                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                    {(option.includes('Tidak') || option.includes('Batal')) && (
+                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    )}
+                                                    {(option.includes('Lihat') || option.includes('View')) && (
+                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                    )}
+                                                    {option}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
                                 

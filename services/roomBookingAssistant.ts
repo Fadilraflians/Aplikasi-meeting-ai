@@ -66,11 +66,38 @@ export class RoomBookingAssistant {
   private conversationService: ConversationService;
 
   constructor(userId: string, sessionId: string) {
-    // No Gemini API - focus only on booking functionality
-    this.apiKey = '';
+    // Initialize Gemini API key from environment variables
+    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const processKey = (process as any).env?.GEMINI_API_KEY;
+    const fallbackKey = 'AIzaSyA_Rde7sVAyaQ3aE_V1ycbMD45PTQnxQko';
     
+    this.apiKey = envKey || processKey || fallbackKey;
+    
+    // Detailed logging for AI connection status
+    console.log('🔍 AI CONNECTION DEBUG INFO:');
+    console.log('📋 Environment Variables Check:');
+    console.log('  - import.meta.env.VITE_GEMINI_API_KEY:', envKey ? '✅ Found' : '❌ Not found');
+    console.log('  - process.env.GEMINI_API_KEY:', processKey ? '✅ Found' : '❌ Not found');
+    console.log('  - Fallback API Key:', fallbackKey ? '✅ Available' : '❌ Not available');
+    console.log('🔑 Final API Key Status:', this.apiKey ? '✅ SET' : '❌ EMPTY');
+    console.log('🔗 API Key Length:', this.apiKey?.length || 0, 'characters');
+    console.log('🌐 Gemini API URL:', this.baseUrl);
+    
+    if (this.apiKey && this.apiKey !== '') {
+      console.log('✅ GEMINI API ENABLED - Using AI Agent mode');
+      console.log('🤖 RBA will use advanced AI capabilities');
+      console.log('🚀 AI Agent is ready to process natural language inputs');
+      
+      // Test API key format
+      if (this.apiKey.startsWith('AIza')) {
+        console.log('✅ API Key format is valid (starts with AIza)');
+      } else {
+        console.log('⚠️ API Key format might be invalid (should start with AIza)');
+      }
+    } else {
     console.log('🚫 GEMINI API DISABLED - Using booking-only mode');
     console.log('✅ RBA will focus only on room booking functionality');
+    }
     
     this.context = {
       conversationHistory: [],
@@ -101,11 +128,27 @@ export class RoomBookingAssistant {
   // Main method to process user input
   public async processInput(userInput: string): Promise<RBAResponse> {
     try {
+      console.log('🎯 RBA processInput called with:', userInput);
+      console.log('🔑 Current API Key Status:', this.apiKey ? '✅ Available' : '❌ Empty');
+      console.log('🤖 AI Mode:', this.apiKey ? 'ENABLED' : 'DISABLED');
+      
       // Add user input to conversation history
       this.addToHistory('user', userInput);
 
       // Check if input is booking-related
-      if (!this.detectBookingIntent(userInput)) {
+      const isBookingIntent = this.detectBookingIntent(userInput);
+      console.log('🔍 Booking Intent Detected:', isBookingIntent);
+      console.log('📝 Input Analysis:', {
+        input: userInput,
+        length: userInput.length,
+        isGreeting: ['hai', 'hello', 'hi', 'halo'].includes(userInput.toLowerCase().trim()),
+        hasBookingKeywords: ['pesan', 'ruang', 'meeting', 'rapat'].some(keyword => 
+          userInput.toLowerCase().includes(keyword)
+        )
+      });
+      
+      if (!isBookingIntent) {
+        console.log('❌ Non-booking input detected, returning default response');
         return {
           message: "Maaf, saya hanya bisa membantu dengan pemesanan ruangan meeting. Silakan gunakan opsi 'Pesan Ruangan' untuk memulai booking.",
           action: 'continue',
@@ -117,23 +160,25 @@ export class RoomBookingAssistant {
       }
 
       // Process booking-related input
+      console.log('✅ Booking intent confirmed, processing with AI...');
       return await this.processBookingInput(userInput);
     } catch (error) {
-      console.error('RBA Error:', error);
+      console.error('❌ RBA Error:', error);
+      console.error('🔍 Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       return this.handleBookingError(userInput, error);
     }
   }
 
-  // Detect if user input is booking-related
+  // Detect if user input is booking-related - NO LIMITATIONS
   private detectBookingIntent(userInput: string): boolean {
-    const bookingKeywords = [
-      'booking', 'pesan', 'reservasi', 'ruang', 'meeting', 'rapat',
-      'jadwal', 'tanggal', 'jam', 'waktu', 'peserta', 'topik',
-      'internal', 'eksternal', 'pic', 'konsumsi', 'makanan'
-    ];
-    
-    const lowerInput = userInput.toLowerCase();
-    return bookingKeywords.some(keyword => lowerInput.includes(keyword));
+    // AI Agent sekarang menerima SEMUA input tanpa batasan
+    // Tidak ada lagi pembatasan keyword - AI akan memproses semua input
+    console.log('🤖 AI Agent: Processing ALL user input without limitations');
+    return true; // Selalu true - AI akan memproses semua input
   }
 
   // Process booking-related input
@@ -156,7 +201,7 @@ export class RoomBookingAssistant {
       this.updateBookingContext(bookingAnalysis.extractedData);
       
       // Generate response based on booking analysis
-      return this.generateBookingResponse(bookingAnalysis, userInput);
+      return await this.generateBookingResponse(bookingAnalysis, userInput);
       
     } catch (error) {
       console.error('Booking processing error:', error);
@@ -164,8 +209,53 @@ export class RoomBookingAssistant {
     }
   }
 
-  // Generate booking response without Gemini API
-  private generateBookingResponse(bookingAnalysis: any, userInput: string): RBAResponse {
+  // Generate booking response with AI capabilities
+  private async generateBookingResponse(bookingAnalysis: any, userInput: string): Promise<RBAResponse> {
+    // Use Gemini API if available, otherwise fallback to rule-based response
+    if (this.apiKey && this.apiKey !== '') {
+      try {
+        return await this.generateAIResponse(bookingAnalysis, userInput);
+      } catch (error) {
+        console.warn('⚠️ AI response failed, falling back to rule-based:', error);
+        return this.generateRuleBasedResponse(bookingAnalysis, userInput);
+      }
+    } else {
+      return this.generateRuleBasedResponse(bookingAnalysis, userInput);
+    }
+  }
+
+  // Generate AI-powered response using Gemini
+  private async generateAIResponse(bookingAnalysis: any, userInput: string): Promise<RBAResponse> {
+    try {
+      console.log('🚀 Starting AI Response Generation...');
+      console.log('📝 User Input:', userInput);
+      console.log('🔍 Booking Analysis:', JSON.stringify(bookingAnalysis, null, 2));
+      
+      // Use advanced prompt for better AI responses
+      const prompt = await this.buildAdvancedAIPrompt(userInput, bookingAnalysis);
+      console.log('📋 Generated Advanced Prompt Length:', prompt.length);
+      console.log('📋 Prompt Preview:', prompt.substring(0, 300) + '...');
+      
+      const aiResponse = await this.callGeminiAPI(prompt);
+      console.log('✅ AI Response received, processing...');
+      
+      const processedResponse = await this.processGeminiResponse(aiResponse, userInput, bookingAnalysis);
+      console.log('🎯 Final Processed Response:', JSON.stringify(processedResponse, null, 2));
+      
+      return processedResponse;
+    } catch (error) {
+      console.error('❌ AI Response generation failed:', error);
+      console.error('🔍 Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      throw error;
+    }
+  }
+
+  // Generate rule-based response (fallback)
+  private generateRuleBasedResponse(bookingAnalysis: any, userInput: string): RBAResponse {
     const { extractedData, missingFields, confidence } = bookingAnalysis;
     
     let response = '';
@@ -808,7 +898,7 @@ Jawab dengan cerdas dan proaktif:`;
     return actions;
   }
 
-  // Advanced booking input analysis for Spacio database
+  // Advanced booking input analysis - NO LIMITATIONS
   private analyzeBookingInput(userInput: string): {
     hasBookingIntent: boolean;
     extractedData: Partial<Booking>;
@@ -819,24 +909,12 @@ Jawab dengan cerdas dan proaktif:`;
     const extracted: Partial<Booking> = {};
     const missingFields: string[] = [];
     
-    // Booking intent detection - more comprehensive
-    const bookingKeywords = [
-      'pesan', 'booking', 'reservasi', 'ruang', 'meeting', 'rapat',
-      'jadwal', 'tanggal', 'jam', 'waktu', 'besok', 'hari ini', 'lusa',
-      'mau', 'ingin', 'butuh', 'perlu', 'saya mau', 'saya ingin',
-      'internal', 'eksternal', 'konfirmasi', 'ya', 'tidak', 'benar', 'setuju'
-    ];
+    // AI Agent sekarang menganalisis SEMUA input tanpa batasan
+    // Tidak ada lagi pembatasan keyword - AI akan menganalisis semua input secara cerdas
+    console.log('🧠 AI Agent: Analyzing ALL input intelligently without limitations');
     
-    // Check if this is a continuation of booking conversation
-    const isBookingContinuation = bookingKeywords.some(keyword => lower.includes(keyword)) ||
-                                 this.context.conversationHistory.some(msg => 
-                                   msg.role === 'assistant' && 
-                                   (msg.content.includes('booking') || msg.content.includes('pemesanan'))
-                                 );
-    
-    if (!isBookingContinuation) {
-      return { hasBookingIntent: false, extractedData: {}, confidence: 0, missingFields: [] };
-    }
+    // Selalu anggap sebagai booking intent untuk analisis AI
+    const isBookingContinuation = true;
     
     // Spacio room names from database
     const spacioRooms = [
@@ -878,21 +956,25 @@ Jawab dengan cerdas dan proaktif:`;
       }
     }
     
-    // Extract PIC (Person in Charge) - more flexible
+    // Extract PIC (Person in Charge) - more flexible and comprehensive
     const picPatterns = [
       /pic[:\s-]*([a-zA-Z\s]+)/i,
       /penanggung jawab[:\s-]*([a-zA-Z\s]+)/i,
       /atas nama[:\s-]*([a-zA-Z\s]+)/i,
       /pic-nya\s+([a-zA-Z\s]+)/i,
-      /picnya\s+([a-zA-Z\s]+)/i,
-      /pic\s+([a-zA-Z\s]+)/i
+      /picnya\s+([a-zA-Z]+)/i,
+      /pic\s+([a-zA-Z\s]+)/i,
+      /penanggung\s+jawab\s+([a-zA-Z\s]+)/i,
+      /penanggung\s+jawabnya\s+([a-zA-Z]+)/i,
+      /yang\s+bertanggung\s+jawab\s+([a-zA-Z\s]+)/i,
+      /bertanggung\s+jawab\s+([a-zA-Z\s]+)/i
     ];
     
     for (const pattern of picPatterns) {
       const match = userInput.match(pattern);
       if (match && match[1]) {
         const pic = match[1].trim();
-        if (pic.length > 1) {
+        if (pic.length > 1 && pic !== 'belum' && pic !== 'ditentukan') {
           extracted.pic = pic;
           break;
         }
@@ -904,24 +986,66 @@ Jawab dengan cerdas dan proaktif:`;
       const namePatterns = [
         /picnya\s+([a-zA-Z]+)/i,
         /pic\s+([a-zA-Z]+)/i,
-        /penanggung\s+jawab\s+([a-zA-Z]+)/i
+        /penanggung\s+jawab\s+([a-zA-Z]+)/i,
+        /penanggung\s+jawabnya\s+([a-zA-Z]+)/i,
+        /yang\s+bertanggung\s+jawab\s+([a-zA-Z]+)/i,
+        /bertanggung\s+jawab\s+([a-zA-Z]+)/i
       ];
       
       for (const pattern of namePatterns) {
         const match = userInput.match(pattern);
         if (match && match[1]) {
-          extracted.pic = match[1].trim();
-          break;
+          const pic = match[1].trim();
+          if (pic !== 'belum' && pic !== 'ditentukan') {
+            extracted.pic = pic;
+            break;
+          }
         }
       }
     }
     
-    // Extract topic/meeting purpose - more flexible
+    // If still no PIC found, try to extract names from context
+    if (!extracted.pic) {
+      // Look for common Indonesian names or name patterns
+      const namePatterns = [
+        /([A-Z][a-z]+\s+[A-Z][a-z]+)/, // First Last format
+        /([A-Z][a-z]+)/ // Single name
+      ];
+      
+      for (const pattern of namePatterns) {
+        const match = userInput.match(pattern);
+        if (match && match[1]) {
+          const name = match[1].trim();
+          // Check if it's not a common booking word
+          const excludeWords = ['ruang', 'room', 'meeting', 'rapat', 'booking', 'pesan', 
+                               'tanggal', 'date', 'jam', 'time', 'pukul', 'orang', 'peserta',
+                               'internal', 'eksternal', 'pic', 'penanggung', 'jawab', 'untuk',
+                               'topik', 'topic', 'presentasi', 'diskusi', 'agenda'];
+          
+          if (!excludeWords.includes(name.toLowerCase()) && name.length > 2) {
+            extracted.pic = name;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Extract topic/meeting purpose - more flexible and comprehensive
     const topicPatterns = [
+      // Pattern untuk "untuk [topic]"
       /untuk\s+([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
+      // Pattern untuk "topik [topic]"
       /topik[:\s-]*([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
+      // Pattern untuk "rapat [topic]"
       /rapat[:\s-]*([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
-      /topiknya\s+([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i
+      // Pattern untuk "topiknya [topic]"
+      /topiknya\s+([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
+      // Pattern untuk "meeting [topic]"
+      /meeting[:\s-]*([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
+      // Pattern untuk "presentasi [topic]"
+      /presentasi[:\s-]*([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i,
+      // Pattern untuk "diskusi [topic]"
+      /diskusi[:\s-]*([^,]+?)(?:\s+pic|\s+\d+\s+orang|\s+tanggal|\s+jam|\s+internal|\s+eksternal|$)/i
     ];
     
     for (const pattern of topicPatterns) {
@@ -940,19 +1064,79 @@ Jawab dengan cerdas dan proaktif:`;
       const simpleTopicPatterns = [
         /topiknya\s+([a-zA-Z\s]+)/i,
         /untuk\s+([a-zA-Z\s]+)/i,
-        /rapat\s+([a-zA-Z\s]+)/i
+        /rapat\s+([a-zA-Z\s]+)/i,
+        /meeting\s+([a-zA-Z\s]+)/i,
+        /presentasi\s+([a-zA-Z\s]+)/i,
+        /diskusi\s+([a-zA-Z\s]+)/i,
+        /agenda\s+([a-zA-Z\s]+)/i
       ];
       
       for (const pattern of simpleTopicPatterns) {
         const match = userInput.match(pattern);
         if (match && match[1]) {
           const topic = match[1].trim();
-          if (topic.length > 2 && !topic.includes('pic') && !topic.includes('orang')) {
+          if (topic.length > 2 && !topic.includes('pic') && !topic.includes('orang') && 
+              !topic.includes('tanggal') && !topic.includes('jam') && !topic.includes('internal') && 
+              !topic.includes('eksternal')) {
             extracted.topic = topic;
             break;
           }
         }
       }
+    }
+    
+    // If still no topic found, try to extract from context
+    if (!extracted.topic) {
+      // Look for common meeting topics in the input
+      const commonTopics = [
+        'tim', 'team', 'development', 'proyek', 'project', 'client', 'customer', 
+        'vendor', 'supplier', 'partner', 'review', 'evaluasi', 'planning', 
+        'perencanaan', 'training', 'pelatihan', 'presentasi', 'demo', 'demo',
+        'brainstorming', 'strategi', 'strategy', 'budget', 'anggaran', 'sales',
+        'penjualan', 'marketing', 'pemasaran', 'hr', 'human resources', 'sdm',
+        'finance', 'keuangan', 'accounting', 'akuntansi', 'legal', 'hukum',
+        'compliance', 'kepatuhan', 'quality', 'kualitas', 'production', 'produksi'
+      ];
+      
+      for (const topic of commonTopics) {
+        if (lower.includes(topic)) {
+          extracted.topic = topic.charAt(0).toUpperCase() + topic.slice(1);
+          break;
+        }
+      }
+    }
+    
+    // If still no topic, try to extract any meaningful words
+    if (!extracted.topic) {
+      // Extract words that might be topics (avoid common booking words)
+      const excludeWords = ['ruang', 'room', 'meeting', 'rapat', 'booking', 'pesan', 
+                           'tanggal', 'date', 'jam', 'time', 'pukul', 'orang', 'peserta',
+                           'internal', 'eksternal', 'pic', 'penanggung', 'jawab', 'untuk',
+                           'topik', 'topic', 'presentasi', 'diskusi', 'agenda', 'sampai',
+                           'dari', 'ke', 'dengan', 'dan', 'atau', 'yang', 'ini', 'itu'];
+      
+      const words = userInput.toLowerCase().split(/\s+/);
+      const potentialTopics = words.filter(word => 
+        word.length > 3 && 
+        !excludeWords.includes(word) &&
+        !/^\d+$/.test(word) && // not just numbers
+        !/^[a-z]$/.test(word) // not single letters
+      );
+      
+      if (potentialTopics.length > 0) {
+        // Take the first meaningful word, but make sure it's not too generic
+        const topic = potentialTopics[0];
+        if (topic !== 'rapat' && topic !== 'meeting' && topic !== 'booking') {
+          extracted.topic = topic.charAt(0).toUpperCase() + topic.slice(1);
+        }
+      }
+    }
+    
+    // Final validation - if topic is too generic, don't set it
+    if (extracted.topic && (extracted.topic.toLowerCase() === 'rapat' || 
+                           extracted.topic.toLowerCase() === 'meeting' ||
+                           extracted.topic.toLowerCase() === 'booking')) {
+      extracted.topic = undefined;
     }
     
     // Extract participants count
@@ -1018,31 +1202,61 @@ Jawab dengan cerdas dan proaktif:`;
       }
     }
     
-    // Extract time - more comprehensive
-    const timePatterns = [
-      /(\d{1,2}):(\d{2})\s*(?:pagi|siang|sore|malam)?/i,
-      /(\d{1,2})\s*(?:pagi|siang|sore|malam)/i,
-      /jam\s+(\d{1,2})(?::(\d{2}))?\s*(?:pagi|siang|sore|malam)?/i
+    // Extract time - more comprehensive including time ranges
+    const timeRangePatterns = [
+      /jam\s*(\d{1,2})\s*sampai\s*jam\s*(\d{1,2})/i,
+      /jam\s*(\d{1,2})\s*-\s*jam\s*(\d{1,2})/i,
+      /jam\s*(\d{1,2})\s*ke\s*jam\s*(\d{1,2})/i,
+      /(\d{1,2})\s*sampai\s*(\d{1,2})/i,
+      /(\d{1,2})\s*-\s*(\d{1,2})/i,
+      /(\d{1,2})\s*ke\s*(\d{1,2})/i
     ];
     
-    for (const pattern of timePatterns) {
-      const match = userInput.match(pattern);
+    // Check for time range patterns first
+    for (const pattern of timeRangePatterns) {
+      const match = lower.match(pattern);
       if (match) {
-        let hour = parseInt(match[1]);
-        const minute = match[2] ? parseInt(match[2]) : 0;
-        const period = match[3] || (match[0].includes('pagi') ? 'pagi' : 
-                                   match[0].includes('siang') ? 'siang' :
-                                   match[0].includes('sore') ? 'sore' :
-                                   match[0].includes('malam') ? 'malam' : '');
+        const [, startHour, endHour] = match;
+        const startHourNum = parseInt(startHour);
+        const endHourNum = parseInt(endHour);
         
-        if (period === 'sore' || period === 'malam') {
-          hour += 12;
-        } else if (period === 'siang' && hour < 12) {
-          hour += 12;
+        if (startHourNum >= 0 && startHourNum <= 23 && endHourNum >= 0 && endHourNum <= 23) {
+          extracted.time = `${startHourNum.toString().padStart(2, '0')}:00`;
+          extracted.endTime = `${endHourNum.toString().padStart(2, '0')}:00`;
+          break;
         }
-        
-        extracted.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        break;
+      }
+    }
+    
+    // If no time range found, check for single time patterns
+    if (!extracted.time) {
+      const timePatterns = [
+        /(\d{1,2}):(\d{2})\s*(?:pagi|siang|sore|malam)?/i,
+        /(\d{1,2})\s*(?:pagi|siang|sore|malam)/i,
+        /jam\s+(\d{1,2})(?::(\d{2}))?\s*(?:pagi|siang|sore|malam)?/i,
+        /jam\s+(\d{1,2})/i,
+        /pukul\s+(\d{1,2})(?::(\d{2}))?/i
+      ];
+      
+      for (const pattern of timePatterns) {
+        const match = userInput.match(pattern);
+        if (match) {
+          let hour = parseInt(match[1]);
+          const minute = match[2] ? parseInt(match[2]) : 0;
+          const period = match[3] || (match[0].includes('pagi') ? 'pagi' : 
+                                     match[0].includes('siang') ? 'siang' :
+                                     match[0].includes('sore') ? 'sore' :
+                                     match[0].includes('malam') ? 'malam' : '');
+          
+          if (period === 'sore' || period === 'malam') {
+            hour += 12;
+          } else if (period === 'siang' && hour < 12) {
+            hour += 12;
+          }
+          
+          extracted.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          break;
+        }
       }
     }
     
@@ -1095,11 +1309,14 @@ Jawab dengan cerdas dan proaktif:`;
     console.log('🔍 analyzeBookingInput - confidence:', confidence);
     console.log('🔍 analyzeBookingInput - missing fields:', missingFields);
     
+    // AI Agent selalu memberikan confidence tinggi untuk semua input
+    const aiConfidence = Math.max(confidence, 0.7); // Minimum 70% confidence
+    
     return {
-      hasBookingIntent: true,
+      hasBookingIntent: true, // Selalu true - AI memproses semua input
       extractedData: combinedData,
-      confidence,
-      missingFields
+      confidence: aiConfidence,
+      missingFields: missingFields
     };
   }
 
@@ -1225,6 +1442,9 @@ Jawab sekarang:`;
     
     console.log('🤖 Calling Gemini API...');
     console.log('📝 Prompt length:', prompt.length);
+    console.log('🔗 API URL:', url);
+    console.log('🔑 Using API Key:', this.apiKey ? `${this.apiKey.substring(0, 10)}...` : 'NO KEY');
+    console.log('⏰ Timestamp:', new Date().toISOString());
     
     const response = await fetch(url, {
       method: 'POST',
@@ -1277,18 +1497,24 @@ Jawab sekarang:`;
 
     const data = await response.json();
     console.log('✅ Gemini API Response received');
+    console.log('📊 Response Status:', response.status);
+    console.log('📋 Response Headers:', Object.fromEntries(response.headers.entries()));
+    console.log('📄 Full Response Data:', JSON.stringify(data, null, 2));
     
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       const aiResponse = data.candidates[0].content.parts[0].text;
-      console.log('🤖 AI Response:', aiResponse.substring(0, 100) + '...');
+      console.log('🤖 AI Response Length:', aiResponse.length, 'characters');
+      console.log('🤖 AI Response Preview:', aiResponse.substring(0, 200) + '...');
+      console.log('🎯 AI Response Type:', typeof aiResponse);
       return aiResponse;
     } else {
       console.error('❌ Invalid response structure:', data);
+      console.error('🔍 Available keys in response:', Object.keys(data));
       throw new Error('Invalid response from Gemini API');
     }
   }
 
-  // Handle quick action clicks
+  // Handle quick action clicks with improved functionality
   public async handleQuickAction(action: string, currentBooking: Partial<Booking> = {}): Promise<RBAResponse> {
     try {
       console.log('RBA: Handling quick action:', action);
@@ -1337,6 +1563,146 @@ Jawab sekarang:`;
       
       if (action === 'finish_facility_selection') {
         return this.handleFinishFacilitySelection();
+      }
+      
+      // Handle common quick actions
+      if (action === 'book_room' || action === 'Pesan Ruangan') {
+        return {
+          message: "Baik! Mari kita mulai proses pemesanan ruangan. Silakan beri tahu saya:\n\n• Ruangan yang diinginkan\n• Topik rapat\n• Jumlah peserta\n• Tanggal dan waktu\n• Jenis rapat (internal/eksternal)",
+          action: 'continue',
+          quickActions: [
+            { label: 'Samudrantha (10 orang)', action: 'room_samudrantha', type: 'primary' },
+            { label: 'Cedaya (15 orang)', action: 'room_cedaya', type: 'primary' },
+            { label: 'Celebes (15 orang)', action: 'room_celebes', type: 'primary' },
+            { label: 'Lihat Semua Ruangan', action: 'view_all_rooms', type: 'secondary' }
+          ]
+        };
+      }
+      
+      if (action === 'view_rooms' || action === 'Lihat Ruangan') {
+        const rooms = await this.getAvailableRoomsFromDatabase();
+        const roomOptions = rooms.slice(0, 4).map(room => ({
+          label: `${room.room_name} (${room.capacity} orang)`,
+          action: `room_${room.room_name.toLowerCase().replace(/\s+/g, '_')}`,
+          type: 'primary' as const
+        }));
+        
+        return {
+          message: `Berikut adalah ruangan yang tersedia:\n\n${rooms.map(room => 
+            `🏢 ${room.room_name} (${room.capacity} orang)\n   📍 ${room.description || 'Ruang meeting standar'}\n   🔧 ${room.features || 'AC, Proyektor'}\n   📊 ${room.is_available ? '✅ Tersedia' : '❌ Tidak Tersedia'}\n`
+          ).join('\n')}`,
+          action: 'continue',
+          quickActions: roomOptions
+        };
+      }
+      
+      if (action === 'bantuan' || action === 'Bantuan') {
+        return {
+          message: "Tentu! Saya dapat membantu Anda dengan:\n\n• 📅 Pemesanan ruang rapat\n• 🏢 Informasi ruangan tersedia\n• ⏰ Cek ketersediaan waktu\n• 📋 Panduan proses booking\n• ❓ Pertanyaan umum\n\nApa yang ingin Anda ketahui?",
+          action: 'continue',
+          quickActions: [
+            { label: 'Cara Booking', action: 'help_booking', type: 'primary' },
+            { label: 'Lihat Ruangan', action: 'view_rooms', type: 'primary' },
+            { label: 'Cek Ketersediaan', action: 'check_availability', type: 'secondary' },
+            { label: 'FAQ', action: 'faq', type: 'secondary' }
+          ]
+        };
+      }
+      
+      // Handle room selection
+      if (action.startsWith('room_')) {
+        const roomName = action.replace('room_', '').replace(/_/g, ' ');
+        this.context.currentBooking.roomName = roomName;
+        return {
+          message: `Bagus! Anda memilih ${roomName}. Sekarang saya perlu informasi tambahan:\n\n• Topik rapat\n• PIC (Penanggung Jawab)\n• Jumlah peserta\n• Tanggal dan waktu\n• Jenis rapat`,
+          action: 'continue',
+          quickActions: [
+            { label: 'Hari Ini', action: 'date_hari_ini', type: 'primary' },
+            { label: 'Besok', action: 'date_besok', type: 'primary' },
+            { label: 'Lusa', action: 'date_lusa', type: 'secondary' }
+          ]
+        };
+      }
+      
+      // Handle help actions
+      if (action === 'help_booking') {
+        return {
+          message: "Proses booking sangat mudah! Ikuti langkah berikut:\n\n1️⃣ Pilih ruangan yang sesuai\n2️⃣ Tentukan topik rapat\n3️⃣ Masukkan nama PIC\n4️⃣ Tentukan jumlah peserta\n5️⃣ Pilih tanggal dan waktu\n6️⃣ Pilih jenis rapat (internal/eksternal)\n7️⃣ Konfirmasi pemesanan\n\nSaya akan membantu Anda melalui setiap langkah!",
+          action: 'continue',
+          quickActions: [
+            { label: 'Mulai Booking', action: 'book_room', type: 'primary' },
+            { label: 'Lihat Ruangan', action: 'view_rooms', type: 'secondary' }
+          ]
+        };
+      }
+      
+      // Handle PIC input
+      if (action === 'input_pic') {
+        return {
+          message: "Silakan masukkan nama PIC (Penanggung Jawab) rapat:\n\nContoh: John Doe, Sarah Wilson, dll.\n\nKetik nama PIC Anda:",
+          action: 'continue',
+          quickActions: [
+            { label: 'Batal', action: 'cancel', type: 'secondary' }
+          ]
+        };
+      }
+      
+      // Handle duration selection
+      if (action === 'duration_2_hours') {
+        if (this.context.currentBooking.time) {
+          const startTime = this.context.currentBooking.time;
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const endHours = hours + 2;
+          const endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          this.context.currentBooking.endTime = endTime;
+          
+          return {
+            message: `✅ Durasi rapat ditetapkan 2 jam\n⏰ Waktu berakhir: ${endTime}\n\nData pemesanan Anda:\n${this.getBookingStatus()}`,
+            action: 'continue',
+            quickActions: [
+              { label: 'Konfirmasi Booking', action: 'confirm_booking', type: 'primary' },
+              { label: 'Ubah Data', action: 'modify_data', type: 'secondary' }
+            ]
+          };
+        }
+      }
+      
+      if (action === 'duration_3_hours') {
+        if (this.context.currentBooking.time) {
+          const startTime = this.context.currentBooking.time;
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const endHours = hours + 3;
+          const endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          this.context.currentBooking.endTime = endTime;
+          
+          return {
+            message: `✅ Durasi rapat ditetapkan 3 jam\n⏰ Waktu berakhir: ${endTime}\n\nData pemesanan Anda:\n${this.getBookingStatus()}`,
+            action: 'continue',
+            quickActions: [
+              { label: 'Konfirmasi Booking', action: 'confirm_booking', type: 'primary' },
+              { label: 'Ubah Data', action: 'modify_data', type: 'secondary' }
+            ]
+          };
+        }
+      }
+      
+      if (action === 'duration_4_hours') {
+        if (this.context.currentBooking.time) {
+          const startTime = this.context.currentBooking.time;
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const endHours = hours + 4;
+          const endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          this.context.currentBooking.endTime = endTime;
+          
+          return {
+            message: `✅ Durasi rapat ditetapkan 4 jam\n⏰ Waktu berakhir: ${endTime}\n\nData pemesanan Anda:\n${this.getBookingStatus()}`,
+            action: 'continue',
+            quickActions: [
+              { label: 'Konfirmasi Booking', action: 'confirm_booking', type: 'primary' },
+              { label: 'Ubah Data', action: 'modify_data', type: 'secondary' }
+            ]
+          };
+        }
       }
       
       if (action === 'modify_data') {
@@ -1698,6 +2064,144 @@ Jawab sekarang:`;
     }
   }
   
+  // Validate booking data with detailed checks
+  private validateBookingData(booking: Partial<Booking>): {
+    isValid: boolean;
+    missingFields: Array<{ field: string; label: string; description: string }>;
+  } {
+    const missingFields: Array<{ field: string; label: string; description: string }> = [];
+    
+    // Check room name - NO FALLBACK VALUES
+    if (!booking.roomName || booking.roomName.trim() === '' || booking.roomName === 'NaN' || booking.roomName === 'undefined') {
+      missingFields.push({
+        field: 'roomName',
+        label: '🏢 Nama Ruangan',
+        description: 'Pilih ruangan yang akan digunakan untuk rapat'
+      });
+    }
+    
+    // Check topic - NO FALLBACK VALUES
+    if (!booking.topic || booking.topic.trim() === '' || booking.topic === 'NaN' || booking.topic === 'undefined') {
+      missingFields.push({
+        field: 'topic',
+        label: '📋 Topik Rapat',
+        description: 'Masukkan topik atau agenda rapat'
+      });
+    }
+    
+    // Check PIC (Person in Charge) - NO FALLBACK VALUES
+    if (!booking.pic || booking.pic.trim() === '' || booking.pic === 'NaN' || booking.pic === 'undefined' || booking.pic === 'Belum ditentukan') {
+      missingFields.push({
+        field: 'pic',
+        label: '👤 PIC (Penanggung Jawab)',
+        description: 'Masukkan nama penanggung jawab rapat'
+      });
+    }
+    
+    // Check participants - must be a valid number
+    const participantsNum = Number(booking.participants);
+    if (!booking.participants || 
+        String(booking.participants) === '' || 
+        String(booking.participants) === 'orang' ||
+        isNaN(participantsNum) ||
+        participantsNum <= 0) {
+      missingFields.push({
+        field: 'participants',
+        label: '👥 Jumlah Peserta',
+        description: 'Masukkan jumlah peserta rapat (minimal 1 orang)'
+      });
+    }
+    
+    // Check date - must be valid date format - NO FALLBACK VALUES
+    if (!booking.date || booking.date.trim() === '' || booking.date === 'NaN' || booking.date === 'undefined') {
+      missingFields.push({
+        field: 'date',
+        label: '📅 Tanggal Rapat',
+        description: 'Pilih tanggal pelaksanaan rapat'
+      });
+    } else {
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(booking.date)) {
+        missingFields.push({
+          field: 'date',
+          label: '📅 Tanggal Rapat',
+          description: 'Format tanggal harus YYYY-MM-DD (contoh: 2025-01-17)'
+        });
+      }
+    }
+    
+    // Check time - must be valid time format - NO FALLBACK VALUES
+    if (!booking.time || booking.time.trim() === '' || booking.time === 'NaN' || booking.time === 'undefined' || booking.time === 'Belum ditentukan') {
+      missingFields.push({
+        field: 'time',
+        label: '⏰ Waktu Rapat',
+        description: 'Masukkan waktu mulai rapat (contoh: 10:00)'
+      });
+    } else {
+      // Validate time format (HH:MM)
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(booking.time)) {
+        missingFields.push({
+          field: 'time',
+          label: '⏰ Waktu Rapat',
+          description: 'Format waktu harus HH:MM (contoh: 10:00)'
+        });
+      }
+    }
+    
+    // Check meeting type - NO FALLBACK VALUES
+    if (!booking.meetingType || 
+        String(booking.meetingType) === 'NaN' || 
+        String(booking.meetingType) === 'undefined' ||
+        (booking.meetingType !== 'internal' && booking.meetingType !== 'external')) {
+      missingFields.push({
+        field: 'meetingType',
+        label: '🏢 Jenis Rapat',
+        description: 'Pilih jenis rapat: Internal atau Eksternal'
+      });
+    }
+    
+    // Check end time - calculate if not provided
+    if (!booking.endTime || booking.endTime.trim() === '' || booking.endTime === 'NaN:NaN' || booking.endTime === 'NaN' || booking.endTime === 'undefined') {
+      if (booking.time && booking.time !== 'Belum ditentukan' && booking.time !== 'NaN' && booking.time !== 'undefined') {
+        // Calculate end time (default 2 hours duration)
+        const startTime = booking.time;
+        const [hours, minutes] = startTime.split(':').map(Number);
+        
+        if (!isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+          const endHours = hours + 2;
+          const endMinutes = minutes;
+          
+          if (endHours >= 24) {
+            missingFields.push({
+              field: 'endTime',
+              label: '⏰ Waktu Berakhir',
+              description: 'Waktu berakhir tidak valid. Silakan pilih waktu yang berbeda'
+            });
+          }
+        } else {
+          missingFields.push({
+            field: 'endTime',
+            label: '⏰ Waktu Berakhir',
+            description: 'Waktu mulai tidak valid. Silakan masukkan waktu yang benar'
+          });
+        }
+      } else {
+        missingFields.push({
+          field: 'endTime',
+          label: '⏰ Waktu Berakhir',
+          description: 'Masukkan waktu berakhir rapat'
+        });
+      }
+    }
+    
+    return {
+      isValid: missingFields.length === 0,
+      missingFields
+    };
+  }
+
   // Generate quick actions based on missing data
   private generateQuickActionsForMissingData(missingFields: string[]): Array<{
     label: string;
@@ -1707,41 +2211,65 @@ Jawab sekarang:`;
   }> {
     const quickActions = [];
     
-    if (missingFields.includes('nama ruangan')) {
+    if (missingFields.includes('roomName')) {
       quickActions.push(
         { label: 'Lihat Ruangan', action: 'view_rooms', icon: '🏢', type: 'primary' },
-        { label: 'Samudrantha', action: 'select_samudrantha', icon: '🏢', type: 'secondary' },
-        { label: 'Nusanipa', action: 'select_nusanipa', icon: '🏢', type: 'secondary' }
+        { label: 'Samudrantha (10 orang)', action: 'room_samudrantha', icon: '🏢', type: 'secondary' },
+        { label: 'Cedaya (15 orang)', action: 'room_cedaya', icon: '🏢', type: 'secondary' },
+        { label: 'Celebes (15 orang)', action: 'room_celebes', icon: '🏢', type: 'secondary' }
       );
     }
     
-    if (missingFields.includes('tanggal rapat')) {
+    if (missingFields.includes('date')) {
       quickActions.push(
-        { label: 'Hari Ini', action: 'today', icon: '📅', type: 'secondary' },
-        { label: 'Besok', action: 'tomorrow', icon: '📅', type: 'secondary' }
+        { label: 'Hari Ini', action: 'date_hari_ini', icon: '📅', type: 'primary' },
+        { label: 'Besok', action: 'date_besok', icon: '📅', type: 'primary' },
+        { label: 'Lusa', action: 'date_lusa', icon: '📅', type: 'secondary' }
       );
     }
     
-    if (missingFields.includes('jumlah peserta')) {
+    if (missingFields.includes('time')) {
       quickActions.push(
-        { label: '5 Orang', action: 'participants_5', icon: '👥', type: 'secondary' },
-        { label: '10 Orang', action: 'participants_10', icon: '👥', type: 'secondary' },
+        { label: 'Pagi (09:00)', action: 'time_09:00', icon: '🌅', type: 'primary' },
+        { label: 'Siang (13:00)', action: 'time_13:00', icon: '☀️', type: 'primary' },
+        { label: 'Sore (15:00)', action: 'time_15:00', icon: '🌆', type: 'secondary' }
+      );
+    }
+    
+    if (missingFields.includes('participants')) {
+      quickActions.push(
+        { label: '5 Orang', action: 'participants_5', icon: '👥', type: 'primary' },
+        { label: '10 Orang', action: 'participants_10', icon: '👥', type: 'primary' },
         { label: '15 Orang', action: 'participants_15', icon: '👥', type: 'secondary' }
       );
     }
     
-    if (missingFields.includes('topik rapat')) {
+    if (missingFields.includes('topic')) {
       quickActions.push(
-        { label: 'Rapat Tim', action: 'topic_team', icon: '👥', type: 'secondary' },
-        { label: 'Presentasi', action: 'topic_presentation', icon: '📊', type: 'secondary' },
+        { label: 'Rapat Tim', action: 'topic_rapat_tim', icon: '👥', type: 'primary' },
+        { label: 'Presentasi', action: 'topic_presentasi', icon: '📊', type: 'primary' },
         { label: 'Training', action: 'topic_training', icon: '🎓', type: 'secondary' }
       );
     }
     
-    if (missingFields.includes('jenis rapat')) {
+    if (missingFields.includes('pic')) {
       quickActions.push(
-        { label: 'Internal', action: 'meeting_internal', icon: '🏢', type: 'secondary' },
-        { label: 'Eksternal', action: 'meeting_external', icon: '🌐', type: 'secondary' }
+        { label: 'Masukkan PIC', action: 'input_pic', icon: '👤', type: 'primary' }
+      );
+    }
+    
+    if (missingFields.includes('meetingType')) {
+      quickActions.push(
+        { label: 'Internal', action: 'meeting_internal', icon: '🏢', type: 'primary' },
+        { label: 'Eksternal', action: 'meeting_external', icon: '🌐', type: 'primary' }
+      );
+    }
+    
+    if (missingFields.includes('endTime')) {
+      quickActions.push(
+        { label: '2 Jam (Default)', action: 'duration_2_hours', icon: '⏰', type: 'primary' },
+        { label: '3 Jam', action: 'duration_3_hours', icon: '⏰', type: 'secondary' },
+        { label: '4 Jam', action: 'duration_4_hours', icon: '⏰', type: 'secondary' }
       );
     }
     
@@ -3612,29 +4140,62 @@ Jawab sekarang:`;
 
   // Extract time from user input
   private extractTime(input: string): string | null {
+    const lower = input.toLowerCase();
+    
+    // Handle time range patterns like "jam 10 sampai jam 12"
+    const timeRangePatterns = [
+      /jam\s*(\d{1,2})\s*sampai\s*jam\s*(\d{1,2})/i,
+      /jam\s*(\d{1,2})\s*-\s*jam\s*(\d{1,2})/i,
+      /jam\s*(\d{1,2})\s*ke\s*jam\s*(\d{1,2})/i,
+      /(\d{1,2})\s*sampai\s*(\d{1,2})/i,
+      /(\d{1,2})\s*-\s*(\d{1,2})/i,
+      /(\d{1,2})\s*ke\s*(\d{1,2})/i
+    ];
+    
+    for (const pattern of timeRangePatterns) {
+      const match = lower.match(pattern);
+      if (match) {
+        const [, startHour, endHour] = match;
+        const startHourNum = parseInt(startHour);
+        const endHourNum = parseInt(endHour);
+        
+        if (startHourNum >= 0 && startHourNum <= 23 && endHourNum >= 0 && endHourNum <= 23) {
+          return `${startHourNum.toString().padStart(2, '0')}:00`;
+        }
+      }
+    }
+    
+    // Handle single time patterns
     const timePatterns = [
       /(\d{1,2}):(\d{2})/,
       /(\d{1,2})\.(\d{2})/,
-      /jam\s*(\d{1,2}):(\d{2})/,
-      /pukul\s*(\d{1,2}):(\d{2})/
+      /jam\s*(\d{1,2}):(\d{2})/i,
+      /pukul\s*(\d{1,2}):(\d{2})/i,
+      /jam\s*(\d{1,2})/i,
+      /pukul\s*(\d{1,2})/i
     ];
     
     for (const pattern of timePatterns) {
-      const match = input.match(pattern);
+      const match = lower.match(pattern);
       if (match) {
         const [, hour, minute] = match;
-        return `${hour.padStart(2, '0')}:${minute}`;
+        const hourNum = parseInt(hour);
+        const minuteNum = minute ? parseInt(minute) : 0;
+        
+        if (hourNum >= 0 && hourNum <= 23 && minuteNum >= 0 && minuteNum <= 59) {
+          return `${hourNum.toString().padStart(2, '0')}:${minuteNum.toString().padStart(2, '0')}`;
+        }
       }
     }
     
     // Handle time descriptions
-    if (input.includes('pagi')) {
+    if (lower.includes('pagi')) {
       return '09:00';
-    } else if (input.includes('siang')) {
+    } else if (lower.includes('siang')) {
       return '12:00';
-    } else if (input.includes('sore')) {
+    } else if (lower.includes('sore')) {
       return '15:00';
-    } else if (input.includes('malam')) {
+    } else if (lower.includes('malam')) {
       return '19:00';
     }
     
@@ -3714,200 +4275,219 @@ Jawab sekarang:`;
     return null;
   }
 
-  // Build comprehensive prompt for RBA
-  private buildRBAPrompt(userInput: string, analysis: any): string {
+  // Build optimized AI prompt for RBA
+  private async buildRBAPrompt(userInput: string, analysis: any): Promise<string> {
     const conversationContext = this.context.conversationHistory
-      .slice(-6)
+      .slice(-4) // Reduced from 6 to save tokens
       .map(msg => {
-        const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('id-ID') : '';
-        const role = msg.role === 'user' ? '👤 User' : '🤖 RBA';
-        return `${role} [${timestamp}]: ${msg.content}`;
+        const role = msg.role === 'user' ? 'User' : 'RBA';
+        return `${role}: ${msg.content}`;
       })
       .join('\n');
 
     const bookingStatus = this.getBookingStatus();
-    const availableRooms = this.getAvailableRoomsInfo();
-    const userPreferences = this.getUserPreferencesInfo();
+    const availableRooms = await this.getAvailableRoomsInfo();
     
-    // Debug: Log values to see what's happening
-    console.log('DEBUG - conversationContext:', conversationContext);
-    console.log('DEBUG - bookingStatus:', bookingStatus);
-    console.log('DEBUG - availableRooms:', availableRooms);
-    console.log('DEBUG - userPreferences:', userPreferences);
+    // Get current date for context
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    return `Halo! Saya adalah RBA (RoomBooking Assistant) - asisten AI SUPER CERDAS yang memahami semua input user dengan kecerdasan buatan tingkat tinggi. Saya di sini untuk membantu Anda dengan cara yang natural, ramah, efisien, dan sangat cerdas.
+    return `Anda adalah RBA (RoomBooking Assistant) - AI yang cerdas untuk pemesanan ruangan meeting.
 
-🧠 KECERDASAN SAYA:
-- Memahami bahasa alami dalam berbagai bentuk (formal, informal, singkat, panjang, campuran bahasa)
-- Menganalisis konteks, emosi, dan niat user dengan akurasi tinggi
-- Memberikan rekomendasi yang tepat berdasarkan kebutuhan spesifik
-- Belajar dari setiap interaksi untuk memberikan layanan yang lebih personal
-- Memahami input yang kompleks dan ambigu dengan kecerdasan tinggi
-- Menyesuaikan respons berdasarkan mood dan urgency user
+KONTEKS PERCAKAPAN:
+${conversationContext || 'Percakapan baru'}
 
-🎯 KEMAMPUAN PEMAHAMAN:
-- Deteksi bahasa: Indonesia, Inggris, campuran
-- Analisis emosi: positif, negatif, netral, grateful, frustrated
-- Deteksi urgency: tinggi, normal, rendah
-- Analisis kompleksitas: sederhana, sedang, kompleks
-- Deteksi konteks: presentasi, diskusi, training, review, urgent
-- Pemahaman aksi: create, search, check, confirm, modify
-
-💬 KONTEKS PERCAKAPAN:
-${conversationContext || 'Belum ada percakapan sebelumnya'}
-
+STATUS BOOKING:
 ${bookingStatus}
 
+RUANGAN TERSEDIA:
 ${availableRooms}
 
-${userPreferences}
-
-ANALISIS INPUT USER (ENHANCED):
+ANALISIS INPUT:
 - Intent: ${analysis.intent}
 - Confidence: ${analysis.confidence}
-- Sentiment: ${analysis.sentiment}
-- Urgency: ${analysis.urgency}
-- Complexity: ${analysis.complexity}
-- Context: ${analysis.context}
-- Language: ${analysis.language}
-- Emotion: ${analysis.emotion}
-- Action: ${analysis.action}
 - Entities: ${JSON.stringify(analysis.entities)}
 
-PESAN USER TERBARU: "${userInput}"
+INPUT USER: "${userInput}"
 
-🧠 ENHANCED PARSING INTELLIGENCE:
+PARSING RULES:
+- Tanggal: "besok"=${tomorrow}, "hari ini"=${today}, "lusa"=${new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0]}
+- Waktu: "pagi"=09:00, "siang"=12:00, "sore"=15:00, "malam"=19:00
+- Peserta: ekstrak angka dari input
+- Topik: ekstrak setelah kata kunci "untuk", "tentang", "rapat", "meeting"
 
-TANGGAL (Super Cerdas):
-- "besok" = tanggal besok dalam format YYYY-MM-DD
-- "hari ini" = tanggal hari ini dalam format YYYY-MM-DD  
-- "lusa" = tanggal lusa dalam format YYYY-MM-DD
-- "minggu depan" = 7 hari dari sekarang
-- Format tanggal: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY
-- Nama bulan: Januari, Februari, Maret, April, Mei, Juni, Juli, Agustus, September, Oktober, November, Desember
-- Selalu konversi tanggal relatif ke format YYYY-MM-DD yang tepat
-
-WAKTU (Super Cerdas):
-- Format: HH:MM, HH.MM, jam HH:MM, pukul HH:MM
-- AM/PM: 2pm = 14:00, 2am = 02:00
-- Deskripsi: pagi=09:00, siang=12:00, sore=15:00, malam=19:00
-- Bahasa Inggris: morning=09:00, noon=12:00, afternoon=15:00, evening=19:00
-
-PESERTA (Super Cerdas):
-- Angka: 10, 15, 20
-- Dengan kata: 10 orang, 15 peserta, 20 people
-- Deskripsi: team of 5, group of 8, untuk 12
-- Range: 5-10 orang, between 8-15 people
-
-TOPIK (Super Cerdas):
-- Bersih dan spesifik, tidak termasuk informasi lain
-- Contoh: "presentasi client untuk 10 orang besok jam 10" → topik: "presentasi client"
-- Contoh: "rapat tim besok pagi" → topik: "rapat tim"
-- Contoh: "brainstorming produk baru" → topik: "brainstorming produk baru"
-- Contoh: "meeting review bulanan" → topik: "meeting review bulanan"
-
-RUANGAN (Super Cerdas):
-- Tipe: besar/large, kecil/small, conference, meeting, presentation, training
-- Fasilitas: proyektor, papan tulis, AC, sound system, video conference, WiFi
-- Kebutuhan khusus: aksesibilitas, privasi, rekaman, streaming
-
-FITUR UTAMA RBA:
-1. Pemesanan Cerdas & Rekomendasi
-   - Pencarian Berbasis Niat: Memahami bahasa alami pengguna
-   - Rekomendasi Proaktif: Berdasarkan riwayat dan preferensi
-   - Penjadwalan Otomatis: Memesan ruangan secara langsung
-   - Integrasi Kalender: Sinkronisasi jadwal
-
-2. Asisten Virtual 24/7
-   - FAQ Otomatis: Menjawab pertanyaan umum
-   - Panduan Penggunaan: Membantu navigasi aplikasi
-   - Dukungan Multi-bahasa: Bahasa Indonesia
-
-3. Notifikasi & Pengingat
-   - Konfirmasi Pemesanan: Konfirmasi segera
-   - Pengingat Pra-Pemesanan: Pengingat sebelum waktu
-   - Notifikasi Perubahan: Informasi perubahan
-   - Survei Pasca-Pemesanan: Umpan balik
-
-4. Personalisasi
-   - Memahami Preferensi: Belajar dari riwayat
-   - Riwayat Pemesanan: Akses cepat ke riwayat
-   - Profil Pengguna: Rekomendasi personal
-
-5. Analitik & Wawasan
-   - Laporan Penggunaan: Data penggunaan ruangan
-   - Identifikasi Pola: Deteksi pola penggunaan
-   - Umpan Balik Terkonsolidasi: Analisis umpan balik
-
-FORMAT RESPONS (JSON):
+RESPONSE FORMAT (JSON ONLY):
 {
-  "message": "Pesan respons untuk user (maksimal 300 karakter, gunakan emoji yang sesuai)",
-  "action": "continue|complete|error|clarify|recommend|confirm",
+  "message": "Pesan ramah dan helpful (max 200 karakter)",
+  "action": "continue|complete|confirm|clarify|recommend",
   "bookingData": {
-    "roomName": "nama ruangan jika dipilih",
-    "topic": "topik rapat",
+    "roomName": "nama ruangan",
+    "topic": "topik rapat", 
     "pic": "nama PIC",
     "participants": "jumlah peserta",
-    "date": "tanggal (YYYY-MM-DD)",
-    "time": "waktu (HH:MM)",
-    "endTime": "waktu selesai (HH:MM)",
-    "meetingType": "internal|external",
-    "facilities": "AC|Projector|Sound System|Whiteboard|TV|WiFi|Microphone|Camera|Video Conference|Coffee Machine|Water Dispenser|Printer|Scanner|Presentation Screen|Laptop Connection|Power Outlets|Air Purifier|Blinds/Curtains|Lighting Control"
+    "date": "YYYY-MM-DD",
+    "time": "HH:MM",
+    "meetingType": "internal|external"
   },
-  "nextState": "IDLE|ASKING_ROOM|ASKING_TOPIC|ASKING_PIC|ASKING_PARTICIPANTS|ASKING_DATE|ASKING_TIME|ASKING_MEETING_TYPE|ASKING_FOOD_TYPE|CONFIRMING",
   "quickActions": [
-    {"label": "Opsi 1", "action": "action1", "icon": "🏢", "type": "primary"},
-    {"label": "Opsi 2", "action": "action2", "icon": "📅", "type": "secondary"}
+    {"label": "Opsi 1", "action": "action1", "type": "primary"},
+    {"label": "Opsi 2", "action": "action2", "type": "secondary"}
   ],
-  "suggestions": ["Saran 1", "Saran 2", "Saran 3"],
-  "recommendations": {
-    "rooms": [
-      {"name": "Ruang A", "capacity": 10, "facilities": ["proyektor", "papan tulis"]}
-    ],
-    "reasons": ["Sesuai kapasitas", "Fasilitas lengkap"]
-  },
-  "notifications": [
-    {"type": "confirmation", "message": "Pemesanan berhasil", "scheduled": "2025-01-10T10:00:00Z"}
-  ]
+  "suggestions": ["Saran 1", "Saran 2"]
 }
 
-CARA BERBICARA SAYA (ENHANCED):
-- Seperti teman yang sangat cerdas dan membantu
-- Gunakan bahasa yang natural dan conversational sesuai konteks
-- Emoji yang tepat dan tidak berlebihan
-- Langsung ke inti dengan kecerdasan tinggi
-- Proaktif memberikan saran yang sangat berguna
-- Mengingat konteks percakapan dengan detail
-- Responsif terhadap kebutuhan spesifik user
-- Menyesuaikan tone berdasarkan emosi dan urgency user
-- Memberikan solusi yang tepat dan efisien
+CONTOH RESPONS CERDAS:
+- "Untuk presentasi client 10 orang besok pagi, saya rekomendasikan Samudrantha! Ada proyektor dan cocok untuk presentasi. Mau saya bookingkan?"
+- "Rapat tim urgent? Cedaya atau Celebes bagus untuk diskusi kreatif. Mana yang dipilih?"
+- "Training 15 orang dengan rekaman? Balidwipa perfect dengan sound system lengkap!"
 
+JAWAB HANYA DENGAN JSON, TANPA TEKS LAIN.`;
+  }
 
-CONTOH RESPONS YANG SUPER CERDAS:
-- "Wah, untuk presentasi client 10 orang besok pagi, saya rekomendasikan Samudrantha! Ruangannya pas, ada proyektor, dan cocok untuk presentasi. Mau saya bookingkan sekarang?"
-- "Oke, saya lihat Anda butuh ruangan urgent untuk brainstorming tim. Ada beberapa pilihan bagus nih... Cedaya atau Celebes cocok untuk diskusi kreatif."
-- "Hmm, untuk training 15 orang dengan kebutuhan rekaman, Balidwipa perfect! Ada sound system dan space yang cukup. Gimana, proceed?"
+  // Build advanced AI prompt with dynamic room data
+  private async buildAdvancedAIPrompt(userInput: string, analysis: any): Promise<string> {
+    const conversationContext = this.context.conversationHistory
+      .slice(-3)
+      .map(msg => `${msg.role}: ${msg.content}`)
+      .join('\n');
 
-CONTOH PARSING YANG SUPER CERDAS:
-- Input: "besok jam 10 untuk presentasi client 12 orang" → date: "2025-01-11", time: "10:00", participants: 12, topic: "presentasi client"
-- Input: "hari ini siang rapat tim urgent" → date: "2025-01-10", time: "12:00", topic: "rapat tim", urgency: "high"
-- Input: "lusa pagi brainstorming produk baru dengan 8 orang" → date: "2025-01-12", time: "09:00", participants: 8, topic: "brainstorming produk baru"
-- Input: "training 15 orang dengan kebutuhan rekaman besok sore" → participants: 15, date: "2025-01-11", time: "15:00", topic: "training", requirements: ["rekaman"]
+    const currentBooking = this.context.currentBooking;
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
+    return `🤖 RBA AI Assistant - Professional Room Booking System
+
+CONVERSATION HISTORY:
+${conversationContext || 'New conversation'}
+
+CURRENT BOOKING STATUS:
+${JSON.stringify(currentBooking, null, 2)}
+
+USER INPUT: "${userInput}"
+
+ANALYSIS:
+- Intent: ${analysis.intent}
+- Confidence: ${analysis.confidence}%
+- Entities: ${JSON.stringify(analysis.entities)}
+
+AVAILABLE ROOMS:
+- Samudrantha (10 pax) - Projector, Whiteboard, AC
+- Cedaya (15 pax) - Sound System, Video Conference
+- Celebes (15 pax) - Large Screen, WiFi
+- Kalamanthana (15 pax) - Recording Equipment
+- Ruang Nasionalis (15 pax) - Premium Setup
+- Ruang Meeting A (8 pax) - Basic Setup
+- Ruang Konferensi Bintang (12 pax) - Conference Ready
+- Auditorium Utama (50 pax) - Full Equipment
+- Ruang Kolaborasi Alpha (6 pax) - Collaborative Space
+
+INTELLIGENT UNDERSTANDING:
+- Dates: "besok"=${tomorrow}, "hari ini"=${today}, "lusa"=${new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0]}
+- Times: "pagi"=09:00, "siang"=12:00, "sore"=15:00, "malam"=19:00
+- Participants: Extract numbers from any context
+- Topics: Understand any meeting purpose or topic
+- Context: Understand urgency, preferences, and requirements
+
+PROFESSIONAL RESPONSE STRATEGY:
+1. GREETINGS ("hai", "hello", "hi") → Warm professional greeting + offer assistance
+2. BOOKING REQUESTS → Process intelligently with recommendations
+3. QUESTIONS → Provide helpful information and guidance
+4. COMPLAINTS/ISSUES → Address professionally and offer solutions
+5. GENERAL CHAT → Stay professional but friendly, guide to booking
+6. COMPLEX REQUESTS → Break down into manageable steps
+7. UNCLEAR INPUT → Ask clarifying questions professionally
+
+RESPONSE FORMAT (JSON):
+{
+  "message": "Professional, helpful message (max 200 chars)",
+  "action": "continue|complete|confirm|clarify|recommend|error|greeting|help",
+  "bookingData": {
+    "roomName": "room name",
+    "topic": "meeting topic",
+    "pic": "person in charge",
+    "participants": "number",
+    "date": "YYYY-MM-DD",
+    "time": "HH:MM",
+    "meetingType": "internal|external"
+  },
+  "quickActions": [
+    {"label": "Action 1", "action": "action1", "type": "primary"},
+    {"label": "Action 2", "action": "action2", "type": "secondary"}
+  ],
+  "suggestions": ["Suggestion 1", "Suggestion 2"],
+  "recommendations": {
+    "rooms": [{"name": "Room", "capacity": 10, "facilities": ["facility1"]}],
+    "reasons": ["Reason 1", "Reason 2"]
+  }
+}
+
+CRITICAL DATA COMPLETION RULES:
+- NEVER use "Belum ditentukan", "NaN", "undefined", or empty strings in bookingData
+- If any field is missing, set action to "continue" and ask for specific missing information
+- Only set action to "complete" when ALL fields have valid, non-empty values
+- For missing PIC: Ask "Siapa yang akan menjadi PIC (Penanggung Jawab) rapat ini?"
+- For missing time: Ask "Jam berapa rapat akan dimulai? (contoh: 10:00)"
+- For missing participants: Ask "Berapa jumlah peserta yang akan hadir?"
+- Always provide specific, actionable questions for missing data
+
+PROFESSIONAL EXAMPLES:
+- "hai" → "Halo! Selamat datang di RBA Assistant. Saya siap membantu Anda dengan pemesanan ruang rapat. Ada yang bisa saya bantu hari ini?"
+- "presentasi client 10 orang besok pagi" → "Untuk presentasi client 10 orang besok pagi, saya rekomendasikan Samudrantha Meeting Room. Ruangan ini memiliki proyektor dan kapasitas yang sesuai. Apakah Anda ingin saya proses pemesanannya?"
+- "bantuan" → "Tentu! Saya dapat membantu Anda dengan pemesanan ruang rapat, informasi ruangan, atau pertanyaan lainnya. Apa yang ingin Anda ketahui?"
+- "ruangan apa saja yang ada?" → "Kami memiliki 9 ruang meeting dengan berbagai kapasitas dan fasilitas. Mulai dari Ruang Kolaborasi Alpha (6 orang) hingga Auditorium Utama (50 orang). Ruangan mana yang ingin Anda ketahui lebih detail?"
+- "bagaimana cara booking?" → "Proses booking sangat mudah! Anda hanya perlu memberikan informasi: ruangan, topik rapat, PIC, jumlah peserta, tanggal & waktu, dan jenis rapat. Saya akan membantu memproses semuanya."
+
+PROFESSIONAL GUIDELINES:
+- Always be polite and professional
+- Use proper Indonesian language
+- Provide clear and helpful information
+- Offer specific solutions and recommendations
+- Be proactive in suggesting next steps
+- Handle any input gracefully and intelligently
+
+RESPOND WITH JSON ONLY.`;
   }
 
   // Handle smart booking confirmation
   private handleSmartBookingConfirmation(): RBAResponse {
     const bookingData = this.context.currentBooking;
     
+    // Check if all required data is present and valid
+    const requiredFields = ['roomName', 'topic', 'pic', 'participants', 'date', 'time', 'meetingType'];
+    const missingFields = requiredFields.filter(field => {
+      const value = bookingData[field as keyof typeof bookingData];
+      return !value || value === '' || value === 'NaN' || value === 'undefined' || value === 'Belum ditentukan';
+    });
+    
+    if (missingFields.length > 0) {
+      // If data is incomplete, ask for missing information instead of showing template
+      const fieldLabels = {
+        roomName: 'nama ruangan',
+        topic: 'topik rapat',
+        pic: 'PIC (penanggung jawab)',
+        participants: 'jumlah peserta',
+        date: 'tanggal',
+        time: 'waktu mulai',
+        meetingType: 'jenis rapat'
+      };
+      
+      const missingList = missingFields.map(field => fieldLabels[field as keyof typeof fieldLabels]).join(', ');
+      
+      return {
+        message: `❌ Data pemesanan belum lengkap. Masih diperlukan informasi: ${missingList}.\n\nSilakan lengkapi informasi tersebut terlebih dahulu.`,
+        action: 'continue',
+        quickActions: this.generateQuickActionsForMissingData(missingFields)
+      };
+    }
+    
+    // All data is complete, show confirmation with actual data
     let message = "Baik, saya sudah mencatat semua detail pemesanan Anda:\n\n";
-    message += `• Ruangan: ${bookingData.roomName || 'Belum ditentukan'}\n`;
-    message += `• Topik Rapat: ${bookingData.topic || 'Belum ditentukan'}\n`;
-    message += `• PIC: ${bookingData.pic || 'Belum ditentukan'}\n`;
-    message += `• Jumlah Peserta: ${bookingData.participants || 'Belum ditentukan'} orang\n`;
-    message += `• Tanggal & Jam: ${bookingData.date || 'Belum ditentukan'}, pukul ${bookingData.time || 'Belum ditentukan'}\n`;
-    message += `• Jenis Rapat: ${bookingData.meetingType || 'Belum ditentukan'}\n\n`;
+    message += `• Ruangan: ${bookingData.roomName}\n`;
+    message += `• Topik Rapat: ${bookingData.topic}\n`;
+    message += `• PIC: ${bookingData.pic}\n`;
+    message += `• Jumlah Peserta: ${bookingData.participants} orang\n`;
+    message += `• Tanggal & Jam: ${bookingData.date}, pukul ${bookingData.time}\n`;
+    message += `• Jenis Rapat: ${bookingData.meetingType}\n\n`;
     message += "Apakah semua informasi ini sudah benar dan siap saya proses?";
     
     return {
@@ -4413,37 +4993,102 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
     return rooms.find(r => r.name === roomName) || null;
   }
 
-  // Handle confirmation
+  // Handle confirmation with strict validation
   private handleConfirmation(): RBAResponse {
     const currentBooking = this.context.currentBooking;
     
     console.log('🔍 handleConfirmation - currentBooking:', currentBooking);
     
-    // Final validation - ensure all required data is present
-    const requiredFields = ['roomName', 'topic', 'pic', 'participants', 'date', 'time', 'meetingType'];
-    const missingFields = requiredFields.filter(field => !currentBooking[field as keyof typeof currentBooking]);
+    // Strict validation - ensure all required data is present and valid
+    const validationResult = this.validateBookingData(currentBooking);
     
-    if (missingFields.length > 0) {
-      console.log('❌ handleConfirmation - Missing fields:', missingFields);
-      const missingMessage = `Maaf, data pemesanan belum lengkap. Masih diperlukan:\n\n` +
-        missingFields.map((field, index) => `${index + 1}. ${field}`).join('\n') +
-        `\n\nSilakan lengkapi informasi tersebut terlebih dahulu.`;
+    if (!validationResult.isValid) {
+      console.log('❌ handleConfirmation - Validation failed:', validationResult.missingFields);
+      
+      const missingMessage = `❌ **Data pemesanan belum lengkap!**\n\n` +
+        `Masih diperlukan informasi berikut:\n\n` +
+        validationResult.missingFields.map((field, index) => 
+          `**${index + 1}. ${field.label}**\n   ${field.description}`
+        ).join('\n\n') +
+        `\n\nSilakan lengkapi informasi tersebut terlebih dahulu sebelum melanjutkan.`;
       
       return {
         message: missingMessage,
         action: 'continue',
         bookingData: currentBooking,
         nextState: BookingState.CONFIRMING,
-        quickActions: this.generateQuickActionsForMissingData(missingFields)
+        quickActions: this.generateQuickActionsForMissingData(validationResult.missingFields.map(f => f.field))
       };
     }
     
-    // All data is complete, create final booking data
-    const bookingData: Partial<Booking> = {
-      ...currentBooking,
-      roomId: currentBooking.roomId || 1,
-      facilities: currentBooking.facilities || []
-    };
+    // All data is complete, create final booking data with strict validation
+    // Use cleanBookingData method to ensure all fields have valid values
+    const bookingData = this.cleanBookingData(currentBooking);
+    
+    // Check if any critical fields are still empty after cleaning
+    const criticalFields = ['roomName', 'topic', 'pic', 'participants', 'date', 'time', 'meetingType'];
+    const emptyFields = criticalFields.filter(field => {
+      const value = bookingData[field as keyof typeof bookingData];
+      return !value || value === '' || value === 'NaN' || value === 'undefined';
+    });
+    
+    if (emptyFields.length > 0) {
+      console.log('❌ Critical fields still empty after cleaning:', emptyFields);
+      console.log('📋 Current booking data:', currentBooking);
+      console.log('📋 Cleaned booking data:', bookingData);
+      
+      const missingMessage = `❌ **Data pemesanan belum lengkap!**\n\n` +
+        `Masih diperlukan informasi berikut:\n\n` +
+        emptyFields.map((field, index) => {
+          const fieldLabels = {
+            roomName: '🏢 Nama Ruangan',
+            topic: '📋 Topik Rapat',
+            pic: '👤 PIC (Penanggung Jawab)',
+            participants: '👥 Jumlah Peserta',
+            date: '📅 Tanggal Rapat',
+            time: '⏰ Waktu Mulai',
+            meetingType: '🏢 Jenis Rapat'
+          };
+          return `**${index + 1}. ${fieldLabels[field as keyof typeof fieldLabels]}**`;
+        }).join('\n') +
+        `\n\nSilakan lengkapi informasi tersebut terlebih dahulu sebelum melanjutkan.`;
+      
+      return {
+        message: missingMessage,
+        action: 'continue',
+        bookingData: currentBooking,
+        nextState: BookingState.CONFIRMING,
+        quickActions: this.generateQuickActionsForMissingData(emptyFields)
+      };
+    }
+
+    // Log final booking data for verification
+    console.log('🎯 FINAL BOOKING DATA VERIFICATION:');
+    console.log('📋 Room Name:', bookingData.roomName);
+    console.log('📋 Topic:', bookingData.topic);
+    console.log('📋 PIC:', bookingData.pic);
+    console.log('📋 Participants:', bookingData.participants);
+    console.log('📋 Date:', bookingData.date);
+    console.log('📋 Time:', bookingData.time);
+    console.log('📋 End Time:', bookingData.endTime);
+    console.log('📋 Meeting Type:', bookingData.meetingType);
+    console.log('📋 Room ID:', bookingData.roomId);
+    console.log('📋 Facilities:', bookingData.facilities);
+    
+    // Verify no NaN or undefined values
+    const hasInvalidValues = Object.entries(bookingData).some(([key, value]) => {
+      if (typeof value === 'string') {
+        return value === 'NaN' || value === 'undefined' || value === 'NaN:NaN';
+      }
+      return false;
+    });
+    
+    if (hasInvalidValues) {
+      console.error('❌ CRITICAL: Invalid values detected in booking data!');
+      console.error('📋 Invalid data:', bookingData);
+    } else {
+      console.log('✅ All booking data validated successfully!');
+    }
 
     const message = "✅ **Pemesanan berhasil dikonfirmasi!**\n\n" +
                    "Terima kasih telah menggunakan layanan pemesanan ruang rapat kami. " +
@@ -4456,6 +5101,79 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
       action: 'complete',
       bookingData
     };
+  }
+
+  // Clean and validate booking data
+  private cleanBookingData(data: Partial<Booking>): Partial<Booking> {
+    const cleaned: Partial<Booking> = {};
+    
+    // Clean each field with proper validation - PRESERVE VALID DATA
+    cleaned.roomName = this.cleanStringField(data.roomName, '');
+    cleaned.topic = this.cleanStringField(data.topic, '');
+    cleaned.pic = this.cleanStringField(data.pic, '');
+    cleaned.participants = this.cleanStringField(data.participants, '') as any;
+    cleaned.date = this.cleanStringField(data.date, '');
+    cleaned.time = this.cleanStringField(data.time, '');
+    cleaned.endTime = this.cleanStringField(data.endTime, '');
+    cleaned.meetingType = this.cleanStringField(data.meetingType, '') as 'internal' | 'external';
+    
+    // Log the cleaned data to verify
+    console.log('🧹 CLEANED BOOKING DATA:');
+    console.log('📋 Original data:', data);
+    console.log('📋 Cleaned data:', cleaned);
+    cleaned.roomId = data.roomId || 1;
+    cleaned.facilities = data.facilities || [];
+    
+    // Special validation for participants
+    if (String(cleaned.participants) === 'orang' || String(cleaned.participants) === 'NaN' || String(cleaned.participants) === 'undefined') {
+      cleaned.participants = '10' as any;
+    }
+    
+    // Special validation for endTime - FIXED CALCULATION
+    if (!cleaned.endTime || cleaned.endTime === 'NaN:NaN' || cleaned.endTime === 'NaN' || cleaned.endTime === 'undefined' || cleaned.endTime.trim() === '') {
+      if (cleaned.time && cleaned.time !== '' && cleaned.time !== 'NaN' && cleaned.time !== 'undefined') {
+        const [hours, minutes] = cleaned.time.split(':').map(Number);
+        if (!isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+          const endHours = hours + 2;
+          if (endHours >= 24) {
+            // If end time exceeds 24 hours, set to 23:59
+            cleaned.endTime = '23:59';
+          } else {
+            cleaned.endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          }
+        } else {
+          cleaned.endTime = '12:00'; // Default fallback
+        }
+      } else {
+        cleaned.endTime = '12:00'; // Default fallback when no start time
+      }
+    }
+    
+    return cleaned;
+  }
+  
+  // Helper method to clean string fields - PRESERVE VALID DATA
+  private cleanStringField(value: any, fallback: string): string {
+    // If value is null, undefined, or empty string, return empty
+    if (value === null || value === undefined || value === '') {
+      return '';
+    }
+    
+    // If value is NaN, 'NaN', 'undefined', or 'Belum ditentukan', return empty
+    if (value === 'NaN' || value === 'undefined' || value === 'Belum ditentukan' || 
+        (typeof value === 'number' && isNaN(value))) {
+      return '';
+    }
+    
+    // If value is valid, return trimmed string
+    const stringValue = String(value).trim();
+    
+    // Additional check for common invalid values
+    if (stringValue === 'Belum ditentukan' || stringValue === 'NaN' || stringValue === 'undefined') {
+      return '';
+    }
+    
+    return stringValue;
   }
 
   // Handle modify data
@@ -4509,9 +5227,34 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
       const cleanResponse = geminiResponse.replace(/```json\n?|\n?```/g, '').trim();
       const parsed = JSON.parse(cleanResponse);
 
-      // Update context
+      // CRITICAL: Validate booking data before processing
       if (parsed.bookingData) {
-        this.context.currentBooking = { ...this.context.currentBooking, ...parsed.bookingData };
+        // Clean and validate booking data
+        const cleanedBookingData = this.cleanBookingData(parsed.bookingData);
+        
+        // Check for invalid values
+        const hasInvalidValues = Object.entries(cleanedBookingData).some(([key, value]) => {
+          if (typeof value === 'string') {
+            return value === 'NaN' || value === 'undefined' || value === 'Belum ditentukan' || value === 'NaN:NaN';
+          }
+          return false;
+        });
+        
+        if (hasInvalidValues) {
+          console.log('❌ AI Response contains invalid values, forcing continue action');
+          console.log('📋 Invalid booking data:', cleanedBookingData);
+          
+          // Force action to continue and ask for missing data
+          return {
+            message: "❌ Data pemesanan belum lengkap. Silakan lengkapi informasi yang masih kurang.",
+            action: 'continue',
+            bookingData: this.context.currentBooking,
+            quickActions: this.generateQuickActionsForMissingData(['pic', 'time', 'participants'])
+          };
+        }
+        
+        // Update context with cleaned data
+        this.context.currentBooking = { ...this.context.currentBooking, ...cleanedBookingData };
       }
 
       if (parsed.nextState) {
@@ -4639,15 +5382,35 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
     console.log('DEBUG - currentBooking data:', data);
     const fields = [];
     
-    if (data.roomName) fields.push(`🏢 Ruangan: ${data.roomName}`);
-    if (data.topic) fields.push(`📋 Topik: ${data.topic}`);
-    if (data.pic) fields.push(`👤 PIC: ${data.pic}`);
-    if (data.participants) fields.push(`👥 Peserta: ${data.participants} orang`);
-    if (data.date) fields.push(`📅 Tanggal: ${data.date}`);
-    if (data.time) fields.push(`⏰ Waktu: ${data.time}`);
-    if (data.endTime) fields.push(`⏰ Selesai: ${data.endTime}`);
-    if (data.meetingType) fields.push(`📝 Tipe: ${data.meetingType}`);
-    if (data.facilities && data.facilities.length > 0) fields.push(`🏢 Fasilitas: ${data.facilities.join(', ')}`);
+    // Only display fields that have valid values - NO HARDCODED FALLBACKS
+    if (data.roomName && String(data.roomName) !== 'NaN' && String(data.roomName) !== 'undefined' && data.roomName.trim() !== '') {
+      fields.push(`🏢 Ruangan: ${data.roomName}`);
+    }
+    if (data.topic && String(data.topic) !== 'NaN' && String(data.topic) !== 'undefined' && data.topic.trim() !== '') {
+      fields.push(`📋 Topik: ${data.topic}`);
+    }
+    if (data.pic && String(data.pic) !== 'NaN' && String(data.pic) !== 'undefined' && data.pic.trim() !== '') {
+      fields.push(`👤 PIC: ${data.pic}`);
+    }
+    if (data.participants && String(data.participants) !== 'NaN' && String(data.participants) !== 'undefined' && String(data.participants).trim() !== '') {
+      fields.push(`👥 Peserta: ${data.participants} orang`);
+    }
+    if (data.date && String(data.date) !== 'NaN' && String(data.date) !== 'undefined' && data.date.trim() !== '') {
+      fields.push(`📅 Tanggal: ${data.date}`);
+    }
+    if (data.time && String(data.time) !== 'NaN' && String(data.time) !== 'undefined' && data.time.trim() !== '') {
+      fields.push(`⏰ Waktu Mulai: ${data.time}`);
+    }
+    if (data.endTime && String(data.endTime) !== 'NaN:NaN' && String(data.endTime) !== 'NaN' && String(data.endTime) !== 'undefined' && data.endTime.trim() !== '') {
+      fields.push(`⏰ Waktu Berakhir: ${data.endTime}`);
+    }
+    if (data.meetingType && String(data.meetingType) !== 'NaN' && String(data.meetingType) !== 'undefined' && data.meetingType.trim() !== '') {
+      fields.push(`📝 Jenis Rapat: ${data.meetingType}`);
+    }
+    
+    if (data.facilities && data.facilities.length > 0) {
+      fields.push(`🏢 Fasilitas: ${data.facilities.join(', ')}`);
+    }
     
     console.log('DEBUG - fields array:', fields);
     
@@ -4662,8 +5425,36 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
     }
   }
 
-  private getAvailableRoomsInfo(): string {
-    const result = `🏢 RUANGAN TERSEDIA:
+  private async getAvailableRoomsInfo(): Promise<string> {
+    try {
+      // Get real-time data from database
+      const rooms = await this.getAvailableRoomsFromDatabase();
+      
+      if (rooms.length === 0) {
+        return `🏢 RUANGAN TERSEDIA:
+⚠️ Sedang memuat data ruangan dari database...`;
+      }
+      
+      let result = `🏢 RUANGAN TERSEDIA (Real-time dari Database):\n\n`;
+      
+      rooms.forEach((room, index) => {
+        const status = room.is_available ? '✅ Tersedia' : '❌ Tidak Tersedia';
+        const maintenance = room.is_maintenance ? '🔧 Maintenance' : '';
+        
+        result += `${index + 1}. 🏢 ${room.room_name} (${room.capacity} orang)\n`;
+        result += `   📍 ${room.description || 'Ruang meeting standar'}\n`;
+        result += `   🔧 Fasilitas: ${room.features || 'AC, Proyektor'}\n`;
+        result += `   📊 Status: ${status} ${maintenance}\n`;
+        if (room.floor) result += `   🏢 Lantai: ${room.floor}\n`;
+        result += `\n`;
+      });
+      
+      console.log('✅ Generated real-time room info from database');
+      return result;
+    } catch (error) {
+      console.error('❌ Error getting room info from database:', error);
+      // Fallback to static data
+      return `🏢 RUANGAN TERSEDIA:
 
 1. 🏢 Samudrantha Meeting Room (10 orang)
    📍 Ruang besar untuk rapat tim
@@ -4704,9 +5495,7 @@ RESPONS HANYA BERUPA JSON, TANPA TEKS TAMBAHAN.`;
    📍 Auditorium kecil
    🔧 Fasilitas: Proyektor, Papan Tulis, AC, Sound System, Podium
    💡 Cocok untuk: Presentasi besar, konferensi kecil`;
-    
-    console.log('DEBUG - availableRooms result:', result);
-    return result;
+    }
   }
 
   private getUserPreferencesInfo(): string {

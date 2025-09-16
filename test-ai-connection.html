@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test AI Connection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        #console-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Test AI Connection - RBA Assistant</h1>
+        
+        <div class="status info">
+            <strong>Status:</strong> <span id="status-text">Ready to test</span>
+        </div>
+        
+        <div>
+            <button onclick="testAIConnection()">Test AI Connection</button>
+            <button onclick="testSimpleInput()">Test Simple Input</button>
+            <button onclick="clearConsole()">Clear Console</button>
+        </div>
+        
+        <h3>Console Output:</h3>
+        <div id="console-output"></div>
+    </div>
+
+    <script type="module">
+        // Import the RoomBookingAssistant
+        import { RoomBookingAssistant } from './services/roomBookingAssistant.ts';
+        
+        let assistant = null;
+        
+        function log(message) {
+            const console = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            console.textContent += `[${timestamp}] ${message}\n`;
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status-text');
+            statusElement.textContent = message;
+            statusElement.className = type;
+        }
+        
+        window.testAIConnection = async function() {
+            try {
+                log('🚀 Starting AI Connection Test...');
+                updateStatus('Testing AI Connection...', 'info');
+                
+                // Create assistant instance
+                assistant = new RoomBookingAssistant('test-user', 'test-session');
+                
+                log('✅ Assistant created successfully');
+                log('🔍 Check browser console for detailed AI connection logs');
+                
+                // Test simple input
+                const testInput = "pesan ruangan untuk rapat tim besok jam 10";
+                log(`📝 Testing with input: "${testInput}"`);
+                
+                const response = await assistant.processInput(testInput);
+                log('✅ AI Response received:');
+                log(JSON.stringify(response, null, 2));
+                
+                updateStatus('AI Connection Successful!', 'success');
+                
+            } catch (error) {
+                log('❌ AI Connection Test Failed:');
+                log(`Error: ${error.message}`);
+                log(`Stack: ${error.stack}`);
+                updateStatus('AI Connection Failed', 'error');
+            }
+        };
+        
+        window.testSimpleInput = async function() {
+            if (!assistant) {
+                log('❌ Please run AI Connection Test first');
+                return;
+            }
+            
+            try {
+                const testInput = "hai, saya mau booking ruangan";
+                log(`📝 Testing simple input: "${testInput}"`);
+                
+                const response = await assistant.processInput(testInput);
+                log('✅ Response:');
+                log(JSON.stringify(response, null, 2));
+                
+            } catch (error) {
+                log('❌ Simple Input Test Failed:');
+                log(`Error: ${error.message}`);
+            }
+        };
+        
+        window.clearConsole = function() {
+            document.getElementById('console-output').textContent = '';
+            updateStatus('Console cleared', 'info');
+        };
+        
+        // Override console.log to show in our interface
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            log(args.join(' '));
+        };
+        
+        log('🎯 AI Connection Test Page Loaded');
+        log('📋 Click "Test AI Connection" to start testing');
+    </script>
+</body>
+</html>
