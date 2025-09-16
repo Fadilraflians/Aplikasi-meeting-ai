@@ -83,70 +83,161 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
   }, [date, serverBookings]);
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm p-6 md:p-8 rounded-2xl shadow-lg">
-      <div className="flex items-center mb-6">
-        <button onClick={() => onNavigate(Page.Dashboard)} className="mr-4 p-2 rounded-full hover:bg-gray-200">
-          <BackArrowIcon />
-        </button>
-        <h2 className="text-3xl font-bold text-gray-800">{t('dashboard.bookingHistory')}</h2>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-blue-50 to-cyan-100">
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-white/90 backdrop-blur-sm p-6 md:p-8 rounded-3xl shadow-xl border border-white/20">
+          {/* Header dengan gradient */}
+          <div className="flex items-center mb-8">
+            <button 
+              onClick={() => onNavigate(Page.Dashboard)} 
+              className="mr-4 p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              <BackArrowIcon />
+            </button>
+            <div>
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                {t('dashboard.bookingHistory')}
+              </h2>
+              <p className="text-gray-600 mt-1">Riwayat pemesanan ruang rapat Anda</p>
+            </div>
+          </div>
 
-      <div className="mb-6 flex flex-col md:flex-row gap-4">
-        <input type="date" value={date} onChange={e=> setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="p-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:ring-cyan-500 focus:border-cyan-500" />
-        <div className="text-gray-600 self-center">Menampilkan pemesanan (dibatalkan & selesai) pada tanggal yang dipilih.</div>
-      </div>
-
-      <div className="space-y-4">
-        {items.length === 0 && (
-          <div className="text-center py-10 bg-gray-50 rounded-xl border">Tidak ada histori pada tanggal ini.</div>
-        )}
-        {items.map((h:any)=> {
-          console.log('HistoryPage - Rendering item:', h);
-          console.log('HistoryPage - Item status:', h.status);
-          console.log('HistoryPage - Should show View Rispat button:', h.status === 'expired');
-          
-          return (
-          <div key={`${h.id}-${h.savedAt || ''}`} className="bg-white p-5 rounded-xl border shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center border border-cyan-100">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1ZM3 10h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8Zm4 3a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2H7Z"/></svg>
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-800 leading-tight">{h.topic || '—'}</h4>
-                  <p className="text-gray-600 text-sm">{h.roomName}</p>
-                  {h.pic && h.pic !== '-' && (
-                    <p className="text-gray-500 text-xs mt-1">PIC: {h.pic}</p>
-                  )}
-                  {h.participants && (
-                    <p className="text-gray-500 text-xs">Peserta: {h.participants} orang</p>
-                  )}
-                </div>
+          {/* Date picker dengan desain yang lebih menarik */}
+          <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-200">
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    Pilih Tanggal
+                  </span>
+                </label>
+                <input 
+                  type="date" 
+                  value={date} 
+                  onChange={e=> setDate(e.target.value)} 
+                  className="w-full p-4 bg-white border-2 border-blue-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-blue-300 text-lg font-medium" 
+                />
               </div>
-              <div className="text-right text-sm">
-                <span className={`inline-block px-3 py-1 rounded-full font-semibold ${
-                  h.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 
-                  h.status === 'expired' ? 'bg-orange-100 text-orange-700' :
-                  'bg-rose-100 text-rose-700'
-                }`}>{h.status === 'expired' ? 'Expired' : h.status}</span>
-                <div className="text-gray-500 mt-1">
-                  {h.date} {String(h.time).slice(0,5)}
-                  {h.endTime && (
-                    <span className="ml-1">- {String(h.endTime).slice(0,5)}</span>
-                  )}
-                  {h.status === 'expired' && h.completedAt && (
-                    <div className="text-xs text-orange-600 mt-1">
-                      Expired: {new Date(h.completedAt).toLocaleString('id-ID')}
-                    </div>
-                  )}
+              <div className="text-gray-600 text-center md:text-left">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                  <span className="font-semibold">Status Pemesanan</span>
                 </div>
+                <p className="text-sm">Menampilkan pemesanan (dibatalkan & selesai) pada tanggal yang dipilih</p>
               </div>
             </div>
           </div>
-          );
-        })}
-      </div>
 
+          {/* Content Area */}
+          <div className="space-y-6">
+            {items.length === 0 && (
+              <div className="text-center py-16 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border border-gray-200">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">Tidak ada histori</h3>
+                <p className="text-gray-500">Belum ada pemesanan pada tanggal yang dipilih</p>
+              </div>
+            )}
+            
+            {items.map((h:any)=> {
+              console.log('HistoryPage - Rendering item:', h);
+              console.log('HistoryPage - Item status:', h.status);
+              console.log('HistoryPage - Should show View Rispat button:', h.status === 'expired');
+              
+              const isCompleted = h.status === 'Selesai';
+              const isExpired = h.status === 'expired';
+              const statusColor = isCompleted ? 'green' : isExpired ? 'orange' : 'red';
+              const statusIcon = isCompleted ? '✅' : isExpired ? '⏰' : '❌';
+              
+              return (
+                <div key={`${h.id}-${h.savedAt || ''}`} className="group bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4 flex-1">
+                      {/* Status Icon */}
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${
+                        isCompleted 
+                          ? 'bg-green-50 border-green-200 text-green-600' 
+                          : isExpired
+                          ? 'bg-orange-50 border-orange-200 text-orange-600'
+                          : 'bg-red-50 border-red-200 text-red-600'
+                      }`}>
+                        <span className="text-xl">{statusIcon}</span>
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="text-lg font-bold text-gray-800 leading-tight mb-1">
+                              {h.topic || '—'}
+                            </h4>
+                            <p className="text-gray-600 font-medium">{h.roomName}</p>
+                          </div>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                            isCompleted 
+                              ? 'bg-green-100 text-green-700 border border-green-200' 
+                              : isExpired
+                              ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                              : 'bg-red-100 text-red-700 border border-red-200'
+                          }`}>
+                            {h.status === 'expired' ? 'Expired' : h.status}
+                          </span>
+                        </div>
+                        
+                        {/* Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                          {h.pic && h.pic !== '-' && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                              <span className="font-medium">PIC:</span>
+                              <span>{h.pic}</span>
+                            </div>
+                          )}
+                          {h.participants && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+                              <span className="font-medium">Peserta:</span>
+                              <span>{h.participants} orang</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
+                            <span className="font-medium">Tanggal:</span>
+                            <span>{h.date}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                            <span className="font-medium">Waktu:</span>
+                            <span>
+                              {String(h.time).slice(0,5)}
+                              {h.endTime && ` - ${String(h.endTime).slice(0,5)}`}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Additional info for expired bookings */}
+                        {h.status === 'expired' && h.completedAt && (
+                          <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                            <div className="flex items-center gap-2 text-orange-700 text-sm">
+                              <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
+                              <span className="font-medium">Expired:</span>
+                              <span>{new Date(h.completedAt).toLocaleString('id-ID')}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
