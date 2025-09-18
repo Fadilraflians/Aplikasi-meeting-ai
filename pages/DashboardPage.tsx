@@ -792,15 +792,17 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
 
                         {/* Right: History Preview */}
                         <div className="bg-white p-6 rounded-2xl shadow-md border">
-                            <h3 className="text-3xl font-bold text-gray-700 mb-6 text-center lg:text-left">{t('dashboard.bookingHistory')}</h3>
-                            <p className="text-gray-600 mb-4">{t('dashboard.historyDesc')}</p>
-                            <HistoryListPreview />
+                            <h3 className="text-3xl font-bold text-gray-700 mb-6 text-center lg:text-left">Histori Pemesanan</h3>
+                            <p className="text-gray-600 mb-4">Ringkasan histori terbaru Anda (tersimpan lokal meski data database telah dihapus).</p>
+                            <div className="bg-white border-2 border-gray-200 rounded-xl p-8 text-center">
+                                <p className="text-gray-500 text-lg">Anda belum memiliki reservasi.</p>
+                            </div>
                             <div className="text-center lg:text-left mt-6 flex gap-4 justify-center lg:justify-start">
                                 <button 
                                     onClick={() => onNavigate(Page.History)} 
                                     className="bg-white text-cyan-600 border border-cyan-500 font-bold py-3 px-8 rounded-xl hover:bg-gray-50 transition shadow text-lg"
                                 >
-                                    {t('dashboard.viewHistory')}
+                                    Lihat Histori
                                 </button>
                                 <button 
                                     onClick={() => onNavigate(Page.Rispat)} 
