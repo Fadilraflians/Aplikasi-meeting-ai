@@ -1,8 +1,0 @@
-# Netlify redirects file
-# This file should be placed in the public directory
-
-# Handle client-side routing for SPA
-/*    /index.html   200
-
-# API redirects (if needed)
-/api/*  https://your-backend-domain.com/api/:splat  200
