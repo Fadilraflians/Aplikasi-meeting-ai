@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Page, Booking, MeetingRoom } from '../types';
-import { createRoomBookingAssistant, RoomBookingAssistant } from '../services/roomBookingAssistant';
+import RoomBookingAssistant, { createRoomBookingAssistant } from '../services/roomBookingAssistant';
 import { BackArrowIcon, SendIcon, RobotIcon, CheckIcon, XIcon, BookingIcon } from '../components/icons';
 
 const AiIcon: React.FC = () => {

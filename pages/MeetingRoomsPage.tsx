@@ -6,7 +6,7 @@ import { ApiService } from '../src/config/api';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const MeetingRoomCard: React.FC<{ room: MeetingRoom, onBook: (room: MeetingRoom) => void, onRoomDetail: (room: MeetingRoom) => void }> = ({ room, onBook, onRoomDetail }) => {
+const MeetingRoomCard: React.FC<{ room: MeetingRoom, onBook: (room: MeetingRoom) => void, onRoomDetail: (room: MeetingRoom) => void, bookings: Booking[] }> = ({ room, onBook, onRoomDetail, bookings }) => {
     const { isDarkMode } = useDarkMode();
     const { t } = useLanguage();
     
@@ -17,6 +17,67 @@ const MeetingRoomCard: React.FC<{ room: MeetingRoom, onBook: (room: MeetingRoom)
     const handleBookClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         onBook(room);
+    }
+
+    // Cek status individual ruang ini berdasarkan status reservasi
+    const getRoomStatus = () => {
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0];
+        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+        
+        // Cari booking untuk ruang ini
+        const roomBookings = bookings.filter(booking => booking.roomName === room.name);
+        
+        // Cek apakah ada booking yang sedang berlangsung hari ini
+        const ongoingBooking = roomBookings.find(booking => {
+            // Cek apakah booking hari ini
+            if (booking.date !== currentDate) return false;
+            
+            // Cek apakah waktu saat ini dalam range booking
+            const startTime = booking.time;
+            const endTime = booking.endTime || booking.time;
+            const isTimeActive = currentTime >= startTime && currentTime <= endTime;
+            
+            // Cek status dari history untuk menentukan apakah sedang berlangsung
+            const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            const historyEntry = history.find((h: any) => String(h.id) === String(booking.id));
+            
+            // Jika ada di history dan statusnya "Sedang Berlangsung" atau tidak ada status (default ongoing)
+            const isOngoing = historyEntry ? 
+                historyEntry.status === 'Sedang Berlangsung' || historyEntry.status === 'ongoing' :
+                isTimeActive; // Jika tidak ada di history, cek berdasarkan waktu
+            
+            return isTimeActive && isOngoing;
+        });
+        
+        // Cek apakah ada booking yang akan datang (upcoming)
+        const upcomingBooking = roomBookings.find(booking => {
+            // Cek apakah booking hari ini
+            if (booking.date !== currentDate) return false;
+            
+            // Cek apakah waktu booking belum dimulai
+            const startTime = booking.time;
+            const isUpcoming = currentTime < startTime;
+            
+            // Cek status dari history
+            const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            const historyEntry = history.find((h: any) => String(h.id) === String(booking.id));
+            
+            // Jika ada di history dan statusnya "Upcoming" atau tidak ada status (default upcoming)
+            const isUpcomingStatus = historyEntry ? 
+                historyEntry.status === 'Upcoming' || historyEntry.status === 'upcoming' :
+                isUpcoming; // Jika tidak ada di history, cek berdasarkan waktu
+            
+            return isUpcoming && isUpcomingStatus;
+        });
+        
+        if (ongoingBooking) {
+            return 'ongoing'; // Sedang berlangsung
+        } else if (upcomingBooking) {
+            return 'upcoming'; // Akan datang
+        } else {
+            return 'available'; // Tersedia
+        }
     }
 
     return (
@@ -41,9 +102,29 @@ const MeetingRoomCard: React.FC<{ room: MeetingRoom, onBook: (room: MeetingRoom)
                     
                     {/* Status Badge */}
                     <div className="absolute top-3 right-3">
-                        <div className={`px-3 py-1 rounded-full text-xs font-semibold ${isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'}`}>
-                            {t('meetingRooms.available')}
-                        </div>
+                        {(() => {
+                            const roomStatus = getRoomStatus();
+                            
+                            if (roomStatus === 'ongoing') {
+                                return (
+                                    <div className={`px-3 py-1 rounded-full text-xs font-semibold ${isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'}`}>
+                                        {t('meetingRooms.ongoing')}
+                                    </div>
+                                );
+                            } else if (roomStatus === 'upcoming') {
+                                return (
+                                    <div className={`px-3 py-1 rounded-full text-xs font-semibold ${isDarkMode ? 'bg-orange-900/30 text-orange-300' : 'bg-orange-100 text-orange-800'}`}>
+                                        {t('meetingRooms.upcoming')}
+                                    </div>
+                                );
+                            } else {
+                                return (
+                                    <div className={`px-3 py-1 rounded-full text-xs font-semibold ${isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'}`}>
+                                        {t('meetingRooms.available')}
+                                    </div>
+                                );
+                            }
+                        })()}
                     </div>
                 </div>
                 
@@ -396,6 +477,7 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                                             room={room} 
                                             onBook={onBookRoom}
                                             onRoomDetail={onRoomDetail}
+                                            bookings={bookings}
                                         />
                                     ))}
                                 </div>

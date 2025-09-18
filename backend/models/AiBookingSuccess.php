@@ -195,6 +195,7 @@ class AiBookingSuccess {
         }
     }
 
+
     /**
      * Alias untuk deleteSuccessBooking untuk kompatibilitas dengan API
      */
@@ -217,7 +218,7 @@ class AiBookingSuccess {
             $stmt->bindParam(":user_id", $userId);
             $stmt->execute();
 
-            return $stmt->fetchAll();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error getting AI bookings by user ID: " . $e->getMessage());
             return [];

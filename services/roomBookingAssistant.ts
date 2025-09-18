@@ -1,7 +1,6 @@
 // RoomBooking Assistant (RBA) - AI Assistant yang Cerdas dan Proaktif
 import { Booking, BookingState, MeetingRoom } from '../types';
 import RoomDatabaseService, { RoomRecommendation, Room } from './roomDatabaseService';
-import { ConversationService } from './conversationService';
 import { Conversation, ConversationMessage } from '../src/types/conversation';
 
 interface RBAContext {
@@ -63,7 +62,6 @@ export class RoomBookingAssistant {
   private context: RBAContext;
   private availableRooms: MeetingRoom[] = [];
   private roomDatabaseService: RoomDatabaseService;
-  private conversationService: ConversationService;
 
   constructor(userId: string, sessionId: string) {
     // Initialize Gemini API key from environment variables
@@ -106,8 +104,8 @@ export class RoomBookingAssistant {
       userPreferences: {
         preferredRooms: [],
         preferredTimes: [],
-        meetingTypes: ['internal'],
-        facilityPreferences: ['tidak']
+        meetingTypes: [],
+        facilityPreferences: []
       },
       sessionId,
       userId,
@@ -118,8 +116,6 @@ export class RoomBookingAssistant {
     // Initialize room database service
     this.roomDatabaseService = new RoomDatabaseService();
     
-    // Initialize conversation service for MongoDB
-    this.conversationService = new ConversationService();
     
     console.log('✅ RBA Initialized - Booking Only Mode');
     console.log('📊 MongoDB conversation storage enabled');
@@ -266,13 +262,21 @@ export class RoomBookingAssistant {
       const roomName = extractedData.roomName;
       const roomFacilities = roomName ? this.getRoomFacilities(roomName) : [];
       
-      response = `Baik! Saya sudah mencatat detail pemesanan Anda:
-- Ruangan: ${roomName || 'Belum dipilih'}
-- Topik Rapat: ${extractedData.topic || 'Belum ditentukan'}
-- PIC: ${extractedData.pic || 'Belum ditentukan'}
-- Jumlah Peserta: ${extractedData.participants || 'Belum ditentukan'} orang
-- Tanggal & Jam: ${extractedData.date || 'Belum ditentukan'}, ${extractedData.time || 'Belum ditentukan'}
-- Jenis Rapat: ${extractedData.meetingType || 'Belum ditentukan'}`;
+      // Only show data that was actually extracted from user input
+      const collectedData = [];
+      if (roomName) collectedData.push(`- Ruangan: ${roomName}`);
+      if (extractedData.topic) collectedData.push(`- Topik Rapat: ${extractedData.topic}`);
+      if (extractedData.pic) collectedData.push(`- PIC: ${extractedData.pic}`);
+      if (extractedData.participants) collectedData.push(`- Jumlah Peserta: ${extractedData.participants} orang`);
+      if (extractedData.date) collectedData.push(`- Tanggal: ${extractedData.date}`);
+      if (extractedData.time) collectedData.push(`- Jam: ${extractedData.time}`);
+      if (extractedData.meetingType) collectedData.push(`- Jenis Rapat: ${extractedData.meetingType}`);
+      
+      if (collectedData.length > 0) {
+        response = `Baik! Saya sudah mencatat detail pemesanan Anda:\n${collectedData.join('\n')}`;
+      } else {
+        response = `Baik! Saya akan membantu Anda memesan ruang rapat. Silakan berikan informasi yang diperlukan.`;
+      }
 
       if (roomFacilities.length > 0) {
         response += `\n\nFasilitas yang tersedia di ${roomName}:
@@ -297,25 +301,29 @@ Silakan pilih fasilitas yang ingin Anda gunakan:`;
         { label: 'Tidak, Ubah', action: 'edit_booking', type: 'secondary' }
       );
     } else if (missingFields.length > 0) {
-      // Missing information - ask for specific fields
-      response = `Untuk melengkapi pemesanan, saya masih membutuhkan informasi berikut:
-- ${missingFields.join('\n- ')}
-
-Silakan berikan informasi tersebut.`;
+      // Missing information - ask for specific fields with better context
+      const collectedData = [];
+      if (extractedData.roomName) collectedData.push(`✅ Ruangan: ${extractedData.roomName}`);
+      if (extractedData.topic) collectedData.push(`✅ Topik: ${extractedData.topic}`);
+      if (extractedData.pic) collectedData.push(`✅ PIC: ${extractedData.pic}`);
+      if (extractedData.participants) collectedData.push(`✅ Peserta: ${extractedData.participants} orang`);
+      if (extractedData.date) collectedData.push(`✅ Tanggal: ${extractedData.date}`);
+      if (extractedData.time) collectedData.push(`✅ Jam: ${extractedData.time}`);
+      if (extractedData.meetingType) collectedData.push(`✅ Jenis: ${extractedData.meetingType}`);
+      
+      if (collectedData.length > 0) {
+        response = `Baik! Saya sudah mencatat beberapa informasi:\n${collectedData.join('\n')}\n\nUntuk melengkapi pemesanan, saya masih membutuhkan:\n- ${missingFields.join('\n- ')}\n\nSilakan berikan informasi tersebut.`;
+      } else {
+        response = `Untuk melengkapi pemesanan, saya masih membutuhkan informasi berikut:\n- ${missingFields.join('\n- ')}\n\nSilakan berikan informasi tersebut.`;
+      }
       
       quickActions.push(
         { label: 'Pesan Ruangan', action: 'book_room', type: 'primary' },
         { label: 'Lihat Ruangan', action: 'view_rooms', type: 'secondary' }
       );
     } else {
-      // General booking help
-      response = `Saya siap membantu Anda memesan ruangan meeting. Silakan berikan informasi berikut:
-- Nama ruangan yang diinginkan
-- Topik rapat
-- PIC (Penanggung Jawab)
-- Jumlah peserta
-- Tanggal dan jam
-- Jenis rapat (Internal/Eksternal)`;
+      // General booking help with better guidance
+      response = `Saya siap membantu Anda memesan ruangan meeting! 🏢\n\nSilakan berikan informasi berikut:\n- Nama ruangan yang diinginkan\n- Topik rapat\n- PIC (Penanggung Jawab)\n- Jumlah peserta\n- Tanggal dan jam\n- Jenis rapat (Internal/Eksternal)\n\nAtau Anda bisa langsung menyebutkan kebutuhan Anda, misalnya: "Saya butuh ruang meeting untuk rapat tim besok jam 10 pagi dengan 8 orang peserta."`;
       
       quickActions.push(
         { label: 'Pesan Ruangan', action: 'book_room', type: 'primary' },
@@ -441,7 +449,7 @@ Apakah semua informasi ini sudah benar? (Ya/Tidak)`;
     let response = 'Maaf, terjadi kesalahan dalam memproses permintaan Anda. ';
     
     if (error.message === 'QUOTA_EXCEEDED') {
-      response += 'Saat ini saya dalam mode terbatas karena quota API harian sudah habis. Silakan coba lagi besok atau gunakan fitur booking manual.';
+      response = `⚠️ **Mode Terbatas Aktif**\n\nSaat ini saya dalam mode terbatas karena quota API harian sudah habis. Namun, saya tetap bisa membantu Anda memesan ruangan dengan fitur rule-based yang cerdas!\n\nSilakan berikan informasi pemesanan Anda, dan saya akan memprosesnya dengan sistem yang tersedia.`;
     } else {
       response += 'Silakan coba lagi atau gunakan opsi di bawah ini.';
     }
@@ -1273,10 +1281,8 @@ Jawab dengan cerdas dan proaktif:`;
       } else if (lower.includes('tim') || lower.includes('team') || lower.includes('internal') ||
                  lower.includes('karyawan') || lower.includes('staff') || lower.includes('internal')) {
         extracted.meetingType = 'internal';
-      } else {
-        // Default to internal if unclear
-        extracted.meetingType = 'internal';
       }
+      // Tidak ada default value - hanya set jika benar-benar terdeteksi
     }
     
     // Check for confirmation responses
@@ -1287,8 +1293,25 @@ Jawab dengan cerdas dan proaktif:`;
       extracted.isConfirmation = true;
     }
     
-    // Combine with data from conversation history
-    const combinedData = { ...this.context.currentBooking, ...extracted };
+    // Combine with data from conversation history, but don't use default values
+    const combinedData = { ...extracted };
+    
+    // Only add data from currentBooking if it's not a default value
+    if (this.context.currentBooking) {
+      Object.keys(this.context.currentBooking).forEach(key => {
+        const value = this.context.currentBooking[key as keyof Booking];
+        if (value && 
+            value !== 'Belum ditentukan' && 
+            value !== 'Belum dipilih' && 
+            value !== 'NaN' && 
+            value !== 'undefined' && 
+            value !== '00:00' && 
+            value !== '2025-09-18' &&
+            !(typeof value === 'string' && value.includes('Belum'))) {
+          (combinedData as any)[key] = value;
+        }
+      });
+    }
     
     // Calculate confidence based on required fields
     const requiredFields = ['roomName', 'topic', 'pic', 'participants', 'date', 'time', 'meetingType'];
@@ -1437,7 +1460,7 @@ Jawab sekarang:`;
   }
 
   // Call Gemini API
-  private async callGeminiAPI(prompt: string): Promise<string> {
+  private async callGeminiAPI(prompt: string, retryCount: number = 0): Promise<string> {
     const url = `${this.baseUrl}?key=${this.apiKey}`;
     
     console.log('🤖 Calling Gemini API...');
@@ -1445,6 +1468,7 @@ Jawab sekarang:`;
     console.log('🔗 API URL:', url);
     console.log('🔑 Using API Key:', this.apiKey ? `${this.apiKey.substring(0, 10)}...` : 'NO KEY');
     console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('🔄 Retry attempt:', retryCount);
     
     const response = await fetch(url, {
       method: 'POST',
@@ -1486,10 +1510,20 @@ Jawab sekarang:`;
       const errorData = await response.json();
       console.error('❌ Gemini API Error:', errorData);
       
-      // Handle quota exceeded error
+      // Handle quota exceeded error with retry mechanism
       if (response.status === 429) {
-        console.warn('⚠️ Gemini API quota exceeded, switching to fallback mode');
-        throw new Error('QUOTA_EXCEEDED');
+        console.warn('⚠️ Gemini API quota exceeded');
+        
+        // If this is the first retry, wait and try again
+        if (retryCount < 2) {
+          const waitTime = (retryCount + 1) * 2000; // 2s, 4s
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          return this.callGeminiAPI(prompt, retryCount + 1);
+        } else {
+          console.warn('⚠️ All retry attempts failed, switching to fallback mode');
+          throw new Error('QUOTA_EXCEEDED');
+        }
       }
       
       throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`);
@@ -1980,11 +2014,9 @@ Jawab sekarang:`;
       // Set default values for missing fields
       const updatedBooking = {
         ...bookingData,
-        topic: bookingData.topic || 'Meeting',
-        pic: bookingData.pic || 'Tidak ada',
-        meetingType: bookingData.meetingType || 'internal',
         facilities: bookingData.facilities || []
       };
+      // Tidak ada default values - hanya gunakan data yang benar-benar ada
       
       return {
         message: "✅ **AI MENERIMA PERINTAH LEWATI**\n\n" +
@@ -2454,12 +2486,13 @@ Jawab sekarang:`;
       }
     }
     
-    // Extract meeting type
+    // Extract meeting type - hanya jika benar-benar disebutkan
     if (lowerInput.includes('internal') || lowerInput.includes('dalam')) {
       extracted.meetingType = 'internal';
     } else if (lowerInput.includes('external') || lowerInput.includes('luar')) {
       extracted.meetingType = 'external';
     }
+    // Tidak ada default value
     
     // Extract facilities
     const facilityKeywords = {
@@ -4516,15 +4549,15 @@ RESPOND WITH JSON ONLY.`;
       meetingType: bookingData.meetingType
     });
     
-    // Use booking data with fallback values
+    // Hanya gunakan data yang benar-benar ada - tidak ada fallback values
     const displayData = {
-      roomName: bookingData.roomName || 'Belum dipilih',
-      topic: bookingData.topic || 'Belum ditentukan',
-      pic: bookingData.pic || 'Belum ditentukan',
-      participants: bookingData.participants || 1,
-      date: bookingData.date || 'Belum ditentukan',
-      time: bookingData.time || 'Belum ditentukan',
-      meetingType: (bookingData.meetingType || 'internal') as 'internal' | 'external'
+      roomName: bookingData.roomName || '',
+      topic: bookingData.topic || '',
+      pic: bookingData.pic || '',
+      participants: bookingData.participants || 0,
+      date: bookingData.date || '',
+      time: bookingData.time || '',
+      meetingType: bookingData.meetingType as 'internal' | 'external' | undefined
     };
     
     let message = "Pemesanan ruangan Anda berhasil! Terima kasih telah menggunakan layanan kami.\n\n";
@@ -4639,12 +4672,13 @@ RESPOND WITH JSON ONLY.`;
       extracted.pic = picMatch[1].trim();
     }
 
-    // Extract meeting type
+    // Extract meeting type - hanya jika benar-benar disebutkan
     if (lower.includes('internal') || lower.includes('internal')) {
       extracted.meetingType = 'internal';
     } else if (lower.includes('external') || lower.includes('eksternal') || lower.includes('client') || lower.includes('klien')) {
       extracted.meetingType = 'external';
     }
+    // Tidak ada default value
 
     // Extract date
     const now = new Date();
@@ -5124,9 +5158,9 @@ RESPOND WITH JSON ONLY.`;
     cleaned.roomId = data.roomId || 1;
     cleaned.facilities = data.facilities || [];
     
-    // Special validation for participants
+    // Special validation for participants - tidak ada default value
     if (String(cleaned.participants) === 'orang' || String(cleaned.participants) === 'NaN' || String(cleaned.participants) === 'undefined') {
-      cleaned.participants = '10' as any;
+      cleaned.participants = '' as any;
     }
     
     // Special validation for endTime - FIXED CALCULATION
@@ -5305,62 +5339,8 @@ RESPOND WITH JSON ONLY.`;
     // Log conversation for debugging
     console.log(`💬 ${role.toUpperCase()}: ${cleanContent.substring(0, 50)}${cleanContent.length > 50 ? '...' : ''}`);
 
-    // Save conversation to MongoDB
-    this.saveConversationToMongoDB(role, cleanContent, intent, entities);
   }
 
-  // Save conversation to MongoDB
-  private async saveConversationToMongoDB(role: 'user' | 'assistant', content: string, intent?: string, entities?: any): Promise<void> {
-    try {
-      const message: ConversationMessage = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        role: role === 'assistant' ? 'ai' : 'user',
-        content,
-        timestamp: new Date(),
-        metadata: {
-          bookingData: role === 'user' ? this.context.currentBooking : undefined
-        }
-      };
-
-      // Check if conversation exists, if not create new one
-      let conversation = await this.conversationService.getConversation(this.context.sessionId);
-      
-      if (!conversation) {
-        // Create new conversation
-        const newConversation: Conversation = {
-          sessionId: this.context.sessionId,
-          userId: this.context.userId,
-          startTime: new Date(),
-          messages: [message],
-          status: 'active',
-          bookingStatus: 'none',
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        
-        await this.conversationService.saveConversation(newConversation);
-        console.log('✅ New conversation saved to MongoDB');
-      } else {
-        // Add message to existing conversation
-        await this.conversationService.addMessageToConversation(this.context.sessionId, message);
-        console.log('✅ Message added to existing conversation');
-      }
-
-      // Update booking status if needed
-      if (this.context.currentBooking && Object.keys(this.context.currentBooking).length > 0) {
-        const bookingStatus = this.getBookingStatusFromContext();
-        await this.conversationService.updateBookingStatus(
-          this.context.sessionId, 
-          this.context.currentBooking, 
-          bookingStatus
-        );
-      }
-
-    } catch (error) {
-      console.error('❌ Error saving conversation to MongoDB:', error);
-      // Don't throw error to avoid breaking the main flow
-    }
-  }
 
   // Get booking status from context
   private getBookingStatusFromContext(): string {
@@ -5580,12 +5560,13 @@ RESPOND WITH JSON ONLY.`;
       }
     }
     
-    // Extract meeting type
+    // Extract meeting type - hanya jika benar-benar disebutkan
     if (lowerInput.includes('internal') || lowerInput.includes('dalam')) {
       extracted.meetingType = 'internal';
     } else if (lowerInput.includes('external') || lowerInput.includes('luar') || lowerInput.includes('client')) {
       extracted.meetingType = 'external';
     }
+    // Tidak ada default value
     
     // Extract date
     const now = new Date();
@@ -5741,8 +5722,8 @@ RESPOND WITH JSON ONLY.`;
       userPreferences: {
         preferredRooms: [],
         preferredTimes: [],
-        meetingTypes: ['internal'],
-        facilityPreferences: ['tidak']
+        meetingTypes: [],
+        facilityPreferences: []
       },
       sessionId: this.context.sessionId,
       userId: this.context.userId,

@@ -19,3 +19,4 @@ ALTER TABLE rispat DROP COLUMN IF EXISTS original_name;
 
 -- Tampilkan struktur tabel
 DESCRIBE rispat;
+

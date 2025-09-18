@@ -252,6 +252,7 @@ class Booking {
         }
     }
 
+
     /**
      * Update booking
      */

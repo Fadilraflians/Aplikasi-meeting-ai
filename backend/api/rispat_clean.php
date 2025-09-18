@@ -246,3 +246,4 @@ class RispatAPI {
 $api = new RispatAPI();
 $api->handleRequest();
 ?>
+

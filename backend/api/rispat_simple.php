@@ -248,3 +248,4 @@ if ($method === 'POST') {
     echo json_encode(['error' => 'Method not allowed']);
 }
 ?>
+
