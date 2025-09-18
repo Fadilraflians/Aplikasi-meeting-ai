@@ -27,6 +27,7 @@ export interface MeetingRoom {
   facilities: string[];
   image: string;
   available?: boolean; // Status ketersediaan
+  isActive?: boolean; // Status aktif/nonaktif ruangan
 }
 
 export interface ChatMessage {

@@ -13,19 +13,41 @@ class MeetingRoom {
     }
 
     /**
-     * Get all meeting rooms
+     * Get all meeting rooms (including inactive ones)
      */
     public function getAllRooms() {
         try {
-            // Match actual columns in meeting_rooms: room_name, is_available, is_maintenance
-            $query = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at
-                      FROM " . $this->table_name . "
-                      WHERE is_available = 1
-                      ORDER BY room_name";
+            // Check if is_active field exists
+            $checkQuery = "SHOW COLUMNS FROM " . $this->table_name . " LIKE 'is_active'";
+            $checkStmt = $this->conn->prepare($checkQuery);
+            $checkStmt->execute();
+            $hasIsActiveField = $checkStmt->rowCount() > 0;
+            
+            if ($hasIsActiveField) {
+                // Include all rooms (active and inactive) and include is_active field
+                $query = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, is_active, created_at, updated_at
+                          FROM " . $this->table_name . "
+                          ORDER BY room_name";
+            } else {
+                // Fallback to is_available field
+                $query = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at
+                          FROM " . $this->table_name . "
+                          WHERE is_available = 1
+                          ORDER BY room_name";
+            }
+            
             $stmt = $this->conn->prepare($query);
             $stmt->execute();
-
-            return $stmt->fetchAll();
+            $rooms = $stmt->fetchAll();
+            
+            // Ensure is_active field is present in all results
+            if (!$hasIsActiveField) {
+                foreach ($rooms as &$room) {
+                    $room['is_active'] = $room['is_available'];
+                }
+            }
+            
+            return $rooms;
         } catch (PDOException $e) {
             error_log("Error getting all rooms: " . $e->getMessage());
             return [];
@@ -37,13 +59,31 @@ class MeetingRoom {
      */
     public function getRoomById($id) {
         try {
-            $query = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at
-                      FROM " . $this->table_name . " WHERE id = :id AND is_available = 1";
+            // Check if is_active field exists
+            $checkQuery = "SHOW COLUMNS FROM " . $this->table_name . " LIKE 'is_active'";
+            $checkStmt = $this->conn->prepare($checkQuery);
+            $checkStmt->execute();
+            $hasIsActiveField = $checkStmt->rowCount() > 0;
+            
+            if ($hasIsActiveField) {
+                $query = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, is_active, created_at, updated_at
+                          FROM " . $this->table_name . " WHERE id = :id";
+            } else {
+                $query = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at
+                          FROM " . $this->table_name . " WHERE id = :id AND is_available = 1";
+            }
+            
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":id", $id);
             $stmt->execute();
-
-            return $stmt->fetch();
+            $room = $stmt->fetch();
+            
+            // Ensure is_active field is present
+            if ($room && !$hasIsActiveField) {
+                $room['is_active'] = $room['is_available'];
+            }
+            
+            return $room;
         } catch (PDOException $e) {
             error_log("Error getting room by ID: " . $e->getMessage());
             return false;
@@ -246,13 +286,25 @@ class MeetingRoom {
     }
 
     /**
-     * Delete meeting room (soft delete)
+     * Delete meeting room (hard delete)
      */
     public function deleteRoom($id) {
         try {
-            $query = "UPDATE " . $this->table_name . " 
-                     SET is_available = 0, updated_at = CURRENT_TIMESTAMP 
-                     WHERE id = :id";
+            // First check if room has any active bookings
+            $checkQuery = "SELECT COUNT(*) as booking_count FROM bookings 
+                          WHERE room_id = :id AND status IN ('BOOKED', 'CONFIRMED', 'ONGOING')";
+            $checkStmt = $this->conn->prepare($checkQuery);
+            $checkStmt->bindParam(":id", $id);
+            $checkStmt->execute();
+            $result = $checkStmt->fetch();
+            
+            if ($result && $result['booking_count'] > 0) {
+                error_log("Cannot delete room $id: has active bookings");
+                return false;
+            }
+            
+            // Delete the room completely from database
+            $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
             
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":id", $id);
@@ -380,6 +432,62 @@ class MeetingRoom {
         } catch (PDOException $e) {
             error_log("Error searching rooms: " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Update room status (activate/deactivate)
+     */
+    public function updateRoomStatus($id, $isActive) {
+        try {
+            // First check if is_active field exists, if not use is_available field
+            $checkQuery = "SHOW COLUMNS FROM " . $this->table_name . " LIKE 'is_active'";
+            $checkStmt = $this->conn->prepare($checkQuery);
+            $checkStmt->execute();
+            $hasIsActiveField = $checkStmt->rowCount() > 0;
+            
+            if ($hasIsActiveField) {
+                $query = "UPDATE " . $this->table_name . " 
+                         SET is_active = :is_active, updated_at = CURRENT_TIMESTAMP 
+                         WHERE id = :id";
+            } else {
+                // Fallback to is_available field
+                $query = "UPDATE " . $this->table_name . " 
+                         SET is_available = :is_active, updated_at = CURRENT_TIMESTAMP 
+                         WHERE id = :id";
+            }
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":id", $id);
+            $stmt->bindParam(":is_active", $isActive, PDO::PARAM_BOOL);
+
+            $result = $stmt->execute();
+            
+            if ($result) {
+                // Get updated room data
+                $getQuery = "SELECT id, room_name, room_number, capacity, floor, building, description, features, image_url, is_available, is_maintenance, created_at, updated_at";
+                if ($hasIsActiveField) {
+                    $getQuery .= ", is_active";
+                }
+                $getQuery .= " FROM " . $this->table_name . " WHERE id = :id";
+                
+                $getStmt = $this->conn->prepare($getQuery);
+                $getStmt->bindParam(":id", $id);
+                $getStmt->execute();
+                
+                $roomData = $getStmt->fetch();
+                
+                // Ensure is_active field is present in response
+                if ($roomData && !$hasIsActiveField) {
+                    $roomData['is_active'] = $roomData['is_available'];
+                }
+                
+                return $roomData;
+            }
+            return false;
+        } catch (PDOException $e) {
+            error_log("Error updating room status: " . $e->getMessage());
+            return false;
         }
     }
 

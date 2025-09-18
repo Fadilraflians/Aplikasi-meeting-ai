@@ -115,7 +115,8 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                             return [] as string[];
                         })(),
                         image: room.image_url || '/images/meeting-rooms/default-room.jpg',
-                        available: room.is_available === 1 || room.is_available === true
+                        available: room.is_available === 1 || room.is_available === true,
+                        isActive: room.is_active !== undefined ? Boolean(room.is_active) : (room.is_available !== undefined ? Boolean(room.is_available) : true)
                     }));
                     
                     setAvailableRooms(roomsFromDB);
@@ -204,6 +205,12 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
         
         if (!selectedRoom) {
             alert('Error: No room selected. Please select a room.');
+            return;
+        }
+
+        // Check if room is active
+        if (selectedRoom.isActive === false) {
+            alert('Ruangan ini sedang dinonaktifkan dan tidak dapat dipesan. Silakan pilih ruangan lain.');
             return;
         }
 
@@ -472,8 +479,8 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                             {loadingRooms ? 'Memuat ruangan...' : 'Pilih ruangan meeting'}
                                         </option>
                                         {availableRooms.map(room => (
-                                            <option key={room.id} value={room.id}>
-                                                {room.name} ({room.capacity} orang)
+                                            <option key={room.id} value={room.id} disabled={room.isActive === false}>
+                                                {room.name} ({room.capacity} orang) {room.isActive === false ? '- ❌ Nonaktif' : ''}
                                             </option>
                                         ))}
                                     </select>

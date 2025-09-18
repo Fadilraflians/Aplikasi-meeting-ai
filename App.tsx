@@ -374,6 +374,13 @@ const App = () => {
         navigateTo(Page.MeetingRooms);
     };
 
+    const handleUpdateRoomStatus = (roomId: number, isActive: boolean) => {
+        // Room status sudah diupdate di database, tidak perlu update state lokal
+        console.log('Room status updated:', roomId, isActive);
+        // Navigate back to meeting rooms page
+        navigateTo(Page.MeetingRooms);
+    };
+
     const handleConfirmBooking = (newBooking: Booking) => {
         console.log('🔍 App.tsx - handleConfirmBooking received:', newBooking);
         console.log('🔍 App.tsx - booking details:', {
@@ -485,7 +492,7 @@ const App = () => {
         const pageComponents: { [key in Page]?: React.ReactNode } = {
             [Page.Dashboard]: <DashboardPage onNavigate={navigateTo} bookings={bookings} key={refreshTrigger} />,
             [Page.MeetingRooms]: <MeetingRoomsPage onNavigate={navigateTo} onBookRoom={handleBookRoom} onRoomDetail={handleRoomDetail} onAddRoom={handleAddRoom} bookings={bookings} />,
-            [Page.RoomDetail]: <RoomDetailPage onNavigate={navigateTo} onBookRoom={handleBookRoom} room={selectedRoom} bookings={bookings} onEditRoom={handleEditRoom} onDeleteRoom={handleDeleteRoom} />,
+            [Page.RoomDetail]: <RoomDetailPage onNavigate={navigateTo} onBookRoom={handleBookRoom} room={selectedRoom} bookings={bookings} onEditRoom={handleEditRoom} onDeleteRoom={handleDeleteRoom} onUpdateRoomStatus={handleUpdateRoomStatus} />,
             [Page.EditRoom]: <EditRoomPage onNavigate={navigateTo} room={selectedRoom} onRoomUpdated={handleRoomUpdated} />,
             [Page.AddRoom]: <AddRoomPage onNavigate={navigateTo} onRoomAdded={handleRoomAdded} />,
             [Page.Booking]: <BookingFormPage onNavigate={navigateTo} room={selectedRoom} onBookingConfirmed={handleConfirmBooking} bookingData={currentBookingData} />,

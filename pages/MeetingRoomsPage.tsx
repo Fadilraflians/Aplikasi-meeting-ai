@@ -103,6 +103,15 @@ const MeetingRoomCard: React.FC<{ room: MeetingRoom, onBook: (room: MeetingRoom)
                     {/* Status Badge */}
                     <div className="absolute top-3 right-3">
                         {(() => {
+                            // Check if room is inactive first
+                            if (room.isActive === false) {
+                                return (
+                                    <div className={`px-3 py-1 rounded-full text-xs font-semibold ${isDarkMode ? 'bg-gray-900/30 text-gray-300' : 'bg-gray-100 text-gray-800'}`}>
+                                        ❌ Nonaktif
+                                    </div>
+                                );
+                            }
+                            
                             const roomStatus = getRoomStatus();
                             
                             if (roomStatus === 'ongoing') {
@@ -183,9 +192,16 @@ const MeetingRoomCard: React.FC<{ room: MeetingRoom, onBook: (room: MeetingRoom)
                     <div className="flex gap-2">
                         <button
                             onClick={handleBookClick}
-                            className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-cyan-600 hover:bg-cyan-700' : 'bg-cyan-500 hover:bg-cyan-600'} text-white shadow-md hover:shadow-lg`}
+                            disabled={room.isActive === false}
+                            className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                                room.isActive === false
+                                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                                    : isDarkMode 
+                                        ? 'bg-cyan-600 hover:bg-cyan-700' 
+                                        : 'bg-cyan-500 hover:bg-cyan-600'
+                            } text-white shadow-md hover:shadow-lg`}
                         >
-                            📅 {t('meetingRooms.book')}
+                            {room.isActive === false ? '❌ Nonaktif' : `📅 ${t('meetingRooms.book')}`}
                         </button>
                         <button
                             onClick={(e) => {
@@ -209,8 +225,9 @@ interface MeetingRoomsPageProps {
     onRoomDetail: (room: MeetingRoom) => void;
     onAddRoom: () => void;
     bookings?: Booking[];
+    onUpdateRoomStatus?: (roomId: number, isActive: boolean) => void;
 }
-const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookRoom, onRoomDetail, onAddRoom, bookings = [] }) => {
+const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookRoom, onRoomDetail, onAddRoom, bookings = [], onUpdateRoomStatus }) => {
     const [rooms, setRooms] = React.useState<MeetingRoom[]>([]);
     const [loading, setLoading] = React.useState<boolean>(true);
     const [error, setError] = React.useState<string | null>(null);
@@ -314,6 +331,7 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                         return [] as string[];
                     })(),
                     image: r.image_url || '/images/meeting-rooms/default-room.jpg',
+                    isActive: r.is_active !== undefined ? Boolean(r.is_active) : (r.is_available !== undefined ? Boolean(r.is_available) : true), // Use is_active or fallback to is_available
                 }));
                 
                 console.log('Mapped rooms:', mapped);

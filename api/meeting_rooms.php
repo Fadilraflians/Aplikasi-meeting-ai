@@ -112,6 +112,24 @@ function handlePostRequest($meetingRoom) {
             }
             break;
             
+        case 'update_status':
+            $roomId = $input['room_id'] ?? null;
+            $isActive = $input['is_active'] ?? null;
+            
+            if (!$roomId || $isActive === null) {
+                sendResponse(false, 'Room ID and status required', null, 400);
+                return;
+            }
+            
+            $room = $meetingRoom->updateRoomStatus($roomId, $isActive);
+            if ($room) {
+                $statusText = $isActive ? 'activated' : 'deactivated';
+                sendResponse(true, "Room {$statusText} successfully", $room);
+            } else {
+                sendResponse(false, 'Failed to update room status', null, 500);
+            }
+            break;
+            
         default:
             sendResponse(false, 'Invalid action', null, 400);
     }
@@ -144,7 +162,19 @@ function handleDeleteRequest($meetingRoom) {
     if ($result) {
         sendResponse(true, 'Room deleted successfully', null);
     } else {
-        sendResponse(false, 'Failed to delete room', null, 500);
+        // Check if it's because of active bookings
+        $checkQuery = "SELECT COUNT(*) as booking_count FROM bookings 
+                      WHERE room_id = :id AND status IN ('BOOKED', 'CONFIRMED', 'ONGOING')";
+        $checkStmt = $db->prepare($checkQuery);
+        $checkStmt->bindParam(":id", $roomId);
+        $checkStmt->execute();
+        $bookingResult = $checkStmt->fetch();
+        
+        if ($bookingResult && $bookingResult['booking_count'] > 0) {
+            sendResponse(false, 'Cannot delete room: has active bookings. Please cancel all bookings first.', null, 400);
+        } else {
+            sendResponse(false, 'Failed to delete room', null, 500);
+        }
     }
 }
 

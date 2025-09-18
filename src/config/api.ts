@@ -235,6 +235,17 @@ export class ApiService {
         });
     }
 
+    static async updateRoomStatus(roomId: number, isActive: boolean) {
+        return this.makeRequest(API_ENDPOINTS.ROOMS.UPDATE, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'update_status',
+                room_id: roomId,
+                is_active: isActive
+            })
+        });
+    }
+
     // Reservations/Bookings methods
     static async getAllBookings() {
         return this.makeRequest(API_ENDPOINTS.RESERVATIONS.GET_UPCOMING());

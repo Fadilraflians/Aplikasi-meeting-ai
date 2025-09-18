@@ -11,9 +11,10 @@ interface RoomDetailPageProps {
   bookings: Booking[];
   onEditRoom: (room: MeetingRoom) => void;
   onDeleteRoom: (roomId: number) => void;
+  onUpdateRoomStatus?: (roomId: number, isActive: boolean) => void;
 }
 
-const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom, room, bookings, onEditRoom, onDeleteRoom }) => {
+const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom, room, bookings, onEditRoom, onDeleteRoom, onUpdateRoomStatus }) => {
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -22,7 +23,17 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const { isDarkMode } = useDarkMode();
+
+  // Debug room data
+  console.log('🔍 RoomDetailPage - Room data:', {
+    id: room.id,
+    name: room.name,
+    isActive: room.isActive,
+    roomObject: room
+  });
 
   // Auto-refresh every minute to hide expired bookings
   useEffect(() => {
@@ -280,6 +291,41 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
     }
   };
 
+  const handleUpdateRoomStatus = async () => {
+    setUpdatingStatus(true);
+    try {
+      const newStatus = !room.isActive;
+      
+      console.log('🔄 Updating room status:', {
+        roomId: room.id,
+        currentStatus: room.isActive,
+        newStatus: newStatus
+      });
+      
+      // Panggil API untuk update status ruangan
+      const response = await ApiService.updateRoomStatus(room.id, newStatus);
+      console.log('✅ API Response:', response);
+      
+      // Panggil callback untuk update UI jika ada
+      if (onUpdateRoomStatus) {
+        onUpdateRoomStatus(room.id, newStatus);
+      }
+      
+      // Tampilkan pesan sukses
+      const statusText = newStatus ? 'diaktifkan' : 'dinonaktifkan';
+      alert(`Ruangan berhasil ${statusText}!`);
+      
+      // Navigate kembali ke halaman meeting rooms
+      onNavigate(Page.MeetingRooms);
+    } catch (error) {
+      console.error('Error updating room status:', error);
+      alert('Gagal mengubah status ruangan. Silakan coba lagi.');
+    } finally {
+      setUpdatingStatus(false);
+      setShowStatusConfirm(false);
+    }
+  };
+
   const isRoomBooked = bookings.some(b => b.roomName === room.name);
 
   return (
@@ -321,6 +367,16 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                     ✏️ Edit
                   </button>
                   <button
+                    onClick={() => setShowStatusConfirm(true)}
+                    className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${
+                      room.isActive === false 
+                        ? (isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600')
+                        : (isDarkMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600')
+                    }`}
+                  >
+                    {room.isActive === false ? '✅ Aktifkan' : '⏸️ Nonaktifkan'}
+                  </button>
+                  <button
                     onClick={() => setShowDeleteConfirm(true)}
                     className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
                   >
@@ -333,16 +389,38 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                 <p><span className="font-semibold">Lantai:</span> {room.floor}</p>
                 <p><span className="font-semibold">Alamat:</span> {room.address}</p>
                 <p><span className="font-semibold">Fasilitas:</span> {room.facilities.join(', ')}</p>
+                <p>
+                  <span className="font-semibold">Status:</span> 
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                    room.isActive === false 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {room.isActive === false ? '❌ Nonaktif' : '✅ Aktif'}
+                  </span>
+                </p>
               </div>
             </div>
 
             <div className="pt-4">
               <button
                 onClick={() => onBookRoom(room)}
-                className={`w-full py-3 px-6 rounded-lg font-semibold transition text-white ${isDarkMode ? 'bg-cyan-600 hover:bg-cyan-700' : 'bg-cyan-500 hover:bg-cyan-600'}`}
+                disabled={room.isActive === false}
+                className={`w-full py-3 px-6 rounded-lg font-semibold transition text-white ${
+                  room.isActive === false
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : isDarkMode 
+                      ? 'bg-cyan-600 hover:bg-cyan-700' 
+                      : 'bg-cyan-500 hover:bg-cyan-600'
+                }`}
               >
-                Pesan Ruangan
+                {room.isActive === false ? '❌ Ruangan Nonaktif' : 'Pesan Ruangan'}
               </button>
+              {room.isActive === false && (
+                <p className="text-sm text-red-600 mt-2 text-center">
+                  Ruangan ini sedang dinonaktifkan dan tidak dapat dipesan
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -791,6 +869,65 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                   </span>
                 ) : (
                   'Ya, Hapus'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Status */}
+      {showStatusConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div className="text-center mb-6">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                room.isActive === false ? 'bg-green-100' : 'bg-orange-100'
+              }`}>
+                <span className={`text-2xl ${
+                  room.isActive === false ? 'text-green-500' : 'text-orange-500'
+                }`}>
+                  {room.isActive === false ? '✅' : '⏸️'}
+                </span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                {room.isActive === false ? 'Aktifkan Ruangan' : 'Nonaktifkan Ruangan'}
+              </h3>
+              <p className="text-gray-600">
+                Apakah Anda yakin ingin {room.isActive === false ? 'mengaktifkan' : 'menonaktifkan'} ruangan <strong>"{room.name}"</strong>?
+              </p>
+              <p className="text-sm text-orange-600 mt-2">
+                {room.isActive === false 
+                  ? '✅ Ruangan akan dapat dipesan kembali setelah diaktifkan.'
+                  : '⏸️ Ruangan tidak dapat dipesan setelah dinonaktifkan.'
+                }
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowStatusConfirm(false)}
+                className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-semibold"
+                disabled={updatingStatus}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleUpdateRoomStatus}
+                className={`flex-1 px-4 py-3 text-white rounded-lg transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
+                  room.isActive === false 
+                    ? 'bg-green-500 hover:bg-green-600' 
+                    : 'bg-orange-500 hover:bg-orange-600'
+                }`}
+                disabled={updatingStatus}
+              >
+                {updatingStatus ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Memproses...
+                  </span>
+                ) : (
+                  room.isActive === false ? 'Ya, Aktifkan' : 'Ya, Nonaktifkan'
                 )}
               </button>
             </div>
