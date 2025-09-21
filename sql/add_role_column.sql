@@ -20,3 +20,4 @@ INSERT IGNORE INTO `users` (username, email, password, full_name, role) VALUES
 INSERT IGNORE INTO `users` (username, email, password, full_name, role) VALUES 
 ('raflians', 'raflians@gmail.com', 'admin123', 'Raflians User', 'user');
 
+

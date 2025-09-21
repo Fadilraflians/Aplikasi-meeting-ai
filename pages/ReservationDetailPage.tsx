@@ -662,19 +662,19 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
       {/* Modal Upload Risalah Rapat */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col">
             {/* Header dengan gradient yang lebih menarik */}
-            <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 p-8 text-white relative overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-700 p-6 text-white relative overflow-hidden flex-shrink-0">
               <div className="absolute inset-0 bg-black bg-opacity-10"></div>
               <div className="relative z-10">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="bg-white bg-opacity-20 p-4 rounded-2xl mr-6">
-                      <span className="text-3xl">📤</span>
+                    <div className="bg-white bg-opacity-20 p-3 rounded-2xl mr-4">
+                      <span className="text-2xl">📤</span>
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold mb-2">Upload Risalah Rapat</h3>
-                      <p className="text-blue-100 text-sm">Upload file risalah rapat (PDF, Word, JPG)</p>
+                      <h3 className="text-xl font-bold mb-1">Upload file risalah rapat (PDF, Word, JPG)</h3>
+                      <p className="text-blue-100 text-sm">Pilih file risalah rapat untuk diupload</p>
                     </div>
                   </div>
                   <button
@@ -682,23 +682,24 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                       setShowUploadModal(false);
                       setSelectedFile(null);
                     }}
-                    className="text-white hover:text-blue-200 transition-colors text-3xl p-3 hover:bg-white hover:bg-opacity-10 rounded-full"
+                    className="text-white hover:text-blue-200 transition-colors text-2xl p-2 hover:bg-white hover:bg-opacity-10 rounded-full"
                   >
                     ×
                   </button>
                 </div>
               </div>
               {/* Decorative elements */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white bg-opacity-10 rounded-full -translate-y-16 translate-x-16"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white bg-opacity-10 rounded-full translate-y-12 -translate-x-12"></div>
-              <div className="absolute top-1/2 right-1/4 w-20 h-20 bg-white bg-opacity-5 rounded-full"></div>
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white bg-opacity-10 rounded-full -translate-y-12 translate-x-12"></div>
+              <div className="absolute bottom-0 left-0 w-20 h-20 bg-white bg-opacity-10 rounded-full translate-y-10 -translate-x-10"></div>
             </div>
             
-            <div className="p-8">
+            {/* Content Area */}
+            <div className="p-6 overflow-y-auto flex-1">
               {/* Drag and Drop Area */}
               <div className="mb-6">
-                <label className="block text-lg font-bold text-gray-800 mb-4">
-                  📁 Pilih File Risalah
+                <label className="block text-lg font-bold text-gray-800 mb-4 flex items-center">
+                  <span className="mr-2">📁</span>
+                  Pilih File Risalah
                 </label>
                 
                 <div
@@ -718,7 +719,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                     <h4 className="text-lg font-semibold text-gray-800 mb-2">
                       {isDragOver ? 'Lepaskan file di sini' : 'Drag & Drop file atau klik untuk memilih'}
                     </h4>
-                    <p className="text-gray-600 text-sm mb-4">
+                    <p className="text-gray-600 text-sm mb-1">
                       Format yang didukung: PDF, Word, JPG, PNG
                     </p>
                     <p className="text-xs text-gray-500 mb-4">
@@ -734,9 +735,10 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                     />
                     <label
                       htmlFor="file-upload"
-                      className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 cursor-pointer"
+                      className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 cursor-pointer flex items-center"
                     >
-                      📂 Pilih File
+                      <span className="mr-2">📂</span>
+                      Pilih File
                     </label>
                   </div>
                 </div>
@@ -744,32 +746,41 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
 
               {/* File Preview */}
               {selectedFile && (
-                <div className="mb-6">
-                  <h4 className="text-lg font-bold text-gray-800 mb-4">📋 Preview File</h4>
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6 shadow-lg">
+                <div className="mb-4">
+                  <h4 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                    <span className="mr-2">📋</span>
+                    Preview File
+                  </h4>
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 shadow-lg">
                     <div className="flex items-start">
-                      <div className="bg-gradient-to-br from-green-100 to-emerald-100 p-4 rounded-xl mr-4 flex-shrink-0">
-                        <span className="text-3xl">
+                      <div className="bg-gradient-to-br from-green-100 to-emerald-100 p-3 rounded-xl mr-3 flex-shrink-0">
+                        <span className="text-2xl">
                           {RispatService.getFileIcon(selectedFile.type)}
                         </span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-bold text-gray-800 text-lg mb-2 break-words">{selectedFile.name}</h5>
+                      <div className="flex-1 min-w-0 w-full">
+                        <div className="mb-2">
+                          <div className="flex items-start justify-between mb-2">
+                            <h5 className="font-bold text-gray-800 text-lg break-all pr-4 flex-1 leading-tight" style={{wordBreak: 'break-all', overflowWrap: 'break-word'}}>{selectedFile.name}</h5>
+                            <button
+                              onClick={() => setSelectedFile(null)}
+                              className="text-red-500 hover:text-red-700 transition-colors p-1 hover:bg-red-50 rounded-full flex-shrink-0 ml-2"
+                            >
+                              <span className="text-lg">❌</span>
+                            </button>
+                          </div>
+                        </div>
                         <div className="flex flex-wrap gap-2">
-                          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium text-sm">
-                            📏 {RispatService.formatFileSize(selectedFile.size)}
+                          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium text-sm flex items-center">
+                            <span className="mr-1">📏</span>
+                            {RispatService.formatFileSize(selectedFile.size)}
                           </span>
-                          <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-medium text-sm">
-                            📄 {selectedFile.type.toUpperCase()}
+                          <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-medium text-sm flex items-center">
+                            <span className="mr-1">📄</span>
+                            {selectedFile.type.toUpperCase()}
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setSelectedFile(null)}
-                        className="text-red-500 hover:text-red-700 transition-colors p-2 hover:bg-red-50 rounded-full"
-                      >
-                        <span className="text-xl">❌</span>
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -793,33 +804,38 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                 </div>
               )}
 
-              {/* Action Buttons */}
+            </div>
+            
+            {/* Footer dengan tombol aksi */}
+            <div className="border-t border-gray-200 p-6 bg-gradient-to-r from-gray-50 to-gray-100 flex-shrink-0">
               <div className="flex gap-4">
                 <button
                   onClick={() => {
                     setShowUploadModal(false);
                     setSelectedFile(null);
                   }}
-                  className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 text-white font-bold py-4 px-6 rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:from-gray-600 hover:to-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   disabled={uploading}
                 >
-                  <span className="mr-2">❌</span>
                   Batal
                 </button>
                 <button
                   onClick={handleFileUpload}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold py-4 px-6 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
                   disabled={!selectedFile || uploading}
                 >
                   {uploading ? (
                     <>
-                      <span className="mr-2">⏳</span>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
                       Uploading...
                     </>
                   ) : (
                     <>
                       <span className="mr-2">📤</span>
-                      Upload File
+                      Kirim Permintaan
                     </>
                   )}
                 </button>
