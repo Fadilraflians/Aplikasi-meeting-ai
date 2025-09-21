@@ -300,9 +300,14 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                 
                 // Hanya tampilkan tombol Complete untuk status ongoing atau upcoming
                 if (status === 'ongoing' || status === 'upcoming') {
+                  // Check if current user is the owner of this booking
+                  const isOwner = currentUser && booking.pic && 
+                    currentUser.toLowerCase() === booking.pic.toLowerCase();
+                  
                   // Logika baru: jika booking tidak memerlukan rispat, bisa langsung complete
                   // Jika booking memerlukan rispat, harus upload rispat dulu
-                  const canComplete = !booking.requiresRispat || hasRispat;
+                  // TAPI hanya pemilik yang bisa complete
+                  const canComplete = isOwner && (!booking.requiresRispat || hasRispat);
                   
                   return (
                     <>
@@ -315,19 +320,23 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
                         title={
-                          !booking.requiresRispat 
-                            ? 'Klik untuk menyelesaikan reservasi' 
-                            : hasRispat 
+                          !isOwner 
+                            ? 'Hanya pemilik reservasi yang bisa menyelesaikan'
+                            : !booking.requiresRispat 
                               ? 'Klik untuk menyelesaikan reservasi' 
-                              : 'Upload risalah rapat terlebih dahulu untuk menyelesaikan reservasi'
+                              : hasRispat 
+                                ? 'Klik untuk menyelesaikan reservasi' 
+                                : 'Upload risalah rapat terlebih dahulu untuk menyelesaikan reservasi'
                         }
                       >
                         ✅ {
-                          !booking.requiresRispat 
-                            ? t('reservations.complete')
-                            : hasRispat 
-                              ? t('reservations.complete') 
-                              : 'Upload Rispat Dulu'
+                          !isOwner 
+                            ? 'Bukan Milik Anda'
+                            : !booking.requiresRispat 
+                              ? t('reservations.complete')
+                              : hasRispat 
+                                ? t('reservations.complete') 
+                                : 'Upload Rispat Dulu'
                         }
                       </button>
                       {(() => {
@@ -740,6 +749,27 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
         console.log('🔍 handleCancel - Found booking:', booking);
         
         if (booking) {
+            // SECURITY CHECK: Verify that current user is the owner of this booking
+            const currentUser = getCurrentUser();
+            const isOwner = currentUser && booking.pic && 
+                currentUser.toLowerCase() === booking.pic.toLowerCase();
+            
+            if (!isOwner) {
+                alert('Anda tidak memiliki izin untuk membatalkan reservasi ini. Hanya pemilik reservasi yang bisa melakukan aksi ini.');
+                console.log('🚫 Unauthorized cancel attempt:', {
+                    currentUser,
+                    bookingOwner: booking.pic,
+                    bookingId: booking.id
+                });
+                return;
+            }
+            
+            console.log('✅ Authorized cancel attempt:', {
+                currentUser,
+                bookingOwner: booking.pic,
+                bookingId: booking.id
+            });
+            
             console.log('🔍 handleCancel - Setting bookingToCancel with data:', {
                 id: booking.id,
                 topic: booking.topic,
@@ -949,6 +979,27 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     const handleCompleteBooking = async (b: Booking) => {
         try {
             console.log('Completing booking:', b.id);
+            
+            // SECURITY CHECK: Verify that current user is the owner of this booking
+            const currentUser = getCurrentUser();
+            const isOwner = currentUser && b.pic && 
+                currentUser.toLowerCase() === b.pic.toLowerCase();
+            
+            if (!isOwner) {
+                alert('Anda tidak memiliki izin untuk menyelesaikan reservasi ini. Hanya pemilik reservasi yang bisa melakukan aksi ini.');
+                console.log('🚫 Unauthorized complete attempt:', {
+                    currentUser,
+                    bookingOwner: b.pic,
+                    bookingId: b.id
+                });
+                return;
+            }
+            
+            console.log('✅ Authorized complete attempt:', {
+                currentUser,
+                bookingOwner: b.pic,
+                bookingId: b.id
+            });
             
             // Check if this is an AI booking
             const isAiBooking = String(b.id).startsWith('ai_');
