@@ -21,6 +21,7 @@ import { addHistory } from './services/historyService';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import HelpCenterPage from './pages/HelpCenter';
+import CancelRequestsPage from './pages/CancelRequestsPage';
 import MainLayout from './components/MainLayout';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { DarkModeProvider } from './contexts/DarkModeContext';
@@ -134,13 +135,22 @@ const App = () => {
     // Load bookings from server
     const loadBookingsFromServer = async (userId: number) => {
         try {
-            // Load MySQL bookings (form-based) - only active bookings for ReservationsPage
-            const serverBookingsRes = await ApiService.getUserBookings(userId, false);
-            const serverBookings = serverBookingsRes.data || [];
+            let serverBookings = [];
+            let aiBookings = [];
             
-            // Load AI bookings from ai_bookings_success table
-            const aiBookingsRes = await ApiService.getAIBookingsByUserId(userId);
-            const aiBookings = aiBookingsRes.data || [];
+            // Check if current user is admin
+            const userDataStr = localStorage.getItem('user_data');
+            const userData = userDataStr ? JSON.parse(userDataStr) : null;
+            const isAdmin = userData?.role === 'admin';
+            
+            // All users can see all bookings (removed admin-only restriction)
+            console.log('🔍 App.tsx - Loading all bookings for user ID:', userId);
+            const serverBookingsRes = await ApiService.getAllBookings();
+            serverBookings = serverBookingsRes.data || [];
+            
+            const aiBookingsRes = await ApiService.getAllAIBookings();
+            aiBookings = aiBookingsRes.data || [];
+            
             console.log('🔍 App.tsx - Raw AI bookings:', aiBookings);
             
             // Format server bookings
@@ -178,6 +188,7 @@ const App = () => {
                     pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
                     meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
                     facilities: formattedFacilities,
+                    userName: b.user_name || b.username || 'Unknown User', // Add user info for admin view
                 };
             });
 
@@ -219,7 +230,8 @@ const App = () => {
                     facilities: formattedFacilities,
                     status: b.booking_state || 'BOOKED', // Status dari database
                     booking_state: b.booking_state || 'BOOKED', // Booking state dari database
-                    source: 'ai' // Menandai bahwa ini adalah AI booking
+                    source: 'ai', // Menandai bahwa ini adalah AI booking
+                    userName: b.user_name || b.username || 'Unknown User', // Add user info for admin view
                 };
             });
             
@@ -349,6 +361,12 @@ const App = () => {
     };
 
     const navigateTo = (page: Page) => {
+        // Check if user has permission to access admin pages
+        if (isAdminPage(page) && user.role !== 'admin') {
+            alert('Anda tidak memiliki akses ke halaman ini. Hanya admin yang dapat mengakses fitur ini.');
+            return;
+        }
+        
         setCurrentPage(page);
         // Save current page to localStorage for session persistence
         localStorage.setItem('current_page', page.toString());
@@ -376,6 +394,17 @@ const App = () => {
         }
     };
 
+    // Helper function to check if page requires admin access
+    const isAdminPage = (page: Page): boolean => {
+        const adminPages = [Page.AddRoom, Page.EditRoom];
+        return adminPages.includes(page);
+    };
+
+    // Helper function to check if user is admin
+    const isAdmin = (): boolean => {
+        return user.role === 'admin';
+    };
+
     const handleBookRoom = (room: MeetingRoom, bookingData?: Partial<Booking>) => {
         setSelectedRoom(room);
         if (bookingData) {
@@ -390,6 +419,10 @@ const App = () => {
     };
 
     const handleEditRoom = (room: MeetingRoom) => {
+        if (!isAdmin()) {
+            alert('Anda tidak memiliki akses untuk mengedit ruangan. Hanya admin yang dapat melakukan operasi ini.');
+            return;
+        }
         setSelectedRoom(room);
         navigateTo(Page.EditRoom);
     };
@@ -401,6 +434,10 @@ const App = () => {
     };
 
     const handleAddRoom = () => {
+        if (!isAdmin()) {
+            alert('Anda tidak memiliki akses untuk menambah ruangan. Hanya admin yang dapat melakukan operasi ini.');
+            return;
+        }
         navigateTo(Page.AddRoom);
     };
 
@@ -410,6 +447,10 @@ const App = () => {
     };
 
     const handleDeleteRoom = (roomId: number) => {
+        if (!isAdmin()) {
+            alert('Anda tidak memiliki akses untuk menghapus ruangan. Hanya admin yang dapat melakukan operasi ini.');
+            return;
+        }
         // Room sudah dihapus dari database, tidak perlu update state lokal
         console.log('Room deleted:', roomId);
         // Navigate back to meeting rooms page
@@ -417,6 +458,10 @@ const App = () => {
     };
 
     const handleUpdateRoomStatus = (roomId: number, isActive: boolean) => {
+        if (!isAdmin()) {
+            alert('Anda tidak memiliki akses untuk mengubah status ruangan. Hanya admin yang dapat melakukan operasi ini.');
+            return;
+        }
         // Room status sudah diupdate di database, tidak perlu update state lokal
         console.log('Room status updated:', roomId, isActive);
         // Navigate back to meeting rooms page
@@ -473,8 +518,10 @@ const App = () => {
             
             if (isAiBooking) {
                 // For AI bookings, call the AI cancel endpoint
-                await BackendService.cancelBooking(id);
-                console.log('AI booking cancelled from App via API:', id);
+                // Remove 'ai_' prefix to get the actual database ID
+                const actualId = String(id).replace('ai_', '');
+                await BackendService.cancelBooking(Number(actualId));
+                console.log('AI booking cancelled from App via API:', id, '-> actual ID:', actualId);
             } else {
                 // For form bookings, call backend API
                 await BackendService.cancelBooking(Number(id));
@@ -486,6 +533,16 @@ const App = () => {
                     ? { ...b, status: 'cancelled' }
                     : b
             ));
+            
+            // Refresh bookings from server to get updated data
+            if (user.id) {
+                console.log('🔄 Refreshing bookings after cancellation...');
+                await loadBookingsFromServer(user.id);
+                console.log('✅ Bookings refreshed after cancellation');
+            }
+            
+            // Trigger refresh event for other components
+            window.dispatchEvent(new CustomEvent('refreshBookings'));
             
             // Note: History will be added by ReservationsPage handleConfirmCancel
             // to avoid duplication
@@ -521,9 +578,9 @@ const App = () => {
         }
         
         const pageComponents: { [key in Page]?: React.ReactNode } = {
-            [Page.Dashboard]: <DashboardPage onNavigate={navigateTo} bookings={bookings} key={refreshTrigger} />,
-            [Page.MeetingRooms]: <MeetingRoomsPage onNavigate={navigateTo} onBookRoom={handleBookRoom} onRoomDetail={handleRoomDetail} onAddRoom={handleAddRoom} bookings={bookings} />,
-            [Page.RoomDetail]: <RoomDetailPage onNavigate={navigateTo} onBookRoom={handleBookRoom} room={selectedRoom} bookings={bookings} onEditRoom={handleEditRoom} onDeleteRoom={handleDeleteRoom} onUpdateRoomStatus={handleUpdateRoomStatus} />,
+            [Page.Dashboard]: <DashboardPage onNavigate={navigateTo} bookings={bookings} user={user} key={refreshTrigger} />,
+            [Page.MeetingRooms]: <MeetingRoomsPage onNavigate={navigateTo} onBookRoom={handleBookRoom} onRoomDetail={handleRoomDetail} onAddRoom={handleAddRoom} bookings={bookings} user={user} />,
+            [Page.RoomDetail]: <RoomDetailPage onNavigate={navigateTo} onBookRoom={handleBookRoom} room={selectedRoom} bookings={bookings} onEditRoom={handleEditRoom} onDeleteRoom={handleDeleteRoom} onUpdateRoomStatus={handleUpdateRoomStatus} user={user} />,
             [Page.EditRoom]: <EditRoomPage onNavigate={navigateTo} room={selectedRoom} onRoomUpdated={handleRoomUpdated} />,
             [Page.AddRoom]: <AddRoomPage onNavigate={navigateTo} onRoomAdded={handleRoomAdded} />,
             [Page.Booking]: <BookingFormPage onNavigate={navigateTo} room={selectedRoom} onBookingConfirmed={handleConfirmBooking} bookingData={currentBookingData} />,
@@ -535,7 +592,8 @@ const App = () => {
             [Page.Rispat]: <RispatPage onNavigate={navigateTo} />, 
             [Page.Profile]: <ProfilePage onNavigate={navigateTo} user={user} />,
             [Page.Settings]: <SettingsPage onNavigate={navigateTo} />,
-            [Page.HelpCenter]: <HelpCenterPage onNavigate={navigateTo} />
+            [Page.HelpCenter]: <HelpCenterPage onNavigate={navigateTo} />,
+            [Page.CancelRequests]: <CancelRequestsPage onNavigate={navigateTo} />
         };
 
         return (

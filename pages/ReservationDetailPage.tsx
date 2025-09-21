@@ -48,6 +48,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
   const [showRispatModal, setShowRispatModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Fungsi untuk menentukan status booking
   const getBookingStatus = (date: string, startTime: string, endTime?: string) => {
@@ -286,6 +287,34 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
+    }
+  };
+
+  // Drag and Drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      // Validasi file type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (allowedTypes.includes(file.type)) {
+        setSelectedFile(file);
+      } else {
+        alert('Format file tidak didukung. Silakan pilih file PDF, Word, atau gambar.');
+      }
     }
   };
 
@@ -632,62 +661,167 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
 
       {/* Modal Upload Risalah Rapat */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 p-6 text-white rounded-t-2xl">
-              <h3 className="text-xl font-bold mb-2">📤 Upload Risalah Rapat</h3>
-              <p className="text-blue-100 text-sm">Upload file risalah rapat (PDF, Word, JPG)</p>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden">
+            {/* Header dengan gradient yang lebih menarik */}
+            <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 p-8 text-white relative overflow-hidden">
+              <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="bg-white bg-opacity-20 p-4 rounded-2xl mr-6">
+                      <span className="text-3xl">📤</span>
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold mb-2">Upload Risalah Rapat</h3>
+                      <p className="text-blue-100 text-sm">Upload file risalah rapat (PDF, Word, JPG)</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setSelectedFile(null);
+                    }}
+                    className="text-white hover:text-blue-200 transition-colors text-3xl p-3 hover:bg-white hover:bg-opacity-10 rounded-full"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white bg-opacity-10 rounded-full -translate-y-16 translate-x-16"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white bg-opacity-10 rounded-full translate-y-12 -translate-x-12"></div>
+              <div className="absolute top-1/2 right-1/4 w-20 h-20 bg-white bg-opacity-5 rounded-full"></div>
             </div>
             
-            <div className="p-6">
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Pilih File
+            <div className="p-8">
+              {/* Drag and Drop Area */}
+              <div className="mb-6">
+                <label className="block text-lg font-bold text-gray-800 mb-4">
+                  📁 Pilih File Risalah
                 </label>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  onChange={handleFileSelect}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Format yang didukung: PDF, Word, JPG (Maksimal 10MB)
-                </p>
+                
+                <div
+                  className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+                    isDragOver
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-4">
+                      <span className="text-3xl">📄</span>
+                    </div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                      {isDragOver ? 'Lepaskan file di sini' : 'Drag & Drop file atau klik untuk memilih'}
+                    </h4>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Format yang didukung: PDF, Word, JPG, PNG
+                    </p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Maksimal ukuran file: 10MB
+                    </p>
+                    
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 cursor-pointer"
+                    >
+                      📂 Pilih File
+                    </label>
+                  </div>
+                </div>
               </div>
 
+              {/* File Preview */}
               {selectedFile && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">
-                      {RispatService.getFileIcon(selectedFile.type)}
-                    </span>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-800">{selectedFile.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {RispatService.formatFileSize(selectedFile.size)}
-                      </p>
+                <div className="mb-6">
+                  <h4 className="text-lg font-bold text-gray-800 mb-4">📋 Preview File</h4>
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6 shadow-lg">
+                    <div className="flex items-start">
+                      <div className="bg-gradient-to-br from-green-100 to-emerald-100 p-4 rounded-xl mr-4 flex-shrink-0">
+                        <span className="text-3xl">
+                          {RispatService.getFileIcon(selectedFile.type)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-bold text-gray-800 text-lg mb-2 break-words">{selectedFile.name}</h5>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium text-sm">
+                            📏 {RispatService.formatFileSize(selectedFile.size)}
+                          </span>
+                          <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-medium text-sm">
+                            📄 {selectedFile.type.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedFile(null)}
+                        className="text-red-500 hover:text-red-700 transition-colors p-2 hover:bg-red-50 rounded-full"
+                      >
+                        <span className="text-xl">❌</span>
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              <div className="flex gap-3">
+              {/* Loading Indicator */}
+              {uploading && (
+                <div className="mb-6">
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-lg">
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-4"></div>
+                      <div>
+                        <h5 className="font-bold text-gray-800 mb-1">⏳ Sedang Upload...</h5>
+                        <p className="text-gray-600 text-sm">Mohon tunggu, file sedang diupload ke server</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 bg-gray-200 rounded-full h-2">
+                      <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-4">
                 <button
                   onClick={() => {
                     setShowUploadModal(false);
                     setSelectedFile(null);
                   }}
-                  className="flex-1 bg-gray-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors"
+                  className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 text-white font-bold py-4 px-6 rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   disabled={uploading}
                 >
+                  <span className="mr-2">❌</span>
                   Batal
                 </button>
                 <button
                   onClick={handleFileUpload}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold py-4 px-6 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   disabled={!selectedFile || uploading}
                 >
-                  {uploading ? '⏳ Uploading...' : '📤 Upload'}
+                  {uploading ? (
+                    <>
+                      <span className="mr-2">⏳</span>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <span className="mr-2">📤</span>
+                      Upload File
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -697,155 +831,204 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
 
       {/* Modal Lihat Risalah Rapat */}
       {showRispatModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 text-white rounded-t-2xl">
-              <h3 className="text-xl font-bold mb-2">📋 Risalah Rapat</h3>
-              <p className="text-green-100 text-sm">Daftar file risalah rapat yang tersedia</p>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+            {/* Header dengan gradient yang lebih menarik */}
+            <div className="bg-gradient-to-br from-emerald-600 via-green-600 to-teal-700 p-6 text-white relative overflow-hidden">
+              <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="bg-white bg-opacity-20 p-3 rounded-2xl mr-4">
+                      <span className="text-2xl">📋</span>
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold mb-1">Risalah Rapat</h3>
+                      <p className="text-green-100 text-sm">Daftar file risalah rapat yang tersedia</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowRispatModal(false)}
+                    className="text-white hover:text-green-200 transition-colors text-3xl p-3 hover:bg-white hover:bg-opacity-10 rounded-full"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white bg-opacity-10 rounded-full -translate-y-20 translate-x-20"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-white bg-opacity-10 rounded-full translate-y-16 -translate-x-16"></div>
+              <div className="absolute top-1/2 right-1/4 w-24 h-24 bg-white bg-opacity-5 rounded-full"></div>
             </div>
             
-            <div className="p-6">
-              {(() => {
-                console.log('🔍 Debug Modal - rispatFiles:', rispatFiles);
-                console.log('🔍 Debug Modal - rispatFiles.length:', rispatFiles.length);
-                console.log('🔍 Debug Modal - rispatFiles type:', typeof rispatFiles);
-                console.log('🔍 Debug Modal - rispatFiles is array:', Array.isArray(rispatFiles));
-                if (rispatFiles.length > 0) {
-                  console.log('🔍 Debug Modal - First file:', rispatFiles[0]);
-                }
-                return null;
-              })()}
+            {/* Content Area dengan scroll */}
+            <div className="flex-1 overflow-y-auto p-6">
               {rispatFiles.length > 0 ? (
-                <div className="space-y-4">
-                  {rispatFiles.map((file) => (
-                    <div key={file.id} className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center flex-1">
-                          <span className="text-3xl mr-4">
-                            {RispatService.getFileIcon(file.file_type)}
-                          </span>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-800">{file.original_name}</h4>
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                              <span>{RispatService.formatFileSize(file.file_size)}</span>
-                              <span>•</span>
-                              <span>Upload: {new Date(file.uploaded_at).toLocaleDateString('id-ID')}</span>
-                              <span>•</span>
-                              <span>Oleh: {file.uploaded_by}</span>
+                <div className="space-y-6">
+                  {/* Header dengan statistik */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xl font-bold text-gray-800 mb-2">📊 Statistik File</h4>
+                        <p className="text-gray-600 text-base">Total {rispatFiles.length} file risalah rapat tersedia</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-blue-600">{rispatFiles.length}</div>
+                        <div className="text-base text-gray-500">File tersedia</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Daftar file dengan desain card yang lebih menarik */}
+                  {rispatFiles.map((file, index) => (
+                    <div key={file.id} className="bg-white rounded-2xl border border-gray-200 shadow-xl hover:shadow-2xl transition-all duration-500 overflow-hidden group backdrop-blur-sm">
+                      <div className="p-6">
+                        {/* Header dengan nama file dan tombol action */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-start flex-1 min-w-0">
+                            <div className="bg-gradient-to-br from-blue-100 to-indigo-100 p-4 rounded-xl mr-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                              <span className="text-3xl">
+                                {RispatService.getFileIcon(file.file_type)}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-gray-800 text-lg mb-2 break-words group-hover:text-blue-600 transition-colors duration-300">{file.original_name}</h4>
+                              <div className="text-sm text-gray-500">File #{index + 1} dari {rispatFiles.length}</div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <a
-                            href={RispatService.getDownloadUrl(file.id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
-                            onClick={(e) => {
-                              // Test download URL
-                              console.log('Download URL:', RispatService.getDownloadUrl(file.id));
-                            }}
-                          >
-                            📥 Download
-                          </a>
-                          <button
-                            onClick={async () => {
-                              if (confirm('Apakah Anda yakin ingin menghapus file ini?')) {
-                                console.log('Attempting to delete file ID:', file.id);
-                                try {
-                                  const result = await RispatService.deleteRispat(file.id);
-                                  console.log('Delete result:', result);
-                                  if (result.success) {
-                                    alert('File berhasil dihapus');
-                                    loadRispatFiles(); // Reload data
-                                  } else {
-                                    alert('Gagal menghapus file: ' + result.message);
-                                  }
-                                } catch (error) {
-                                  console.error('Delete error:', error);
-                                  console.error('Error details:', error);
-                                  
-                                  // Handle different types of errors
-                                  let errorMessage = 'Terjadi kesalahan saat menghapus file';
-                                  
-                                  if (error instanceof Error) {
-                                    if (error.message.includes('Failed to fetch')) {
-                                      errorMessage = 'Tidak dapat terhubung ke server. Pastikan server berjalan dan koneksi internet stabil.';
-                                    } else if (error.message.includes('timeout')) {
-                                      errorMessage = 'Request timeout. Silakan coba lagi.';
+                          {/* Tombol action dengan desain yang lebih menarik */}
+                          <div className="flex gap-2 flex-shrink-0 ml-4">
+                            <a
+                              href={RispatService.getDownloadUrl(file.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-xl font-bold hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center border-2 border-green-400 text-sm"
+                              onClick={(e) => {
+                                console.log('Download URL:', RispatService.getDownloadUrl(file.id));
+                              }}
+                            >
+                              <span className="mr-1">📥</span>
+                              Download
+                            </a>
+                            <button
+                              onClick={async () => {
+                                if (confirm('Apakah Anda yakin ingin menghapus file ini?')) {
+                                  console.log('Attempting to delete file ID:', file.id);
+                                  try {
+                                    const result = await RispatService.deleteRispat(file.id);
+                                    console.log('Delete result:', result);
+                                    if (result.success) {
+                                      alert('✅ File berhasil dihapus!');
+                                      loadRispatFiles(); // Reload data
                                     } else {
-                                      errorMessage = error.message;
+                                      alert('❌ Gagal menghapus file: ' + result.message);
                                     }
-                                  } else if (typeof error === 'string') {
-                                    errorMessage = error;
-                                  } else if (error && typeof error === 'object' && 'message' in error) {
-                                    errorMessage = (error as any).message;
+                                  } catch (error) {
+                                    console.error('Delete error:', error);
+                                    
+                                    // Handle different types of errors
+                                    let errorMessage = 'Terjadi kesalahan saat menghapus file';
+                                    
+                                    if (error instanceof Error) {
+                                      if (error.message.includes('Failed to fetch')) {
+                                        errorMessage = 'Tidak dapat terhubung ke server. Pastikan server berjalan dan koneksi internet stabil.';
+                                      } else if (error.message.includes('timeout')) {
+                                        errorMessage = 'Request timeout. Silakan coba lagi.';
+                                      } else {
+                                        errorMessage = error.message;
+                                      }
+                                    } else if (typeof error === 'string') {
+                                      errorMessage = error;
+                                    } else if (error && typeof error === 'object' && 'message' in error) {
+                                      errorMessage = (error as any).message;
+                                    }
+                                    
+                                    alert('❌ ' + errorMessage);
                                   }
-                                  
-                                  alert(errorMessage);
                                 }
-                              }
-                            }}
-                            className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
-                          >
-                            🗑️ Hapus
-                          </button>
+                              }}
+                              className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-4 py-2 rounded-xl font-bold hover:from-red-600 hover:to-rose-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center border-2 border-red-400 text-sm"
+                            >
+                              <span className="mr-1">🗑️</span>
+                              Hapus
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Informasi detail file dengan desain yang lebih menarik */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-3 border border-blue-200">
+                            <div className="flex items-center">
+                              <div className="bg-blue-500 p-2 rounded-lg mr-3">
+                                <span className="text-white text-base">📏</span>
+                              </div>
+                              <div>
+                                <div className="text-xs text-blue-600 font-medium">Ukuran File</div>
+                                <div className="text-base font-bold text-blue-800">{RispatService.formatFileSize(file.file_size)}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-3 border border-green-200">
+                            <div className="flex items-center">
+                              <div className="bg-green-500 p-2 rounded-lg mr-3">
+                                <span className="text-white text-base">📅</span>
+                              </div>
+                              <div>
+                                <div className="text-xs text-green-600 font-medium">Tanggal Upload</div>
+                                <div className="text-base font-bold text-green-800">{new Date(file.uploaded_at).toLocaleDateString('id-ID')}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-3 border border-purple-200">
+                            <div className="flex items-center">
+                              <div className="bg-purple-500 p-2 rounded-lg mr-3">
+                                <span className="text-white text-base">👤</span>
+                              </div>
+                              <div>
+                                <div className="text-xs text-purple-600 font-medium">Diupload Oleh</div>
+                                <div className="text-base font-bold text-purple-800">{file.uploaded_by}</div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  {(() => {
-                    console.log('Debug Modal - Menampilkan "Belum ada file risalah"');
-                    console.log('Debug Modal - rispatFiles saat ini:', rispatFiles);
-                    return null;
-                  })()}
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-3xl">📄</span>
+                <div className="text-center py-12">
+                  <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-12 border border-gray-200 shadow-xl">
+                    <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                      <span className="text-4xl">📄</span>
+                    </div>
+                    <h4 className="text-2xl font-bold text-gray-800 mb-3">Belum Ada File Risalah</h4>
+                    <p className="text-gray-600 mb-8 text-lg max-w-md mx-auto">
+                      Belum ada file risalah rapat yang diupload untuk rapat ini. Mulai upload file pertama Anda!
+                    </p>
+                    <button
+                      onClick={() => {
+                        setShowRispatModal(false);
+                        setShowUploadModal(true);
+                      }}
+                      className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-8 py-3 rounded-xl font-bold hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                    >
+                      <span className="mr-2 text-lg">📤</span>
+                      Upload File Pertama
+                    </button>
                   </div>
-                  <h4 className="text-lg font-semibold text-gray-800 mb-2">Belum Ada File Risalah</h4>
-                  <p className="text-gray-600 mb-4">
-                    Belum ada file risalah rapat yang diupload untuk rapat ini
-                  </p>
-                  <button
-                    onClick={() => {
-                      setShowRispatModal(false);
-                      setShowUploadModal(true);
-                    }}
-                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    📤 Upload File Pertama
-                  </button>
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-3 mt-6">
+            {/* Footer dengan tombol tutup yang lebih modern */}
+            <div className="border-t border-gray-200 p-6 bg-gradient-to-r from-gray-50 to-gray-100">
+              <div className="flex justify-center">
                 <button
                   onClick={() => setShowRispatModal(false)}
-                  className="flex-1 bg-gray-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors"
+                  className="bg-gradient-to-r from-gray-500 to-gray-600 text-white font-bold py-3 px-12 rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  Tutup
-                </button>
-                <button
-                  onClick={() => {
-                    if (canUploadRispat) {
-                      setShowRispatModal(false);
-                      setShowUploadModal(true);
-                    } else {
-                      alert(`Upload risalah rapat hanya bisa dilakukan saat rapat sedang berlangsung.\n\nStatus saat ini: ${bookingStatus === 'upcoming' ? 'Belum dimulai' : bookingStatus === 'expired' ? 'Sudah selesai' : 'Tidak diketahui'}`);
-                    }
-                  }}
-                  disabled={!canUploadRispat}
-                  className={`flex-1 font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl ${
-                    canUploadRispat 
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600' 
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                  title={canUploadRispat ? 'Upload file risalah rapat baru' : 'Upload hanya bisa dilakukan saat rapat sedang berlangsung'}
-                >
-                  📤 Upload File Baru
+                  <span className="mr-2">❌</span>
+                  Tutup Rispat
                 </button>
               </div>
             </div>

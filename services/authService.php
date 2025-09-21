@@ -7,6 +7,11 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/oauth.php';
 
+// Define session lifetime (24 hours in seconds)
+if (!defined('SESSION_LIFETIME')) {
+    define('SESSION_LIFETIME', 24 * 60 * 60); // 24 hours
+}
+
 class AuthService {
     private $db;
     
@@ -34,10 +39,10 @@ class AuthService {
             
             // Store password as plain text (as requested)
             
-            // Insert new user
+            // Insert new user (default role is 'user')
             $stmt = $conn->prepare("
-                INSERT INTO users (username, email, password, full_name, first_name, last_name, phone, is_active, login_count, created_at, updated_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, NOW(), NOW())
+                INSERT INTO users (username, email, password, full_name, first_name, last_name, phone, role, is_active, login_count, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 1, 0, NOW(), NOW())
             ");
             $stmt->execute([$username, $email, $password, $fullName, $firstName, $lastName, $phone]);
             
@@ -45,7 +50,7 @@ class AuthService {
             
             // Get created user (without password)
             $stmt = $conn->prepare("
-                SELECT id, username, email, full_name, first_name, last_name, phone, created_at 
+                SELECT id, username, email, role, full_name, first_name, last_name, phone, created_at 
                 FROM users WHERE id = ?
             ");
             $stmt->execute([$userId]);
@@ -97,6 +102,9 @@ class AuthService {
             $stmt = $conn->prepare("UPDATE users SET last_login = NOW(), login_count = login_count + 1 WHERE id = ?");
             $stmt->execute([$user['id']]);
             
+            // Create session
+            $session = $this->createUserSession($user['id']);
+            
             // Remove password from response
             unset($user['password']);
             
@@ -104,7 +112,8 @@ class AuthService {
                 'success' => true,
                 'message' => 'Login successful',
                 'data' => [
-                    'user' => $user
+                    'user' => $user,
+                    'session' => $session
                 ]
             ];
             

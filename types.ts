@@ -16,6 +16,7 @@ export enum Page {
   Profile,
   Settings,
   HelpCenter,
+  CancelRequests,
 }
 
 export interface MeetingRoom {
@@ -68,6 +69,7 @@ export interface Booking {
   booking_state?: string; // Booking state dari database (BOOKED, COMPLETED, CANCELLED)
   cancel_reason?: string; // Alasan pembatalan
   source?: string; // Sumber booking ('ai' atau 'form')
+  userName?: string; // Nama user yang membuat booking (untuk admin view)
 }
 
 export enum BookingState {

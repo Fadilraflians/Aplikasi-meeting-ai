@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Page, type MeetingRoom, type Booking } from '../types';
+import { Page, type MeetingRoom, type Booking, type User } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { ApiService } from '../src/config/api';
 import { useDarkMode } from '../contexts/DarkModeContext';
@@ -268,11 +268,16 @@ interface MeetingRoomsPageProps {
     onAddRoom: () => void;
     bookings?: Booking[];
     onUpdateRoomStatus?: (roomId: number, isActive: boolean) => void;
+    user?: User;
 }
-const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookRoom, onRoomDetail, onAddRoom, bookings = [], onUpdateRoomStatus }) => {
+const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookRoom, onRoomDetail, onAddRoom, bookings = [], onUpdateRoomStatus, user }) => {
     const [rooms, setRooms] = React.useState<MeetingRoom[]>([]);
+    const [filteredRooms, setFilteredRooms] = React.useState<MeetingRoom[]>([]);
     const [loading, setLoading] = React.useState<boolean>(true);
     const [error, setError] = React.useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = React.useState<string>('');
+    const [selectedCapacity, setSelectedCapacity] = React.useState<string>('');
+    const [selectedStatus, setSelectedStatus] = React.useState<string>('');
     const { isDarkMode } = useDarkMode();
     const { t } = useLanguage();
     
@@ -341,6 +346,53 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
         });
         
         return availableRooms;
+    };
+
+    // Filter rooms based on search criteria
+    const filterRooms = () => {
+        let filtered = rooms;
+
+        // Filter by search term (name, address, facilities)
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            filtered = filtered.filter(room => 
+                room.name.toLowerCase().includes(term) ||
+                room.address.toLowerCase().includes(term) ||
+                room.facilities.some(facility => facility.toLowerCase().includes(term))
+            );
+        }
+
+        // Filter by capacity
+        if (selectedCapacity) {
+            const capacity = parseInt(selectedCapacity);
+            filtered = filtered.filter(room => room.capacity >= capacity);
+        }
+
+        // Filter by status
+        if (selectedStatus) {
+            filtered = filtered.filter(room => {
+                if (selectedStatus === 'available') {
+                    return room.isActive !== false;
+                } else if (selectedStatus === 'maintenance') {
+                    return room.isActive === false;
+                }
+                return true;
+            });
+        }
+
+        setFilteredRooms(filtered);
+    };
+
+    // Update filtered rooms when search criteria change
+    React.useEffect(() => {
+        filterRooms();
+    }, [rooms, searchTerm, selectedCapacity, selectedStatus]);
+
+    // Clear search
+    const clearSearch = () => {
+        setSearchTerm('');
+        setSelectedCapacity('');
+        setSelectedStatus('');
     };
 
     React.useEffect(() => {
@@ -430,25 +482,126 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                             </div>
                         </div>
                         
-                        <div className="flex items-center space-x-6">
-                            <button 
-                                onClick={onAddRoom}
-                                className="group relative px-8 py-4 bg-gradient-to-r from-white to-blue-50 text-gray-800 rounded-2xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl overflow-hidden border border-white/40"
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <span className="relative flex items-center space-x-3 group-hover:text-white">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                    <span>{t('meetingRooms.addRoom')}</span>
-                                </span>
-                            </button>
-                        </div>
+                        {user?.role === 'admin' && (
+                            <div className="flex items-center space-x-6">
+                                <button 
+                                    onClick={() => {
+                                        if (user?.role !== 'admin') {
+                                            alert('Anda tidak memiliki akses untuk menambah ruangan. Hanya admin yang dapat melakukan operasi ini.');
+                                            return;
+                                        }
+                                        onAddRoom();
+                                    }}
+                                    className="group relative px-8 py-4 bg-gradient-to-r from-white to-blue-50 text-gray-800 rounded-2xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl overflow-hidden border border-white/40"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    <span className="relative flex items-center space-x-3 group-hover:text-white">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                        <span>{t('meetingRooms.addRoom')}</span>
+                                    </span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
             <div className="container mx-auto px-4 py-8">
+                
+                {/* Search and Filter Section */}
+                <div className="bg-white rounded-2xl p-6 shadow-lg mb-8">
+                    <div className="flex flex-col lg:flex-row gap-4">
+                        {/* Search Input */}
+                        <div className="flex-1">
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Cari ruangan, lokasi, atau fasilitas..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                />
+                                {searchTerm && (
+                                    <button
+                                        onClick={() => setSearchTerm('')}
+                                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
+                                    >
+                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Capacity Filter */}
+                        <div className="lg:w-48">
+                            <select
+                                value={selectedCapacity}
+                                onChange={(e) => setSelectedCapacity(e.target.value)}
+                                className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                            >
+                                <option value="">Semua Kapasitas</option>
+                                <option value="2">2+ Orang</option>
+                                <option value="4">4+ Orang</option>
+                                <option value="6">6+ Orang</option>
+                                <option value="8">8+ Orang</option>
+                                <option value="10">10+ Orang</option>
+                                <option value="15">15+ Orang</option>
+                                <option value="20">20+ Orang</option>
+                            </select>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="lg:w-48">
+                            <select
+                                value={selectedStatus}
+                                onChange={(e) => setSelectedStatus(e.target.value)}
+                                className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                            >
+                                <option value="">Semua Status</option>
+                                <option value="available">Tersedia</option>
+                                <option value="maintenance">Maintenance</option>
+                            </select>
+                        </div>
+
+                        {/* Clear Filters Button */}
+                        {(searchTerm || selectedCapacity || selectedStatus) && (
+                            <button
+                                onClick={clearSearch}
+                                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium flex items-center gap-2"
+                            >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Reset
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Search Results Info */}
+                    {(searchTerm || selectedCapacity || selectedStatus) && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm text-gray-600">
+                                    Menampilkan <span className="font-semibold text-blue-600">{filteredRooms.length}</span> dari <span className="font-semibold text-gray-800">{rooms.length}</span> ruangan
+                                </p>
+                                {filteredRooms.length === 0 && (
+                                    <p className="text-sm text-red-600 font-medium">
+                                        Tidak ada ruangan yang sesuai dengan kriteria pencarian
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
                 
                 {/* Stats Cards */}
                 <div className="grid md:grid-cols-3 gap-6 mb-8">
@@ -528,15 +681,37 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                                         {t('meetingRooms.noRoomsDesc')}
                                     </p>
                                     <button 
-                                        onClick={onAddRoom}
+                                        onClick={() => {
+                                            if (user?.role !== 'admin') {
+                                                alert('Anda tidak memiliki akses untuk menambah ruangan. Hanya admin yang dapat melakukan operasi ini.');
+                                                return;
+                                            }
+                                            onAddRoom();
+                                        }}
                                         className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-8 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                                     >
                                         {t('meetingRooms.addFirstRoom')}
                                     </button>
                                 </div>
+                            ) : filteredRooms.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <span className="text-gray-400 text-4xl">🔍</span>
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-800 mb-3">Tidak Ada Hasil Pencarian</h3>
+                                    <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                                        Tidak ada ruangan yang sesuai dengan kriteria pencarian Anda. Coba ubah kata kunci atau filter pencarian.
+                                    </p>
+                                    <button 
+                                        onClick={clearSearch}
+                                        className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-8 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                                    >
+                                        Reset Pencarian
+                                    </button>
+                                </div>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {rooms.map(room => (
+                                    {filteredRooms.map(room => (
                                         <MeetingRoomCard 
                                             key={room.id} 
                                             room={room} 

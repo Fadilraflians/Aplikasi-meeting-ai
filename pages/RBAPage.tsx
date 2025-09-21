@@ -112,14 +112,15 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                     meetingType: response.bookingData.meetingType
                 });
                 
-                // Validate data before sending
-                const hasValidData = response.bookingData.roomName && 
-                                   response.bookingData.topic && 
-                                   response.bookingData.pic && 
-                                   response.bookingData.date && 
-                                   (response.bookingData.time || response.bookingData.meeting_time) && 
-                                   response.bookingData.participants && 
-                                   response.bookingData.meetingType;
+                // Validate data before sending - check all required fields
+                const bookingData = response.bookingData;
+                const hasValidData = bookingData.roomName && 
+                                   bookingData.topic && 
+                                   bookingData.pic && 
+                                   bookingData.date && 
+                                   (bookingData.time || bookingData.meeting_time) && 
+                                   bookingData.participants && 
+                                   bookingData.meetingType;
                 
                 if (hasValidData) {
                     console.log('✅ RBAPage - All booking data is valid, proceeding to confirmation');
@@ -129,15 +130,25 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                 } else {
                     console.log('❌ RBAPage - Booking data is incomplete, not proceeding to confirmation');
                     console.log('❌ RBAPage - Missing fields:', {
-                        roomName: !response.bookingData.roomName,
-                        topic: !response.bookingData.topic,
-                        pic: !response.bookingData.pic,
-                        date: !response.bookingData.date,
-                        time: !response.bookingData.time && !response.bookingData.meeting_time,
-                        participants: !response.bookingData.participants,
-                        meetingType: !response.bookingData.meetingType
+                        roomName: !bookingData.roomName,
+                        topic: !bookingData.topic,
+                        pic: !bookingData.pic,
+                        date: !bookingData.date,
+                        time: !bookingData.time && !bookingData.meeting_time,
+                        participants: !bookingData.participants,
+                        meetingType: !bookingData.meetingType
                     });
-                    console.log('❌ RBAPage - Actual booking data:', response.bookingData);
+                    console.log('❌ RBAPage - Actual booking data:', bookingData);
+                    console.log('❌ RBAPage - Field values:', {
+                        roomName: bookingData.roomName,
+                        topic: bookingData.topic,
+                        pic: bookingData.pic,
+                        date: bookingData.date,
+                        time: bookingData.time,
+                        meeting_time: bookingData.meeting_time,
+                        participants: bookingData.participants,
+                        meetingType: bookingData.meetingType
+                    });
                 }
             }
         } catch (error) {
@@ -200,13 +211,14 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                 // If booking is confirmed, navigate to confirmation page
                 if (response.action === 'complete' && response.bookingData) {
                     // Validate data before sending
-                    const hasValidData = response.bookingData.roomName && 
-                                       response.bookingData.topic && 
-                                       response.bookingData.pic && 
-                                       response.bookingData.date && 
-                                       (response.bookingData.time || response.bookingData.meeting_time) && 
-                                       response.bookingData.participants && 
-                                       response.bookingData.meetingType;
+                    const bookingData = response.bookingData;
+                    const hasValidData = bookingData.roomName && 
+                                       bookingData.topic && 
+                                       bookingData.pic && 
+                                       bookingData.date && 
+                                       (bookingData.time || bookingData.meeting_time) && 
+                                       bookingData.participants && 
+                                       bookingData.meetingType;
                     
                     if (hasValidData) {
                         console.log('✅ RBAPage (OptionClick) - All booking data is valid, proceeding to confirmation');
@@ -216,15 +228,25 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                     } else {
                         console.log('❌ RBAPage (OptionClick) - Booking data is incomplete, not proceeding to confirmation');
                         console.log('❌ RBAPage (OptionClick) - Missing fields:', {
-                            roomName: !response.bookingData.roomName,
-                            topic: !response.bookingData.topic,
-                            pic: !response.bookingData.pic,
-                            date: !response.bookingData.date,
-                            time: !response.bookingData.time && !response.bookingData.meeting_time,
-                            participants: !response.bookingData.participants,
-                            meetingType: !response.bookingData.meetingType
+                            roomName: !bookingData.roomName,
+                            topic: !bookingData.topic,
+                            pic: !bookingData.pic,
+                            date: !bookingData.date,
+                            time: !bookingData.time && !bookingData.meeting_time,
+                            participants: !bookingData.participants,
+                            meetingType: !bookingData.meetingType
                         });
-                        console.log('❌ RBAPage (OptionClick) - Actual booking data:', response.bookingData);
+                        console.log('❌ RBAPage (OptionClick) - Actual booking data:', bookingData);
+                        console.log('❌ RBAPage (OptionClick) - Field values:', {
+                            roomName: bookingData.roomName,
+                            topic: bookingData.topic,
+                            pic: bookingData.pic,
+                            date: bookingData.date,
+                            time: bookingData.time,
+                            meeting_time: bookingData.meeting_time,
+                            participants: bookingData.participants,
+                            meetingType: bookingData.meetingType
+                        });
                     }
                 }
             } catch (error) {
@@ -293,22 +315,73 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                 
                 {/* Overlay untuk kontras yang lebih baik */}
                 <div className="absolute inset-0 bg-white/25 backdrop-blur-sm"></div>
-                {/* Chat Header */}
-                <header className="relative p-5 border-b border-blue-200/50 flex justify-between items-center flex-shrink-0 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 backdrop-blur-xl z-10">
+                {/* Quick Header */}
+                <header className="relative p-4 border-b border-blue-200/50 flex justify-between items-center flex-shrink-0 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 backdrop-blur-xl z-10">
                     <div className="flex items-center">
                         <button 
                             onClick={() => onNavigate(Page.Dashboard)} 
-                            className="mr-4 p-3 rounded-full hover:bg-blue-200 transition-all duration-300 text-blue-700 hover:text-blue-900"
+                            className="mr-3 p-2 rounded-full hover:bg-blue-200/50 transition-all duration-300 text-blue-700 hover:text-blue-900"
                         >
                             <BackArrowIcon />
                         </button>
                         <AiIcon />
                         <div className="ml-3">
-                            <h2 className="text-xl font-bold text-blue-800">Asisten AI Spacio</h2>
-                            <p className="text-sm text-blue-600">Online</p>
+                            <h2 className="text-lg font-bold text-blue-800">Asisten AI Spacio</h2>
+                            <p className="text-xs text-blue-600">Online • Siap membantu</p>
                         </div>
                     </div>
+                    
+                    {/* Quick Status */}
+                    <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            <span className="text-xs text-blue-600 font-medium">AI Active</span>
+                        </div>
+                        <button 
+                            onClick={clearChat}
+                            className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-100/50 rounded-full hover:bg-blue-200/50 transition-all duration-300"
+                        >
+                            🔄 Reset
+                        </button>
+                    </div>
                 </header>
+
+                {/* Quick Booking Info Header */}
+                {assistant && assistant.getCurrentBooking() && Object.keys(assistant.getCurrentBooking()).length > 0 && (
+                    <div className="relative p-3 border-b border-blue-200/30 bg-gradient-to-r from-green-50/80 to-emerald-50/80 backdrop-blur-sm z-10">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <span className="text-sm font-medium text-green-700">📝 Informasi yang sudah saya catat:</span>
+                            </div>
+                            <div className="flex items-center space-x-4 text-xs text-green-600">
+                                {assistant.getCurrentBooking().roomName && (
+                                    <span className="flex items-center space-x-1">
+                                        <span>🏢</span>
+                                        <span>{assistant.getCurrentBooking().roomName}</span>
+                                    </span>
+                                )}
+                                {assistant.getCurrentBooking().participants && (
+                                    <span className="flex items-center space-x-1">
+                                        <span>👥</span>
+                                        <span>{assistant.getCurrentBooking().participants} orang</span>
+                                    </span>
+                                )}
+                                {assistant.getCurrentBooking().date && (
+                                    <span className="flex items-center space-x-1">
+                                        <span>📅</span>
+                                        <span>{assistant.getCurrentBooking().date}</span>
+                                    </span>
+                                )}
+                                {assistant.getCurrentBooking().time && (
+                                    <span className="flex items-center space-x-1">
+                                        <span>⏰</span>
+                                        <span>{assistant.getCurrentBooking().time}</span>
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Messages */}
                 <div className="relative flex-1 p-6 overflow-y-auto min-h-0 backdrop-blur-sm z-10">
@@ -321,63 +394,81 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                                     <p className="text-left" style={{ whiteSpace: 'pre-wrap'}} dangerouslySetInnerHTML={{ __html: message.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></p>
                                 </div>
                                 
-                                {/* Options */}
+                                {/* Quick Actions */}
                                 {message.options && (
-                                    <div className={`mt-3 flex flex-wrap gap-2 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        {message.options.map((option, index) => {
-                                            // Determine button style based on option type
-                                            const isPrimary = option.includes('Booking') || option.includes('Ya') || option.includes('Pesan');
-                                            const isSecondary = option.includes('Tidak') || option.includes('Batal') || option.includes('Lihat');
-                                            const isHelp = option.includes('Bantuan') || option.includes('Help');
-                                            
-                                            return (
-                                                <button
-                                                    key={index}
-                                                    onClick={() => handleOptionClick(option)}
-                                                    className={`
-                                                        font-medium rounded-xl px-4 py-2.5 text-sm flex items-center 
-                                                        transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105
-                                                        ${isPrimary 
-                                                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border border-blue-400 hover:from-blue-600 hover:to-indigo-600' 
-                                                            : isSecondary 
-                                                            ? 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border border-gray-300 hover:from-gray-200 hover:to-gray-300'
-                                                            : isHelp
-                                                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-300 hover:from-green-200 hover:to-emerald-200'
-                                                            : 'bg-gradient-to-r from-sky-100 to-blue-100 text-sky-700 border border-sky-300 hover:from-sky-200 hover:to-blue-200'
-                                                        }
-                                                    `}
-                                                >
-                                                    {/* Icons for different options */}
-                                                    {(option.includes('Pesan') || option.includes('Booking')) && (
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                        </svg>
-                                                    )}
-                                                    {(option.includes('Bantuan') || option.includes('Help')) && (
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                    )}
-                                                    {(option.includes('Ya') || option.includes('Confirm')) && (
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                    )}
-                                                    {(option.includes('Tidak') || option.includes('Batal')) && (
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    )}
-                                                    {(option.includes('Lihat') || option.includes('View')) && (
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                        </svg>
-                                                    )}
-                                                    {option}
-                                                </button>
-                                            );
-                                        })}
+                                    <div className={`mt-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className="flex flex-wrap gap-2">
+                                            {message.options.map((option, index) => {
+                                                // Determine button style based on option type
+                                                const isPrimary = option.includes('Booking') || option.includes('Ya') || option.includes('Pesan') || option.includes('Konfirmasi');
+                                                const isSecondary = option.includes('Tidak') || option.includes('Batal') || option.includes('Lihat') || option.includes('Ubah');
+                                                const isHelp = option.includes('Bantuan') || option.includes('Help');
+                                                const isTime = option.includes(':') || option.includes('Hari') || option.includes('Besok');
+                                                const isRoom = option.includes('Samudrantha') || option.includes('Cedaya') || option.includes('Celebes');
+                                                const isParticipant = option.includes('orang');
+                                                const isMeetingType = option.includes('Internal') || option.includes('Eksternal');
+                                                
+                                                return (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => handleOptionClick(option)}
+                                                        className={`
+                                                            font-medium rounded-lg px-3 py-2 text-xs flex items-center 
+                                                            transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105
+                                                            ${isPrimary 
+                                                                ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border border-blue-400 hover:from-blue-600 hover:to-indigo-600' 
+                                                                : isSecondary 
+                                                                ? 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border border-gray-300 hover:from-gray-200 hover:to-gray-300'
+                                                                : isHelp
+                                                                ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-300 hover:from-green-200 hover:to-emerald-200'
+                                                                : isTime
+                                                                ? 'bg-gradient-to-r from-orange-100 to-yellow-100 text-orange-700 border border-orange-300 hover:from-orange-200 hover:to-yellow-200'
+                                                                : isRoom
+                                                                ? 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border border-purple-300 hover:from-purple-200 hover:to-pink-200'
+                                                                : isParticipant
+                                                                ? 'bg-gradient-to-r from-teal-100 to-cyan-100 text-teal-700 border border-teal-300 hover:from-teal-200 hover:to-cyan-200'
+                                                                : isMeetingType
+                                                                ? 'bg-gradient-to-r from-indigo-100 to-blue-100 text-indigo-700 border border-indigo-300 hover:from-indigo-200 hover:to-blue-200'
+                                                                : 'bg-gradient-to-r from-sky-100 to-blue-100 text-sky-700 border border-sky-300 hover:from-sky-200 hover:to-blue-200'
+                                                            }
+                                                        `}
+                                                    >
+                                                        {/* Quick Icons */}
+                                                        {(option.includes('Pesan') || option.includes('Booking')) && (
+                                                            <span className="mr-1.5">📅</span>
+                                                        )}
+                                                        {(option.includes('Bantuan') || option.includes('Help')) && (
+                                                            <span className="mr-1.5">❓</span>
+                                                        )}
+                                                        {(option.includes('Ya') || option.includes('Confirm') || option.includes('Konfirmasi')) && (
+                                                            <span className="mr-1.5">✅</span>
+                                                        )}
+                                                        {(option.includes('Tidak') || option.includes('Batal')) && (
+                                                            <span className="mr-1.5">❌</span>
+                                                        )}
+                                                        {(option.includes('Lihat') || option.includes('View')) && (
+                                                            <span className="mr-1.5">👁️</span>
+                                                        )}
+                                                        {(option.includes('Ubah') || option.includes('Edit')) && (
+                                                            <span className="mr-1.5">✏️</span>
+                                                        )}
+                                                        {isTime && (
+                                                            <span className="mr-1.5">⏰</span>
+                                                        )}
+                                                        {isRoom && (
+                                                            <span className="mr-1.5">🏢</span>
+                                                        )}
+                                                        {isParticipant && (
+                                                            <span className="mr-1.5">👥</span>
+                                                        )}
+                                                        {isMeetingType && (
+                                                            <span className="mr-1.5">🏢</span>
+                                                        )}
+                                                        {option}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )}
                                 
@@ -405,7 +496,7 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                 </div>
                 
                 {/* Input Area */}
-                <div className="relative p-6 border-t border-blue-200/50 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 flex-shrink-0 backdrop-blur-xl z-10">
+                <div className="relative p-4 border-t border-blue-200/50 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 flex-shrink-0 backdrop-blur-xl z-10">
                     <div className="relative">
                         <input 
                             ref={inputRef}
@@ -415,15 +506,24 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                             onKeyPress={handleKeyPress}
                             placeholder={isLoading ? "Menunggu balasan AI..." : "Ketik pesan Anda atau tekan Enter..."}
                             disabled={isLoading}
-                            className="w-full pl-6 pr-16 py-5 border-2 border-blue-200/50 bg-white/95 backdrop-blur-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-lg disabled:bg-blue-100 text-gray-800 placeholder-blue-500 text-lg font-medium"
+                            className="w-full pl-4 pr-14 py-3 border-2 border-blue-200/50 bg-white/95 backdrop-blur-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-md disabled:bg-blue-100 text-gray-800 placeholder-blue-500 text-sm font-medium"
                         />
                         <button 
                             onClick={handleSendMessage} 
                             disabled={!inputValue.trim() || isLoading} 
-                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-gradient-to-r from-blue-500 to-indigo-500 p-4 rounded-xl text-white hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed hover:scale-105 transform"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-gradient-to-r from-blue-500 to-indigo-500 p-2.5 rounded-lg text-white hover:from-blue-600 hover:to-indigo-600 transition-all shadow-md disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed hover:scale-105 transform"
                         >
                             <SendIcon />
                         </button>
+                    </div>
+                    
+                    {/* Quick Tips */}
+                    <div className="mt-2 flex items-center justify-between text-xs text-blue-500">
+                        <span>💡 Tips: Gunakan tombol quick actions untuk memudahkan</span>
+                        <span className="flex items-center space-x-1">
+                            <span>⌨️</span>
+                            <span>Enter untuk kirim</span>
+                        </span>
                     </div>
                 </div>
             </div>

@@ -78,15 +78,15 @@ try {
                 } else {
                     // Regular bookings request
                     if ($userId) {
-                        // Check if this is for history (include completed/cancelled) or active bookings only
+                        // Get all bookings for all users (removed user-specific filtering)
                         $includeCompleted = $_GET['include_completed'] ?? false;
                         
                         if ($includeCompleted) {
                             // Get all bookings including completed and cancelled ones (for HistoryPage)
-                            $result = $booking->getAllBookingsByUserIdIncludingCompleted($userId);
+                            $result = $booking->getAllBookingsIncludingCompleted();
                         } else {
                             // Get only active bookings (for ReservationsPage)
-                            $result = $booking->getAllBookingsByUserId($userId);
+                            $result = $booking->getActiveBookings();
                         }
                         
                         // Filter by status if provided
@@ -101,8 +101,17 @@ try {
                             'data' => array_values($result) // Re-index array
                         ]);
                     } else {
-                        // Get all bookings
-                        $result = $booking->getAllBookings();
+                        // Get all bookings for all users
+                        $includeCompleted = $_GET['include_completed'] ?? false;
+                        
+                        if ($includeCompleted) {
+                            // Get all bookings including completed and cancelled ones (for HistoryPage)
+                            $result = $booking->getAllBookingsIncludingCompleted();
+                        } else {
+                            // Get only active bookings (for ReservationsPage)
+                            $result = $booking->getActiveBookings();
+                        }
+                        
                         echo json_encode([
                             'success' => true,
                             'data' => $result
@@ -286,11 +295,30 @@ try {
             } elseif (is_numeric($endpoint)) {
                 // Cancel regular booking
                 $cancelReason = $_GET['reason'] ?? null;
-                $result = $booking->deleteBooking($endpoint, $cancelReason);
-                if ($result) {
-                    sendResponse(true, 'Booking cancelled successfully');
-                } else {
-                    sendResponse(false, 'Booking not found or already deleted', null, 404);
+                
+                try {
+                    // Update booking status to cancelled in bookings table
+                    $query = "UPDATE bookings 
+                             SET status = 'cancelled', cancel_reason = :cancel_reason, updated_at = CURRENT_TIMESTAMP 
+                             WHERE id = :id";
+                    
+                    $stmt = $db->prepare($query);
+                    $stmt->bindParam(':id', $endpoint);
+                    $stmt->bindParam(':cancel_reason', $cancelReason);
+                    
+                    $result = $stmt->execute();
+                    $rowCount = $stmt->rowCount();
+                    
+                    error_log("UPDATE bookings query executed for ID: $endpoint with reason: $cancelReason, Result: " . ($result ? 'true' : 'false') . ", Rows affected: $rowCount");
+                    
+                    if ($result && $rowCount > 0) {
+                        sendResponse(true, 'Booking cancelled successfully');
+                    } else {
+                        sendResponse(false, 'Booking not found or already deleted', null, 404);
+                    }
+                } catch (Exception $e) {
+                    error_log("Error cancelling regular booking: " . $e->getMessage());
+                    sendResponse(false, 'Internal server error', null, 500);
                 }
             } else {
                 sendResponse(false, 'Invalid endpoint for DELETE request', null, 400);

@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `last_name` VARCHAR(100) NULL,
     `phone` VARCHAR(50) NULL,
     `bio` TEXT NULL,
+    `role` ENUM('admin', 'user') NOT NULL DEFAULT 'user',
     `is_active` TINYINT(1) NOT NULL DEFAULT 1,
     `login_count` INT UNSIGNED NOT NULL DEFAULT 0,
     `last_login` DATETIME NULL,
@@ -72,5 +73,7 @@ CREATE TABLE IF NOT EXISTS `user_verification` (
     CONSTRAINT `fk_verif_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Seed sample user (plain text password: admin123) - optional
--- INSERT INTO users (username, email, password, full_name) VALUES ('admin', 'admin@spacio.test', 'admin123', 'Admin Spacio');
+-- Seed sample users (plain text password: admin123) - optional
+INSERT INTO users (username, email, password, full_name, role) VALUES 
+('admin', 'admin@spacio.com', 'admin123', 'Admin Spacio', 'admin'),
+('raflians', 'raflians@gmail.com', 'admin123', 'Raflians User', 'user');

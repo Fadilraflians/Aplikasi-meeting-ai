@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Page, type MeetingRoom, type Booking } from '../types';
+import { Page, type MeetingRoom, type Booking, type User } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { ApiService } from '../src/config/api';
 import { useDarkMode } from '../contexts/DarkModeContext';
@@ -12,9 +12,10 @@ interface RoomDetailPageProps {
   onEditRoom: (room: MeetingRoom) => void;
   onDeleteRoom: (roomId: number) => void;
   onUpdateRoomStatus?: (roomId: number, isActive: boolean) => void;
+  user?: User;
 }
 
-const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom, room, bookings, onEditRoom, onDeleteRoom, onUpdateRoomStatus }) => {
+const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom, room, bookings, onEditRoom, onDeleteRoom, onUpdateRoomStatus, user }) => {
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -525,40 +526,58 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Informasi Ruangan</h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onEditRoom(room)}
-                    className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
-                  >
-                    ✏️ Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (getRoomStatus() === 'ongoing' && room.isActive === true) {
-                        alert('Tidak dapat menonaktifkan ruangan karena ada reservasi yang sedang berlangsung!');
-                        return;
-                      }
-                      setShowStatusConfirm(true);
-                    }}
-                    disabled={getRoomStatus() === 'ongoing' && room.isActive === true}
-                    className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${
-                      room.isActive === false 
-                        ? (isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600')
-                        : getRoomStatus() === 'ongoing'
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : (isDarkMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600')
-                    }`}
-                    title={getRoomStatus() === 'ongoing' && room.isActive === true ? 'Tidak dapat menonaktifkan karena ada reservasi yang sedang berlangsung' : ''}
-                  >
-                    {room.isActive === false ? '✅ Aktifkan' : '⏸️ Nonaktifkan'}
-                  </button>
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
-                  >
-                    🗑️ Hapus
-                  </button>
-                </div>
+                {user?.role === 'admin' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (user?.role !== 'admin') {
+                          alert('Anda tidak memiliki akses untuk mengedit ruangan. Hanya admin yang dapat melakukan operasi ini.');
+                          return;
+                        }
+                        onEditRoom(room);
+                      }}
+                      className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (user?.role !== 'admin') {
+                          alert('Anda tidak memiliki akses untuk mengubah status ruangan. Hanya admin yang dapat melakukan operasi ini.');
+                          return;
+                        }
+                        if (getRoomStatus() === 'ongoing' && room.isActive === true) {
+                          alert('Tidak dapat menonaktifkan ruangan karena ada reservasi yang sedang berlangsung!');
+                          return;
+                        }
+                        setShowStatusConfirm(true);
+                      }}
+                      disabled={getRoomStatus() === 'ongoing' && room.isActive === true}
+                      className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${
+                        room.isActive === false 
+                          ? (isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600')
+                          : getRoomStatus() === 'ongoing'
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : (isDarkMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600')
+                      }`}
+                      title={getRoomStatus() === 'ongoing' && room.isActive === true ? 'Tidak dapat menonaktifkan karena ada reservasi yang sedang berlangsung' : ''}
+                    >
+                      {room.isActive === false ? '✅ Aktifkan' : '⏸️ Nonaktifkan'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (user?.role !== 'admin') {
+                          alert('Anda tidak memiliki akses untuk menghapus ruangan. Hanya admin yang dapat melakukan operasi ini.');
+                          return;
+                        }
+                        setShowDeleteConfirm(true);
+                      }}
+                      className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
+                    >
+                      🗑️ Hapus
+                    </button>
+                  </div>
+                )}
               </div>
               <div className={`space-y-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 <p><span className="font-semibold">Kapasitas:</span> {room.capacity} orang</p>

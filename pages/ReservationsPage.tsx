@@ -7,8 +7,9 @@ import { addHistory } from '../services/historyService';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import RispatService from '../services/rispatService';
+import RequestCancelModal from '../components/RequestCancelModal';
 
-const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | number) => void, onDetail: (b: Booking) => void, onComplete: (b: Booking) => void, getBookingStatus: (date: string, startTime: string, endTime?: string, serverTime?: any) => string, hasRispat?: boolean }> = ({ booking, onCancel, onDetail, onComplete, getBookingStatus, hasRispat = false }) => {
+const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | number) => void, onDetail: (b: Booking) => void, onComplete: (b: Booking) => void, getBookingStatus: (date: string, startTime: string, endTime?: string, serverTime?: any) => string, hasRispat?: boolean, currentUser?: string, onRequestCancel?: (booking: Booking) => void }> = ({ booking, onCancel, onDetail, onComplete, getBookingStatus, hasRispat = false, currentUser, onRequestCancel }) => {
   const { isDarkMode } = useDarkMode();
   const { t } = useLanguage();
   const getRoomImage = (roomName?: string, imageUrl?: string) => {
@@ -300,12 +301,34 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                       >
                         ✅ {hasRispat ? t('reservations.complete') : 'Upload Rispat Dulu'}
                       </button>
-                      <button 
-                        onClick={() => onCancel(booking.id)} 
-                        className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} text-white shadow-md hover:shadow-lg`}
-                      >
-                        ❌ {t('reservations.cancel')}
-                      </button>
+                      {(() => {
+                        // Check if current user is the owner of this booking
+                        const isOwner = currentUser && booking.pic && 
+                          currentUser.toLowerCase() === booking.pic.toLowerCase();
+                        
+                        if (isOwner) {
+                          // Owner can cancel directly
+                          return (
+                            <button 
+                              onClick={() => onCancel(booking.id)} 
+                              className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} text-white shadow-md hover:shadow-lg`}
+                            >
+                              ❌ {t('reservations.cancel')}
+                            </button>
+                          );
+                        } else {
+                          // Non-owner can request cancellation
+                          return (
+                            <button 
+                              onClick={() => onRequestCancel?.(booking)} 
+                              className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${isDarkMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600'} text-white shadow-md hover:shadow-lg`}
+                              title={`Minta izin untuk membatalkan reservasi dari ${booking.pic}`}
+                            >
+                              🙋‍♀️ Minta Izin Cancel
+                            </button>
+                          );
+                        }
+                      })()}
                     </>
                   );
                 } else {
@@ -347,6 +370,8 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
     const [bookingToCancel, setBookingToCancel] = useState<any>(null);
     const [cancelReason, setCancelReason] = useState('');
+    const [requestCancelModalOpen, setRequestCancelModalOpen] = useState(false);
+    const [bookingToRequestCancel, setBookingToRequestCancel] = useState<Booking | null>(null);
     
     // Calculate active reservations based on current time and status
     const getActiveReservations = () => {
@@ -733,9 +758,11 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             
             if (isAiBooking) {
                 // For AI bookings, call the AI cancel endpoint with reason
-                console.log('Attempting to cancel AI booking:', String(bookingToCancel.id));
+                // Remove 'ai_' prefix to get the actual database ID
+                const actualId = String(bookingToCancel.id).replace('ai_', '');
+                console.log('Attempting to cancel AI booking:', String(bookingToCancel.id), '-> actual ID:', actualId);
                 try {
-                    const result = await ApiService.cancelBooking(String(bookingToCancel.id), cancelReason.trim());
+                    const result = await ApiService.cancelBooking(actualId, cancelReason.trim());
                     console.log('AI booking cancel result:', result);
                     cancelSuccess = true;
                 } catch (error) {
@@ -805,25 +832,88 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             setCancelReason('');
             
             // Show success message
-            alert('Reservasi berhasil dibatalkan');
+            alert('✅ Reservasi berhasil dibatalkan!\n\nData telah dipindahkan ke halaman History dan tidak akan muncul lagi di daftar reservasi aktif.');
+            
+            // Navigate to history page after successful cancellation
+            setTimeout(() => {
+                onNavigate('History');
+            }, 1000); // Wait 1 second to let user see the success message
             
         } catch (error) {
             console.error('Error cancelling booking:', error);
             
             // Provide more specific error messages
-            let errorMessage = 'Gagal membatalkan reservasi';
+            let errorMessage = 'Gagal membatalkan reservasi. Silakan coba lagi.';
             if (error.message) {
                 if (error.message.includes('not found')) {
-                    errorMessage = 'Reservasi tidak ditemukan atau sudah dibatalkan sebelumnya';
+                    errorMessage = 'Reservasi tidak ditemukan atau sudah dibatalkan sebelumnya. Data akan dihapus dari tampilan.';
                 } else if (error.message.includes('network')) {
-                    errorMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda';
+                    errorMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda dan coba lagi.';
                 } else if (error.message.includes('timeout')) {
-                    errorMessage = 'Permintaan timeout. Silakan coba lagi';
+                    errorMessage = 'Permintaan timeout. Silakan coba lagi dalam beberapa saat.';
+                } else if (error.message.includes('Internal server error')) {
+                    errorMessage = 'Terjadi kesalahan pada server. Silakan hubungi administrator.';
                 }
             }
             
-            alert(errorMessage);
+            alert(`❌ ${errorMessage}`);
         }
+    };
+
+    // Handle request cancel from non-owner
+    const handleRequestCancel = (booking: Booking) => {
+        setBookingToRequestCancel(booking);
+        setRequestCancelModalOpen(true);
+    };
+
+    // Handle sending cancel request
+    const handleSendCancelRequest = async (bookingId: number, reason: string, requesterName: string) => {
+        try {
+            console.log('Sending cancel request:', { bookingId, reason, requesterName });
+            
+            // Send cancel request via API
+            const result = await ApiService.createCancelRequest({
+                booking_id: String(bookingId),
+                requester_name: requesterName,
+                owner_name: bookingToRequestCancel?.pic || 'Unknown',
+                reason: reason,
+                requester_id: getCurrentUserId() // Get actual user ID from session
+            });
+            
+            if (result.success) {
+                alert(`Permintaan pembatalan telah dikirim kepada ${bookingToRequestCancel?.pic}. Mereka akan menerima notifikasi dan dapat menyetujui atau menolak permintaan Anda.`);
+                
+                // Close modal
+                setRequestCancelModalOpen(false);
+                setBookingToRequestCancel(null);
+            } else {
+                throw new Error(result.message || 'Failed to send cancel request');
+            }
+            
+        } catch (error) {
+            console.error('Error sending cancel request:', error);
+            alert('Gagal mengirim permintaan pembatalan. Silakan coba lagi.');
+        }
+    };
+
+    // Get current user from localStorage
+    const getCurrentUser = () => {
+        const userDataStr = localStorage.getItem('user_data');
+        if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            return userData.full_name || userData.username || 'Unknown User';
+        }
+        return 'Unknown User';
+    };
+
+    // Get current user ID from localStorage
+    const getCurrentUserId = () => {
+        const userDataStr = localStorage.getItem('user_data');
+        if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            return userData.id || 1; // Default to 1 if no ID found
+        }
+        return 1; // Default to 1 if no user data
     };
 
     // Selesaikan booking: hapus DB, catat histori, hapus dari tampilan, refresh
@@ -1127,7 +1217,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                         sessionStorage.setItem('detail_booking', JSON.stringify(b));
                         const ev = new CustomEvent('set_detail_booking');
                         window.dispatchEvent(ev as any);
-                    }} onComplete={handleCompleteBooking} getBookingStatus={(date, startTime, endTime) => getBookingStatusWithServerTime(date, startTime, endTime, serverCurrentTime)} hasRispat={rispatStatus[String(booking.id)] || false} />)
+                    }} onComplete={handleCompleteBooking} getBookingStatus={(date, startTime, endTime) => getBookingStatusWithServerTime(date, startTime, endTime, serverCurrentTime)} hasRispat={rispatStatus[String(booking.id)] || false} currentUser={getCurrentUser()} onRequestCancel={handleRequestCancel} />)
                 ) : (
                         <div className="bg-white rounded-2xl p-12 shadow-lg text-center">
                             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1292,6 +1382,18 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                     </div>
                 </div>
             )}
+
+            {/* Request Cancel Modal */}
+            <RequestCancelModal
+                isOpen={requestCancelModalOpen}
+                onClose={() => {
+                    setRequestCancelModalOpen(false);
+                    setBookingToRequestCancel(null);
+                }}
+                booking={bookingToRequestCancel}
+                currentUser={getCurrentUser()}
+                onRequestCancel={handleSendCancelRequest}
+            />
         </div>
     );
 };

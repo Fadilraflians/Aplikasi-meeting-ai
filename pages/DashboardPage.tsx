@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Page, type Booking } from '../types';
+import { Page, type Booking, type User } from '../types';
 import { ChatIcon } from '../components/icons';
 import { getHistory, type HistoryEntry } from '../services/historyService';
 import { ApiService } from '../src/config/api';
@@ -157,7 +157,7 @@ const SiteFooter: React.FC = () => {
     );
 };
 
-const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
+const ReservationCard: React.FC<{ booking: Booking, showUserInfo?: boolean }> = ({ booking, showUserInfo = false }) => {
   console.log('🔍 ReservationCard received booking:', booking);
   // Hitung apakah reservasi sudah lewat atau akan datang
   const normalizeTime = (t: string) => {
@@ -321,7 +321,7 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
       </div>
         
         {/* Details Grid */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className={`grid gap-4 ${showUserInfo ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <div className="p-3 rounded-lg bg-gray-50">
             <div className="flex items-center mb-2">
               <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -331,6 +331,18 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
             </div>
             <p className="font-semibold text-gray-800">{booking.pic}</p>
           </div>
+          
+          {showUserInfo && (
+            <div className="p-3 rounded-lg bg-blue-50">
+              <div className="flex items-center mb-2">
+                <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="text-xs font-medium text-blue-500">User</span>
+              </div>
+              <p className="font-semibold text-blue-800">{booking.userName || 'Unknown User'}</p>
+            </div>
+          )}
           
           <div className="p-3 rounded-lg bg-gray-50">
             <div className="flex items-center mb-2">
@@ -462,7 +474,7 @@ const HistoryListPreview: React.FC = () => {
   );
 };
 
-const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Booking[] }> = ({ onNavigate, bookings }) => {
+const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Booking[], user?: User }> = ({ onNavigate, bookings, user }) => {
     const { t } = useLanguage();
     const [refreshKey, setRefreshKey] = useState(0);
 
@@ -812,7 +824,7 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
                                 {finalUpcomingBookings.length > 0 ? (
                                     <div className="space-y-4">
                                         {/* Tampilkan hanya 1 reservasi upcoming yang paling dekat */}
-                                        <ReservationCard key={finalUpcomingBookings[0].id} booking={finalUpcomingBookings[0]} />
+                                        <ReservationCard key={finalUpcomingBookings[0].id} booking={finalUpcomingBookings[0]} showUserInfo={user?.role === 'admin'} />
                                         {finalUpcomingBookings.length > 1 && (
                                             <div className="text-center text-gray-500 text-sm">
                                                 Dan {finalUpcomingBookings.length - 1} reservasi lainnya...
@@ -854,6 +866,39 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
                                 >
                                     View Rispat
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Cancel Requests Section */}
+                <div className="mb-8 px-4">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="bg-white rounded-xl p-6 shadow-md border">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-gray-800">Permintaan Pembatalan</h3>
+                                        <p className="text-gray-600">Kelola semua permintaan pembatalan reservasi</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => onNavigate(Page.CancelRequests)} 
+                                    className="bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3 px-6 rounded-xl hover:from-orange-600 hover:to-red-600 transition-all shadow-lg text-lg flex items-center gap-2"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Kelola Permintaan
+                                </button>
+                            </div>
+                            <div className="text-center text-gray-500 py-4">
+                                <p>Klik tombol di atas untuk melihat dan mengelola semua permintaan pembatalan</p>
                             </div>
                         </div>
                     </div>

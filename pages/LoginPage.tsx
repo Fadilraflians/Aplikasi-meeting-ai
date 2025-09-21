@@ -18,28 +18,53 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToRegister }) 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            // Simulate login success for demo purposes
-            // In real app, this would call the actual API
-            const userData = {
-                id: 1, // Use user ID 1 for demo (where AI bookings exist)
-                username: email.split('@')[0], // Use email prefix as username
-                full_name: email.split('@')[0], // Use email prefix as full name
-                email: email,
-                role: 'User'
-            };
-            
-            // Save user data to localStorage
-            localStorage.setItem('user_data', JSON.stringify(userData));
-            
-            const userForApp = {
-                fullName: userData.full_name,
-                email: userData.email,
-                role: userData.role,
-                avatar: undefined,
-            };
-            
-            onLogin(userForApp);
+            // Call the actual API for login
+            const response = await fetch('/api/auth/login.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'login',
+                    email: email,
+                    password: password
+                })
+            });
+
+            const result = await response.json();
+            console.log('🔍 Login response:', result);
+
+            if (result.success && result.data && result.data.user) {
+                const userData = result.data.user;
+                const sessionToken = result.data.session?.session_token;
+                
+                console.log('🔍 User data:', userData);
+                console.log('🔍 Session token:', sessionToken ? 'Present' : 'Missing');
+                
+                // Save user data to localStorage
+                localStorage.setItem('user_data', JSON.stringify(userData));
+                
+                // Save session token to localStorage
+                if (sessionToken) {
+                    localStorage.setItem('session_token', sessionToken);
+                    console.log('✅ Session token saved to localStorage');
+                } else {
+                    console.warn('⚠️ No session token received from server');
+                }
+                
+                const userForApp = {
+                    fullName: userData.full_name,
+                    email: userData.email,
+                    role: userData.role,
+                    avatar: undefined,
+                };
+                
+                onLogin(userForApp);
+            } else {
+                alert(result.message || 'Login gagal');
+            }
         } catch (err: any) {
+            console.error('Login error:', err);
             alert('Terjadi kesalahan saat login');
         }
     };

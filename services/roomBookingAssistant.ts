@@ -229,6 +229,12 @@ export class RoomBookingAssistant {
         return await this.generateAIResponse(bookingAnalysis, userInput);
       } catch (error) {
         console.warn('⚠️ AI response failed, falling back to rule-based:', error);
+        
+        // Add notification about fallback mode
+        if (error.message === 'QUOTA_EXCEEDED') {
+          console.log('💡 Gemini API quota exceeded - using intelligent fallback mode');
+        }
+        
         return this.generateRuleBasedResponse(bookingAnalysis, userInput);
       }
     } else {
@@ -270,51 +276,38 @@ export class RoomBookingAssistant {
   private generateRuleBasedResponse(bookingAnalysis: any, userInput: string): RBAResponse {
     const { extractedData, missingFields, confidence } = bookingAnalysis;
     
+    console.log('🔄 Using intelligent fallback mode (Gemini API unavailable)');
+    console.log('📊 Booking Analysis:', { extractedData, missingFields, confidence });
+    
     let response = '';
     const quickActions = [];
     
+    // Update current booking with extracted data
+    this.updateCurrentBooking(extractedData);
+    
     if (confidence >= 0.8 && missingFields.length <= 1) {
-      // Data is almost complete - show confirmation with facilities
+      // Data is almost complete - show confirmation
       const roomName = extractedData.roomName;
-      const roomFacilities = roomName ? this.getRoomFacilities(roomName) : [];
       
       // Only show data that was actually extracted from user input
       const collectedData = [];
-      if (roomName) collectedData.push(`- Ruangan: ${roomName}`);
-      if (extractedData.topic) collectedData.push(`- Topik Rapat: ${extractedData.topic}`);
-      if (extractedData.pic) collectedData.push(`- PIC: ${extractedData.pic}`);
-      if (extractedData.participants) collectedData.push(`- Jumlah Peserta: ${extractedData.participants} orang`);
-      if (extractedData.date) collectedData.push(`- Tanggal: ${extractedData.date}`);
-      if (extractedData.time) collectedData.push(`- Jam: ${extractedData.time}`);
-      if (extractedData.meetingType) collectedData.push(`- Jenis Rapat: ${extractedData.meetingType}`);
+      if (roomName) collectedData.push(`🏢 Ruangan: ${roomName}`);
+      if (extractedData.topic) collectedData.push(`📋 Topik: ${extractedData.topic}`);
+      if (extractedData.pic) collectedData.push(`👤 PIC: ${extractedData.pic}`);
+      if (extractedData.participants) collectedData.push(`👥 Peserta: ${extractedData.participants} orang`);
+      if (extractedData.date) collectedData.push(`📅 Tanggal: ${extractedData.date}`);
+      if (extractedData.time) collectedData.push(`⏰ Jam: ${extractedData.time}`);
+      if (extractedData.meetingType) collectedData.push(`🏢 Jenis: ${extractedData.meetingType}`);
       
       if (collectedData.length > 0) {
-        response = `Baik! Saya sudah mencatat detail pemesanan Anda:\n${collectedData.join('\n')}`;
+        response = `✅ **Detail Pemesanan Anda:**\n\n${collectedData.join('\n')}\n\nApakah semua informasi ini sudah benar?`;
       } else {
         response = `Baik! Saya akan membantu Anda memesan ruang rapat. Silakan berikan informasi yang diperlukan.`;
       }
-
-      if (roomFacilities.length > 0) {
-        response += `\n\nFasilitas yang tersedia di ${roomName}:
-${roomFacilities.map(facility => `- ${facility}`).join('\n')}
-
-Silakan pilih fasilitas yang ingin Anda gunakan:`;
-        
-        // Add facility selection quick actions
-        roomFacilities.forEach(facility => {
-          quickActions.push({
-            label: `Pilih ${facility}`,
-            action: `select_facility_${facility.toLowerCase().replace(/\s+/g, '_')}`,
-            type: 'secondary'
-          });
-        });
-      }
-      
-      response += `\n\nApakah semua informasi ini sudah benar? (Ya/Tidak)`;
       
       quickActions.push(
-        { label: 'Ya, Benar', action: 'confirm_booking', type: 'primary' },
-        { label: 'Tidak, Ubah', action: 'edit_booking', type: 'secondary' }
+        { label: '✅ Ya, Konfirmasi', action: 'confirm_booking', type: 'primary' },
+        { label: '✏️ Ubah Data', action: 'edit_booking', type: 'secondary' }
       );
     } else if (missingFields.length > 0) {
       // Missing information - ask for specific fields with better context
@@ -328,22 +321,55 @@ Silakan pilih fasilitas yang ingin Anda gunakan:`;
       if (extractedData.meetingType) collectedData.push(`✅ Jenis: ${extractedData.meetingType}`);
       
       if (collectedData.length > 0) {
-        response = `Baik! Saya sudah mencatat beberapa informasi:\n${collectedData.join('\n')}\n\nUntuk melengkapi pemesanan, saya masih membutuhkan:\n- ${missingFields.join('\n- ')}\n\nSilakan berikan informasi tersebut.`;
+        response = `📝 **Informasi yang sudah saya catat:**\n${collectedData.join('\n')}\n\n❌ **Masih dibutuhkan:**\n${missingFields.map(field => `• ${field}`).join('\n')}\n\nSilakan berikan informasi yang masih kurang.`;
       } else {
-        response = `Untuk melengkapi pemesanan, saya masih membutuhkan informasi berikut:\n- ${missingFields.join('\n- ')}\n\nSilakan berikan informasi tersebut.`;
+        response = `📋 **Untuk memesan ruangan, saya membutuhkan informasi berikut:**\n${missingFields.map(field => `• ${field}`).join('\n')}\n\nSilakan berikan informasi tersebut.`;
       }
       
-      quickActions.push(
-        { label: 'Pesan Ruangan', action: 'book_room', type: 'primary' },
-        { label: 'Lihat Ruangan', action: 'view_rooms', type: 'secondary' }
-      );
+      // Add smart quick actions based on missing fields
+      if (missingFields.some(field => field.includes('ruangan'))) {
+        quickActions.push(
+          { label: 'Samudrantha', action: 'room_samudrantha', type: 'primary' },
+          { label: 'Cedaya', action: 'room_cedaya', type: 'primary' },
+          { label: 'Celebes', action: 'room_celebes', type: 'secondary' }
+        );
+      }
+      
+      if (missingFields.some(field => field.includes('tanggal'))) {
+        quickActions.push(
+          { label: 'Hari Ini', action: 'date_today', type: 'primary' },
+          { label: 'Besok', action: 'date_tomorrow', type: 'primary' }
+        );
+      }
+      
+      if (missingFields.some(field => field.includes('jam'))) {
+        quickActions.push(
+          { label: '09:00', action: 'time_09_00', type: 'primary' },
+          { label: '14:00', action: 'time_14_00', type: 'primary' }
+        );
+      }
+      
+      if (missingFields.some(field => field.includes('peserta'))) {
+        quickActions.push(
+          { label: '10 orang', action: 'participants_10', type: 'primary' },
+          { label: '15 orang', action: 'participants_15', type: 'primary' }
+        );
+      }
+      
+      if (missingFields.some(field => field.includes('jenis'))) {
+        quickActions.push(
+          { label: 'Internal', action: 'meeting_internal', type: 'primary' },
+          { label: 'Eksternal', action: 'meeting_eksternal', type: 'primary' }
+        );
+      }
     } else {
       // General booking help with better guidance
-      response = `Saya siap membantu Anda memesan ruangan meeting! 🏢\n\nSilakan berikan informasi berikut:\n- Nama ruangan yang diinginkan\n- Topik rapat\n- PIC (Penanggung Jawab)\n- Jumlah peserta\n- Tanggal dan jam\n- Jenis rapat (Internal/Eksternal)\n\nAtau Anda bisa langsung menyebutkan kebutuhan Anda, misalnya: "Saya butuh ruang meeting untuk rapat tim besok jam 10 pagi dengan 8 orang peserta."`;
+      response = `👋 **Halo! Saya siap membantu Anda memesan ruangan meeting!** 🏢\n\n📋 **Informasi yang saya butuhkan:**\n• Nama ruangan yang diinginkan\n• Topik rapat\n• PIC (Penanggung Jawab)\n• Jumlah peserta\n• Tanggal dan jam\n• Jenis rapat (Internal/Eksternal)\n\n💡 **Tips:** Anda bisa langsung menyebutkan kebutuhan Anda, misalnya:\n"Saya butuh ruang meeting untuk rapat tim besok jam 10 pagi dengan 8 orang peserta."`;
       
       quickActions.push(
-        { label: 'Pesan Ruangan', action: 'book_room', type: 'primary' },
-        { label: 'Lihat Ruangan', action: 'view_rooms', type: 'secondary' }
+        { label: '🚀 Mulai Booking', action: 'book_room', type: 'primary' },
+        { label: '🏢 Lihat Ruangan', action: 'view_rooms', type: 'secondary' },
+        { label: '❓ Bantuan', action: 'help', type: 'secondary' }
       );
     }
     
@@ -356,6 +382,12 @@ Silakan pilih fasilitas yang ingin Anda gunakan:`;
       quickActions: quickActions,
       bookingData: extractedData
     };
+  }
+
+  // Update current booking with extracted data
+  private updateCurrentBooking(extractedData: Partial<Booking>): void {
+    this.context.currentBooking = { ...this.context.currentBooking, ...extractedData };
+    console.log('📝 Updated current booking:', this.context.currentBooking);
   }
 
   // Handle facility selection
@@ -1546,17 +1578,17 @@ Jawab sekarang:`;
       console.error('❌ Gemini API Error:', errorData);
       
       // Handle quota exceeded error with retry mechanism
-      if (response.status === 429) {
+      if (response.status === 429 || (errorData.error && errorData.error.message && errorData.error.message.includes('quota'))) {
         console.warn('⚠️ Gemini API quota exceeded');
         
         // If this is the first retry, wait and try again
-        if (retryCount < 2) {
-          const waitTime = (retryCount + 1) * 2000; // 2s, 4s
+        if (retryCount < 1) {
+          const waitTime = 5000; // Wait 5 seconds
           console.log(`⏳ Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           return this.callGeminiAPI(prompt, retryCount + 1);
         } else {
-          console.warn('⚠️ All retry attempts failed, switching to fallback mode');
+          console.warn('⚠️ Gemini API quota exceeded, switching to intelligent fallback mode');
           throw new Error('QUOTA_EXCEEDED');
         }
       }

@@ -83,16 +83,39 @@ export const API_ENDPOINTS = {
 // API Helper Functions
 export class ApiService {
     private static async makeRequest(url: string, options: RequestInit = {}) {
+        // Get session token from localStorage
+        const sessionToken = localStorage.getItem('session_token');
+        
+        // Debug logging
+        console.log('🔍 API Request Debug:', {
+            url,
+            hasSessionToken: !!sessionToken,
+            sessionToken: sessionToken ? `${sessionToken.substring(0, 10)}...` : 'null'
+        });
+        
         const defaultOptions: RequestInit = {
             headers: {
                 'Content-Type': 'application/json',
+                ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` }),
                 ...options.headers,
             },
             ...options,
         };
+        
 
         try {
             const response = await fetch(url, defaultOptions);
+
+            // Handle 401 Unauthorized - session expired or invalid
+            if (response.status === 401) {
+                console.log('🔍 401 Unauthorized - clearing session token');
+                localStorage.removeItem('session_token');
+                // Dispatch event to notify components about session expiry
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('session-expired'));
+                }
+                throw new Error('Session expired. Please login again.');
+            }
 
             // Some PHP environments may emit warnings before JSON (e.g., extension already loaded)
             // Parse defensively: try JSON first, then fallback to text->sanitize->JSON
@@ -266,6 +289,11 @@ export class ApiService {
         return this.makeRequest(`${API_BASE_URL}/bookings.php/ai-data?user_id=${userId}`);
     }
 
+    static async getAllAIBookings() {
+        // Get all AI bookings by calling the regular bookings endpoint which includes AI bookings
+        return this.makeRequest(API_ENDPOINTS.RESERVATIONS.GET_UPCOMING());
+    }
+
     static async autoCompleteExpiredBookings() {
         return this.makeRequest(`${API_BASE_URL}/bookings.php/auto-complete`);
     }
@@ -410,6 +438,39 @@ export class ApiService {
         return this.makeRequest(API_ENDPOINTS.AI_BOOKINGS.SAVE_CONVERSATION, {
             method: 'POST',
             body: JSON.stringify(conversationData)
+        });
+    }
+
+    // Cancel Requests
+    static async createCancelRequest(requestData: {
+        booking_id: string;
+        requester_name: string;
+        owner_name: string;
+        reason: string;
+        requester_id?: number;
+    }) {
+        return this.makeRequest(`${API_BASE_URL}/cancel_requests.php?action=create`, {
+            method: 'POST',
+            body: JSON.stringify(requestData)
+        });
+    }
+
+    static async getCancelRequestsByOwner(ownerName: string) {
+        return this.makeRequest(`${API_BASE_URL}/cancel_requests.php?action=get_by_owner&owner_name=${encodeURIComponent(ownerName)}`);
+    }
+
+    static async getCancelRequestsByRequester(requesterName: string) {
+        return this.makeRequest(`${API_BASE_URL}/cancel_requests.php?action=get_by_requester&requester_name=${encodeURIComponent(requesterName)}`);
+    }
+
+    static async respondToCancelRequest(requestId: number, status: 'approved' | 'rejected', responseMessage?: string) {
+        return this.makeRequest(`${API_BASE_URL}/cancel_requests.php?action=respond`, {
+            method: 'POST',
+            body: JSON.stringify({
+                request_id: requestId,
+                status: status,
+                response_message: responseMessage
+            })
         });
     }
 

@@ -95,9 +95,6 @@ class Booking {
      */
     public function createBooking($data) {
         try {
-            // Ensure optional columns
-            $this->ensurePicColumnExists();
-
             // Calculate end_time from meeting_time + duration if not provided
             $endTime = null;
             if (isset($data['end_time']) && !empty($data['end_time'])) {
@@ -110,31 +107,28 @@ class Booking {
                 $endTime = $startTime->format('H:i:s');
             }
 
-            $query = "INSERT INTO " . $this->table_name . "
-                    (user_id, session_id, room_id, topic, meeting_date, meeting_time, end_time,
-                     duration, participants, pic, meeting_type, facilities, booking_state)
-                    VALUES (:user_id, :session_id, :room_id, :topic, :meeting_date, :meeting_time, :end_time,
-                            :duration, :participants, :pic, :meeting_type, :facilities, :booking_state)";
+            // Insert into regular bookings table
+            $query = "INSERT INTO bookings 
+                    (user_id, room_id, room_name, topic, meeting_date, start_time, end_time,
+                     participants, pic, meeting_type, facilities, status)
+                    VALUES (:user_id, :room_id, :room_name, :topic, :meeting_date, :start_time, :end_time,
+                            :participants, :pic, :meeting_type, :facilities, :status)";
 
             $stmt = $this->conn->prepare($query);
 
-            // Generate session ID for form-based booking
-            $sessionId = 'form_' . time();
-
-            // Bind parameters (use bindValue for array elements)
+            // Bind parameters
             $stmt->bindValue(":user_id", $data['user_id']);
-            $stmt->bindValue(":session_id", $sessionId);
             $stmt->bindValue(":room_id", $data['room_id']);
+            $stmt->bindValue(":room_name", $data['room_name'] ?? 'Unknown Room');
             $stmt->bindValue(":topic", $data['topic']);
             $stmt->bindValue(":meeting_date", $data['meeting_date']);
-            $stmt->bindValue(":meeting_time", $data['meeting_time']);
+            $stmt->bindValue(":start_time", $data['meeting_time']);
             $stmt->bindValue(":end_time", $endTime);
-            $stmt->bindValue(":duration", $data['duration']);
             $stmt->bindValue(":participants", $data['participants']);
             $stmt->bindValue(":pic", isset($data['pic']) ? $data['pic'] : null);
             $stmt->bindValue(":meeting_type", $data['meeting_type']);
             $stmt->bindValue(":facilities", isset($data['facilities']) ? json_encode($data['facilities']) : null);
-            $stmt->bindValue(":booking_state", isset($data['booking_state']) ? $data['booking_state'] : 'BOOKED');
+            $stmt->bindValue(":status", 'active');
 
             if ($stmt->execute()) {
                 $bookingId = $this->conn->lastInsertId();
@@ -174,18 +168,17 @@ class Booking {
      */
     public function getBookingById($id) {
         try {
-            $query = "SELECT b.*, u.full_name as user_name, u.email as user_email,
-                             r.room_name, r.capacity as room_capacity, r.image_url
-                      FROM " . $this->table_name . " b
-                      LEFT JOIN users u ON b.user_id = u.id
-                      LEFT JOIN meeting_rooms r ON b.room_id = r.id
+            $query = "SELECT b.*, mr.room_name, mr.room_number, u.full_name as user_name
+                      FROM bookings b 
+                      LEFT JOIN meeting_rooms mr ON b.room_id = mr.id 
+                      LEFT JOIN users u ON b.user_id = u.id 
                       WHERE b.id = :id";
 
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":id", $id);
             $stmt->execute();
 
-            return $stmt->fetch();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error getting booking by ID: " . $e->getMessage());
             return false;
@@ -474,6 +467,161 @@ class Booking {
             return $stmt->fetchAll();
         } catch (PDOException $e) {
             error_log("Error getting AI conversations: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get all bookings including completed and cancelled ones (for ReservationsPage)
+     */
+    public function getAllBookingsIncludingCompleted() {
+        try {
+            // Get bookings from both ai_booking_data and bookings tables
+            $query = "SELECT 
+                        b.id,
+                        b.user_id,
+                        b.room_id,
+                        b.topic,
+                        b.meeting_date,
+                        b.meeting_time,
+                        b.end_time,
+                        b.duration,
+                        b.participants,
+                        b.pic,
+                        b.meeting_type,
+                        b.facilities,
+                        b.booking_state,
+                        NULL as status,
+                        b.created_at,
+                        b.updated_at,
+                        u.full_name as user_name,
+                        u.username,
+                        mr.room_name,
+                        mr.capacity as room_capacity,
+                        mr.image_url,
+                        'ai_booking_data' as source_table
+                      FROM ai_booking_data b
+                      LEFT JOIN users u ON b.user_id = u.id
+                      LEFT JOIN meeting_rooms mr ON b.room_id = mr.id
+                      
+                      UNION ALL
+                      
+                      SELECT 
+                        b.id,
+                        b.user_id,
+                        b.room_id,
+                        b.topic,
+                        b.meeting_date,
+                        b.start_time as meeting_time,
+                        b.end_time,
+                        NULL as duration,
+                        b.participants,
+                        b.pic,
+                        b.meeting_type,
+                        b.facilities,
+                        CASE 
+                            WHEN b.status = 'active' THEN 'BOOKED'
+                            WHEN b.status = 'expired' THEN 'COMPLETED'
+                            WHEN b.status = 'cancelled' THEN 'CANCELLED'
+                            ELSE 'BOOKED'
+                        END as booking_state,
+                        b.status,
+                        b.created_at,
+                        b.updated_at,
+                        u.full_name as user_name,
+                        u.username,
+                        COALESCE(mr.room_name, b.room_name, 'Unknown Room') as room_name,
+                        mr.capacity as room_capacity,
+                        mr.image_url,
+                        'bookings' as source_table
+                      FROM bookings b
+                      LEFT JOIN users u ON b.user_id = u.id
+                      LEFT JOIN meeting_rooms mr ON b.room_id = mr.id
+                      
+                      ORDER BY created_at DESC";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getting all bookings including completed: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get only active bookings (for ReservationsPage)
+     */
+    public function getActiveBookings() {
+        try {
+            // Get only active bookings from both ai_booking_data and bookings tables
+            $query = "SELECT 
+                        b.id,
+                        b.user_id,
+                        b.room_id,
+                        b.topic,
+                        b.meeting_date,
+                        b.meeting_time,
+                        b.end_time,
+                        b.duration,
+                        b.participants,
+                        b.pic,
+                        b.meeting_type,
+                        b.facilities,
+                        b.booking_state,
+                        NULL as status,
+                        b.created_at,
+                        b.updated_at,
+                        u.full_name as user_name,
+                        u.username,
+                        mr.room_name,
+                        mr.capacity as room_capacity,
+                        mr.image_url,
+                        'ai_booking_data' as source_table
+                      FROM ai_booking_data b
+                      LEFT JOIN users u ON b.user_id = u.id
+                      LEFT JOIN meeting_rooms mr ON b.room_id = mr.id
+                      WHERE b.booking_state = 'BOOKED'
+                      
+                      UNION ALL
+                      
+                      SELECT 
+                        b.id,
+                        b.user_id,
+                        b.room_id,
+                        b.topic,
+                        b.meeting_date,
+                        b.start_time as meeting_time,
+                        b.end_time,
+                        NULL as duration,
+                        b.participants,
+                        b.pic,
+                        b.meeting_type,
+                        b.facilities,
+                        'BOOKED' as booking_state,
+                        b.status,
+                        b.created_at,
+                        b.updated_at,
+                        u.full_name as user_name,
+                        u.username,
+                        COALESCE(mr.room_name, b.room_name, 'Unknown Room') as room_name,
+                        mr.capacity as room_capacity,
+                        mr.image_url,
+                        'bookings' as source_table
+                      FROM bookings b
+                      LEFT JOIN users u ON b.user_id = u.id
+                      LEFT JOIN meeting_rooms mr ON b.room_id = mr.id
+                      WHERE b.status = 'active'
+                      
+                      ORDER BY created_at DESC";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getting active bookings: " . $e->getMessage());
             return [];
         }
     }

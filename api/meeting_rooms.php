@@ -17,11 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../config/database.php';
 require_once '../backend/models/MeetingRoom.php';
+require_once 'middleware/auth.php';
 
 try {
     $database = new Database();
     $db = $database->getConnection();
     $meetingRoom = new MeetingRoom($db);
+    $authMiddleware = new AuthMiddleware();
     
     $method = $_SERVER['REQUEST_METHOD'];
     $action = $_GET['action'] ?? '';
@@ -31,10 +33,10 @@ try {
             handleGetRequest($meetingRoom, $action);
             break;
         case 'POST':
-            handlePostRequest($meetingRoom);
+            handlePostRequest($meetingRoom, $authMiddleware);
             break;
         case 'DELETE':
-            handleDeleteRequest($meetingRoom);
+            handleDeleteRequest($meetingRoom, $authMiddleware);
             break;
         default:
             sendResponse(false, 'Method not allowed', null, 405);
@@ -73,7 +75,7 @@ function handleGetRequest($meetingRoom, $action) {
     }
 }
 
-function handlePostRequest($meetingRoom) {
+function handlePostRequest($meetingRoom, $authMiddleware) {
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (!$input) {
@@ -85,6 +87,9 @@ function handlePostRequest($meetingRoom) {
     
     switch ($action) {
         case 'create':
+            // Require admin access for creating rooms
+            $authMiddleware->requireAdmin();
+            
             $roomData = $input['room_data'] ?? null;
             if (!$roomData) {
                 sendResponse(false, 'Room data required', null, 400);
@@ -99,6 +104,9 @@ function handlePostRequest($meetingRoom) {
             break;
             
         case 'update':
+            // Require admin access for updating rooms
+            $authMiddleware->requireAdmin();
+            
             $roomData = $input;
             if (!$roomData || !isset($roomData['id'])) {
                 sendResponse(false, 'Room ID required', null, 400);
@@ -113,6 +121,9 @@ function handlePostRequest($meetingRoom) {
             break;
             
         case 'update_status':
+            // Require admin access for updating room status
+            $authMiddleware->requireAdmin();
+            
             $roomId = $input['room_id'] ?? null;
             $isActive = $input['is_active'] ?? null;
             
@@ -135,7 +146,10 @@ function handlePostRequest($meetingRoom) {
     }
 }
 
-function handleDeleteRequest($meetingRoom) {
+function handleDeleteRequest($meetingRoom, $authMiddleware) {
+    // Require admin access for deleting rooms
+    $authMiddleware->requireAdmin();
+    
     // Get room ID from query parameter
     $roomId = $_GET['id'] ?? null;
     
@@ -163,6 +177,7 @@ function handleDeleteRequest($meetingRoom) {
         sendResponse(true, 'Room deleted successfully', null);
     } else {
         // Check if it's because of active bookings
+        global $db;
         $checkQuery = "SELECT COUNT(*) as booking_count FROM bookings 
                       WHERE room_id = :id AND status IN ('BOOKED', 'CONFIRMED', 'ONGOING')";
         $checkStmt = $db->prepare($checkQuery);

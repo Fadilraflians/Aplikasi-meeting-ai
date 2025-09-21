@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
         proxy: {
           // Proxy API requests to PHP backend (development only)
           '/api': {
-            target: 'http://localhost/aplikasi-meeting-ai',
+            target: 'http://127.0.0.1:8080',
             changeOrigin: true,
             secure: false,
             configure: (proxy, options) => {
