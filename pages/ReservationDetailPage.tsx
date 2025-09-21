@@ -318,6 +318,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
     }
   };
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
       <div className="container mx-auto px-4 py-8">

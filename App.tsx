@@ -157,6 +157,7 @@ const App = () => {
             // Format server bookings
             const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => {
                 console.log('🔍 App.tsx - Raw server booking facilities:', b.facilities, 'Type:', typeof b.facilities);
+                console.log('🔍 App.tsx - Raw server booking requires_rispat:', b.requires_rispat, 'Type:', typeof b.requires_rispat);
                 
                 const formattedFacilities = (() => {
                     if (b.facilities && Array.isArray(b.facilities)) {
@@ -189,6 +190,7 @@ const App = () => {
                     pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
                     meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
                     facilities: formattedFacilities,
+                    requiresRispat: Boolean(b.requires_rispat), // Add requiresRispat field
                     userName: b.user_name || b.username || 'Unknown User', // Add user info for admin view
                 };
             });
@@ -196,6 +198,7 @@ const App = () => {
             // Format AI bookings
             const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => {
                 console.log('🔍 App.tsx - Raw AI booking facilities:', b.facilities, 'Type:', typeof b.facilities);
+                console.log('🔍 App.tsx - Raw AI booking requires_rispat:', b.requires_rispat, 'Type:', typeof b.requires_rispat);
                 
                 const formattedFacilities = (() => {
                     if (b.facilities && Array.isArray(b.facilities)) {
@@ -229,6 +232,7 @@ const App = () => {
                     pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
                     meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
                     facilities: formattedFacilities,
+                    requiresRispat: Boolean(b.requires_rispat), // Add requiresRispat field
                     status: b.booking_state || 'BOOKED', // Status dari database
                     booking_state: b.booking_state || 'BOOKED', // Booking state dari database
                     source: 'ai', // Menandai bahwa ini adalah AI booking

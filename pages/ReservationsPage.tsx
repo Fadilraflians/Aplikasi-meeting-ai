@@ -253,8 +253,21 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                 {/* Rispat Status Indicator */}
                 <div className="flex items-center gap-2">
                   <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Risalah Rapat</div>
-                  <div className={`font-semibold text-sm ${hasRispat ? 'text-green-600' : 'text-orange-600'}`}>
-                    {hasRispat ? (
+                  <div className={`font-semibold text-sm ${
+                    !booking.requiresRispat 
+                      ? 'text-gray-500' 
+                      : hasRispat 
+                        ? 'text-green-600' 
+                        : 'text-orange-600'
+                  }`}>
+                    {!booking.requiresRispat ? (
+                      <div className="flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span>Tidak Wajib</span>
+                      </div>
+                    ) : hasRispat ? (
                       <div className="flex items-center gap-1">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -287,19 +300,35 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                 
                 // Hanya tampilkan tombol Complete untuk status ongoing atau upcoming
                 if (status === 'ongoing' || status === 'upcoming') {
+                  // Logika baru: jika booking tidak memerlukan rispat, bisa langsung complete
+                  // Jika booking memerlukan rispat, harus upload rispat dulu
+                  const canComplete = !booking.requiresRispat || hasRispat;
+                  
                   return (
                     <>
                       <button 
                         onClick={handleComplete} 
-                        disabled={!hasRispat}
+                        disabled={!canComplete}
                         className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                          hasRispat 
+                          canComplete 
                             ? (isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600') + ' text-white shadow-md hover:shadow-lg'
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
-                        title={hasRispat ? 'Klik untuk menyelesaikan reservasi' : 'Upload risalah rapat terlebih dahulu untuk menyelesaikan reservasi'}
+                        title={
+                          !booking.requiresRispat 
+                            ? 'Klik untuk menyelesaikan reservasi' 
+                            : hasRispat 
+                              ? 'Klik untuk menyelesaikan reservasi' 
+                              : 'Upload risalah rapat terlebih dahulu untuk menyelesaikan reservasi'
+                        }
                       >
-                        ✅ {hasRispat ? t('reservations.complete') : 'Upload Rispat Dulu'}
+                        ✅ {
+                          !booking.requiresRispat 
+                            ? t('reservations.complete')
+                            : hasRispat 
+                              ? t('reservations.complete') 
+                              : 'Upload Rispat Dulu'
+                        }
                       </button>
                       {(() => {
                         // Check if current user is the owner of this booking

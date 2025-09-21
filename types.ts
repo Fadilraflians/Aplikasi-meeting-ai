@@ -57,6 +57,7 @@ export interface Booking {
   pic: string;
   meetingType: 'internal' | 'external';
   facilities: string[]; // Fasilitas yang diminta (required)
+  requiresRispat?: boolean; // Apakah booking memerlukan upload rispat
   imageUrl?: string;
   // Field baru untuk RBA yang lebih cerdas
   urgency?: 'high' | 'normal' | 'low'; // Tingkat urgensi

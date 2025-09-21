@@ -24,7 +24,11 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
     const [pic, setPic] = useState(bookingData?.pic || '');
     const [meetingType, setMeetingType] = useState<'internal' | 'external'>(bookingData?.meetingType || 'internal');
     const [selectedFacilities, setSelectedFacilities] = useState<string[]>(bookingData?.facilities || []);
+    const [requiresRispat, setRequiresRispat] = useState<boolean>(bookingData?.requiresRispat || false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Debug log
+    console.log('BookingFormPage - requiresRispat state:', requiresRispat);
 
     // Get facilities based on selected room
     const getRoomFacilities = (room: MeetingRoom | null): string[] => {
@@ -214,6 +218,11 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
         setMeetingType(e.target.value as 'internal' | 'external');
     }, []);
 
+    const handleRispatChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+        console.log('Rispat changed to:', e.target.value);
+        setRequiresRispat(e.target.value === 'yes');
+    }, []);
+
     const handleFacilityChange = useCallback((facility: string) => {
         setSelectedFacilities(prev => {
             if (prev.includes(facility)) {
@@ -373,6 +382,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
             pic, // kirim PIC yang diinput user ke backend
             meeting_type: meetingType || 'internal',
             facilities: selectedFacilities,
+            requires_rispat: requiresRispat,
             booking_state: 'BOOKED'
         } as any;
 
@@ -394,6 +404,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                 pic,
                 meetingType,
                 facilities: selectedFacilities,
+                requiresRispat,
             };
             
             console.log('🔍 BookingFormPage - Created booking object:', newBooking);
@@ -690,6 +701,28 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         <option value="internal">Internal</option>
                                         <option value="external">Eksternal</option>
                                     </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="rispat" className="block text-sm font-semibold text-gray-700 mb-3">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                                            Rispat *
+                                        </span>
+                                    </label>
+                                    <select 
+                                        id="rispat" 
+                                        name="rispat" 
+                                        value={requiresRispat ? 'yes' : 'no'} 
+                                        onChange={handleRispatChange}
+                                        className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300 cursor-pointer"
+                                        style={{backgroundColor: 'white', border: '2px solid #e5e7eb'}}
+                                    >
+                                        <option value="no">Tidak</option>
+                                        <option value="yes">Ya</option>
+                                    </select>
+                                    <div className="mt-2 text-sm text-gray-600">
+                                        <span className="text-blue-600">💡</span> Jika memilih "Ya", Anda harus mengupload rispat setelah pemesanan untuk menyelesaikan booking
+                                    </div>
                                 </div>
                             </div>
                             

@@ -58,9 +58,9 @@ class Booking {
 
             $query = "INSERT INTO " . $this->table_name . "
                     (user_id, session_id, room_id, topic, meeting_date, meeting_time, end_time,
-                     duration, participants, pic, meeting_type, facilities, booking_state)
+                     duration, participants, pic, meeting_type, requires_rispat, facilities, booking_state)
                     VALUES (:user_id, :session_id, :room_id, :topic, :meeting_date, :meeting_time, :end_time,
-                            :duration, :participants, :pic, :meeting_type, :facilities, :booking_state)";
+                            :duration, :participants, :pic, :meeting_type, :requires_rispat, :facilities, :booking_state)";
 
             $stmt = $this->conn->prepare($query);
 
@@ -76,6 +76,7 @@ class Booking {
             $stmt->bindValue(":participants", $data['participants']);
             $stmt->bindValue(":pic", isset($data['pic']) ? $data['pic'] : null);
             $stmt->bindValue(":meeting_type", $data['meeting_type']);
+            $stmt->bindValue(":requires_rispat", isset($data['requires_rispat']) ? ($data['requires_rispat'] ? 1 : 0) : 0);
             $stmt->bindValue(":facilities", isset($data['facilities']) ? json_encode($data['facilities']) : null);
             $stmt->bindValue(":booking_state", isset($data['booking_state']) ? $data['booking_state'] : 'BOOKED');
 
@@ -110,9 +111,9 @@ class Booking {
             // Insert into regular bookings table
             $query = "INSERT INTO bookings 
                     (user_id, room_id, room_name, topic, meeting_date, start_time, end_time,
-                     participants, pic, meeting_type, facilities, status)
+                     participants, pic, meeting_type, requires_rispat, facilities, status)
                     VALUES (:user_id, :room_id, :room_name, :topic, :meeting_date, :start_time, :end_time,
-                            :participants, :pic, :meeting_type, :facilities, :status)";
+                            :participants, :pic, :meeting_type, :requires_rispat, :facilities, :status)";
 
             $stmt = $this->conn->prepare($query);
 
@@ -127,6 +128,7 @@ class Booking {
             $stmt->bindValue(":participants", $data['participants']);
             $stmt->bindValue(":pic", isset($data['pic']) ? $data['pic'] : null);
             $stmt->bindValue(":meeting_type", $data['meeting_type']);
+            $stmt->bindValue(":requires_rispat", isset($data['requires_rispat']) ? ($data['requires_rispat'] ? 1 : 0) : 0);
             $stmt->bindValue(":facilities", isset($data['facilities']) ? json_encode($data['facilities']) : null);
             $stmt->bindValue(":status", 'active');
 
@@ -489,6 +491,7 @@ class Booking {
                         b.participants,
                         b.pic,
                         b.meeting_type,
+                        b.requires_rispat,
                         b.facilities,
                         b.booking_state,
                         NULL as status,
@@ -518,6 +521,7 @@ class Booking {
                         b.participants,
                         b.pic,
                         b.meeting_type,
+                        b.requires_rispat,
                         b.facilities,
                         CASE 
                             WHEN b.status = 'active' THEN 'BOOKED'
@@ -568,6 +572,7 @@ class Booking {
                         b.participants,
                         b.pic,
                         b.meeting_type,
+                        b.requires_rispat,
                         b.facilities,
                         b.booking_state,
                         NULL as status,
@@ -598,6 +603,7 @@ class Booking {
                         b.participants,
                         b.pic,
                         b.meeting_type,
+                        b.requires_rispat,
                         b.facilities,
                         'BOOKED' as booking_state,
                         b.status,
