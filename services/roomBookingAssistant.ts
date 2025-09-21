@@ -390,6 +390,11 @@ export class RoomBookingAssistant {
     console.log('📝 Updated current booking:', this.context.currentBooking);
   }
 
+  // Get current booking data
+  public getCurrentBooking(): Partial<Booking> {
+    return this.context.currentBooking;
+  }
+
   // Handle facility selection
   private handleFacilitySelection(facility: string): RBAResponse {
     console.log('🔧 Facility selected:', facility);

@@ -18,7 +18,7 @@ const AiIcon: React.FC = () => {
     }, []);
 
     return (
-        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md flex-shrink-0 animate-pulse-slow">
+        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg flex-shrink-0 animate-pulse-slow">
             <img 
                 src="/images/robot.png" 
                 alt="AI Avatar" 
