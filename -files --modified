@@ -1,9 +1,0 @@
-api/rispat.php
-backend/api/bookings.php
-backend/api/rispat.php
-backend/models/Booking.php
-backend/models/MeetingRoom.php
-backend/models/Rispat.php
-pages/HistoryPage.tsx
-pages/ReservationDetailPage.tsx
-pages/RispatPage.tsx

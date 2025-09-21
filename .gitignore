@@ -330,52 +330,32 @@ dmypy.json
 # Laravel Inertia
 /resources/js/Pages
 
-# Laravel Nova
-/nova
+# Additional cleanup patterns
+fix_*.php
+cleanup*.php
+force_*.php
+pat_file_*.php
+_data.php
+*-files*
+ql*
+debug_*.php
+check_*.php
+test_*.php
+test_*.js
+*_test.php
+*_test.js
 
-# Laravel Spark
-/spark
+# Documentation files (temporary)
+AI_*.md
+COMPREHENSIVE_*.md
+TOPIC_*.md
 
-# Laravel Cashier
-/storage/cashier
+# Backup directories
+scripts/backup_*/
+scripts/backup_form_*/
 
-# Laravel Forge
-/forge
-
-# Laravel Envoy
-/envoy
-
-# Laravel Valet
-/valet
-
-# Laravel Homestead
-/Homestead.json
-/Homestead.yaml
-/vagrant
-
-# Laravel Sail
-/vendor/bin/sail
-
-# Laravel Breeze
-/resources/views/auth
-/resources/views/layouts
-/routes/auth.php
-
-# Laravel Jetstream
-/resources/views/auth
-/resources/views/layouts
-/routes/auth.php
-
-# Laravel Fortify
-/resources/views/auth
-/resources/views/layouts
-/routes/auth.php
-
-# Laravel Livewire
-/resources/views/livewire
-
-# Laravel Inertia
-/resources/js/Pages
+# Temporary files with weird names
+i
 
 # Laravel Nova
 /nova
@@ -423,3 +403,104 @@ dmypy.json
 
 # Laravel Inertia
 /resources/js/Pages
+
+# Additional cleanup patterns
+fix_*.php
+cleanup*.php
+force_*.php
+pat_file_*.php
+_data.php
+*-files*
+ql*
+debug_*.php
+check_*.php
+test_*.php
+test_*.js
+*_test.php
+*_test.js
+
+# Documentation files (temporary)
+AI_*.md
+COMPREHENSIVE_*.md
+TOPIC_*.md
+
+# Backup directories
+scripts/backup_*/
+scripts/backup_form_*/
+
+# Temporary files with weird names
+i
+
+# Laravel Nova
+/nova
+
+# Laravel Spark
+/spark
+
+# Laravel Cashier
+/storage/cashier
+
+# Laravel Forge
+/forge
+
+# Laravel Envoy
+/envoy
+
+# Laravel Valet
+/valet
+
+# Laravel Homestead
+/Homestead.json
+/Homestead.yaml
+/vagrant
+
+# Laravel Sail
+/vendor/bin/sail
+
+# Laravel Breeze
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Jetstream
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Fortify
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Livewire
+/resources/views/livewire
+
+# Laravel Inertia
+/resources/js/Pages
+
+# Additional cleanup patterns
+fix_*.php
+cleanup*.php
+force_*.php
+pat_file_*.php
+_data.php
+*-files*
+ql*
+debug_*.php
+check_*.php
+test_*.php
+test_*.js
+*_test.php
+*_test.js
+
+# Documentation files (temporary)
+AI_*.md
+COMPREHENSIVE_*.md
+TOPIC_*.md
+
+# Backup directories
+scripts/backup_*/
+scripts/backup_form_*/
+
+# Temporary files with weird names
+i
