@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Page, User } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useDarkMode } from '../contexts/DarkModeContext';
+import NotificationBell from './NotificationBell';
 
 const UserProfileIcon: React.FC<{ isDarkMode?: boolean }> = ({ isDarkMode }) => (
   <svg className={`w-5 h-5 mr-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,7 +91,18 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, onLogout }) =>
                         </button>
                     ))}
                 </nav>
-                <div className="relative">
+                <div className="flex items-center space-x-4">
+                    {/* Notification Bell */}
+                    <NotificationBell 
+                        currentUser={userData?.full_name || userData?.username || 'Unknown User'}
+                        onNotificationClick={() => {
+                            // Navigate to cancel requests page
+                            onNavigate(Page.CancelRequests);
+                        }}
+                    />
+                    
+                    {/* User Dropdown */}
+                    <div className="relative">
                     <button onClick={() => setIsDropdownOpen(prev => !prev)} className={`flex items-center space-x-3 cursor-pointer p-2 rounded-xl transition-all duration-200 ${isDarkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-100/50'}`}>
                         <div className="relative">
                             <img src={`https://i.pravatar.cc/150?u=${Date.now()}`} alt="User Avatar" className="w-12 h-12 rounded-full border-2 border-white shadow-md" />
@@ -184,6 +196,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, onLogout }) =>
                             </button>
                         </div>
                     )}
+                    </div>
                 </div>
             </div>
         </header>

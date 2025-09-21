@@ -25,6 +25,7 @@ import CancelRequestsPage from './pages/CancelRequestsPage';
 import MainLayout from './components/MainLayout';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { DarkModeProvider } from './contexts/DarkModeContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 const App = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -606,8 +607,9 @@ const App = () => {
     return (
         <LanguageProvider>
             <DarkModeProvider>
-                <div className="min-h-screen">
-                    {renderContent()}
+                <NotificationProvider>
+                    <div className="min-h-screen">
+                        {renderContent()}
                 {/* Bridge event from ReservationsPage to set detail booking and navigate */}
                 {(() => {
                     if (typeof window !== 'undefined') {
@@ -635,7 +637,8 @@ const App = () => {
                     }
                     return null;
                 })()}
-                </div>
+                    </div>
+                </NotificationProvider>
             </DarkModeProvider>
         </LanguageProvider>
     );

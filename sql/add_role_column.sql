@@ -19,3 +19,4 @@ INSERT IGNORE INTO `users` (username, email, password, full_name, role) VALUES
 -- If no regular user exists, create one
 INSERT IGNORE INTO `users` (username, email, password, full_name, role) VALUES 
 ('raflians', 'raflians@gmail.com', 'admin123', 'Raflians User', 'user');
+

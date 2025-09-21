@@ -20,3 +20,4 @@ CREATE TABLE IF NOT EXISTS `cancel_requests` (
     CONSTRAINT `fk_cancel_req_requester` FOREIGN KEY (`requester_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_cancel_req_owner` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
