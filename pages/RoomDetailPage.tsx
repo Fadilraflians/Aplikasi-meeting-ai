@@ -337,6 +337,130 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
 
   const isRoomBooked = bookings.some(b => b.roomName === room.name);
 
+  // Check if there are any ongoing bookings for this room
+  const hasOngoingBookings = () => {
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+    
+    return bookings.some(booking => {
+      // Check if booking is for this room
+      const roomMatch = booking.roomName === room.name || 
+        booking.roomName?.toLowerCase().includes(room.name.toLowerCase()) ||
+        room.name.toLowerCase().includes(booking.roomName?.toLowerCase() || '');
+      
+      if (!roomMatch) return false;
+      
+      // Check if booking is today
+      if (booking.date !== currentDate) return false;
+      
+      // Check if current time is within booking time range
+      const startTime = booking.time;
+      const endTime = booking.endTime || calculateEndTime(booking.time, 60);
+      const isTimeActive = currentTime >= startTime && currentTime <= endTime;
+      
+      // Check status from history to determine if it's ongoing
+      const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+      const historyEntry = history.find((h: any) => String(h.id) === String(booking.id).replace('ai_', ''));
+      
+      // If there's history entry, check if it's ongoing
+      const isOngoing = historyEntry ? 
+        historyEntry.status === 'Sedang Berlangsung' || historyEntry.status === 'ongoing' :
+        isTimeActive; // If no history, check based on time
+      
+      // Also check if booking is not completed or cancelled
+      const isCompleted = historyEntry?.status === 'Selesai';
+      const isCancelled = historyEntry?.status === 'Dibatalkan';
+      
+      return isTimeActive && isOngoing && !isCompleted && !isCancelled;
+    });
+  };
+
+  const canDeactivateRoom = () => {
+    // Can't deactivate if room is already inactive
+    if (room.isActive === false) return true;
+    
+    // Can't deactivate if there are ongoing bookings
+    return !hasOngoingBookings();
+  };
+
+  // Get room status similar to MeetingRoomsPage
+  const getRoomStatus = () => {
+    // If room is inactive, return 'inactive'
+    if (room.isActive === false) return 'inactive';
+    
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+    
+    // Cari booking untuk ruang ini
+    const roomBookings = bookings.filter(booking => {
+      const roomMatch = booking.roomName === room.name || 
+        booking.roomName?.toLowerCase().includes(room.name.toLowerCase()) ||
+        room.name.toLowerCase().includes(booking.roomName?.toLowerCase() || '');
+      return roomMatch;
+    });
+    
+    // Cek apakah ada booking yang sedang berlangsung hari ini
+    const ongoingBooking = roomBookings.find(booking => {
+      // Cek apakah booking hari ini
+      if (booking.date !== currentDate) return false;
+      
+      // Cek apakah waktu saat ini dalam range booking
+      const startTime = booking.time;
+      const endTime = booking.endTime || calculateEndTime(booking.time, 60);
+      const isTimeActive = currentTime >= startTime && currentTime <= endTime;
+      
+      // Cek status dari history untuk menentukan apakah sedang berlangsung
+      const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+      const historyEntry = history.find((h: any) => String(h.id) === String(booking.id).replace('ai_', ''));
+      
+      // Jika ada di history dan statusnya "Sedang Berlangsung" atau tidak ada status (default ongoing)
+      const isOngoing = historyEntry ? 
+        historyEntry.status === 'Sedang Berlangsung' || historyEntry.status === 'ongoing' :
+        isTimeActive; // Jika tidak ada di history, cek berdasarkan waktu
+      
+      // Also check if booking is not completed or cancelled
+      const isCompleted = historyEntry?.status === 'Selesai';
+      const isCancelled = historyEntry?.status === 'Dibatalkan';
+      
+      return isTimeActive && isOngoing && !isCompleted && !isCancelled;
+    });
+    
+    // Cek apakah ada booking yang akan datang (upcoming)
+    const upcomingBooking = roomBookings.find(booking => {
+      // Cek apakah booking hari ini
+      if (booking.date !== currentDate) return false;
+      
+      // Cek apakah waktu booking belum dimulai
+      const startTime = booking.time;
+      const isUpcoming = currentTime < startTime;
+      
+      // Cek status dari history
+      const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+      const historyEntry = history.find((h: any) => String(h.id) === String(booking.id).replace('ai_', ''));
+      
+      // Jika ada di history dan statusnya "Upcoming" atau tidak ada status (default upcoming)
+      const isUpcomingStatus = historyEntry ? 
+        historyEntry.status === 'Upcoming' || historyEntry.status === 'upcoming' :
+        isUpcoming; // Jika tidak ada di history, cek berdasarkan waktu
+      
+      // Also check if booking is not completed or cancelled
+      const isCompleted = historyEntry?.status === 'Selesai';
+      const isCancelled = historyEntry?.status === 'Dibatalkan';
+      
+      return isUpcoming && isUpcomingStatus && !isCompleted && !isCancelled;
+    });
+    
+    if (ongoingBooking) {
+      return 'ongoing'; // Sedang berlangsung
+    } else if (upcomingBooking) {
+      return 'upcoming'; // Akan datang
+    } else {
+      return 'available'; // Tersedia
+    }
+  };
+
   return (
     <div className={`backdrop-blur-sm p-8 rounded-2xl shadow-lg ${isDarkMode ? 'bg-gray-800/80' : 'bg-white/80'}`}>
       <div className="flex items-center mb-6">
@@ -346,22 +470,55 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
         >
           <BackArrowIcon />
         </button>
-        <h2 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{room.name}</h2>
+        <div className="flex-1">
+          <h2 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{room.name}</h2>
+          {room.isActive === false && (
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium border border-slate-200">
+                <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
+                <span>Maintenance</span>
+              </div>
+              <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Temporarily unavailable
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Room Image and Info */}
         <div>
-          <div className="h-80 rounded-lg mb-6 overflow-hidden">
+          <div className="relative h-80 rounded-lg mb-6 overflow-hidden">
             <img 
               src={room.image} 
               alt={room.name}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover transition-all duration-300 ${
+                room.isActive === false ? 'filter grayscale brightness-75' : ''
+              }`}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = '/images/meeting-rooms/default-room.jpg';
               }}
             />
+            
+            {/* Nonaktif Overlay */}
+            {room.isActive === false && (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-gray-800/40 to-slate-700/50 backdrop-blur-sm"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                
+                {/* Maintenance Status Banner */}
+                <div className="absolute top-4 left-4 right-4">
+                  <div className="bg-white/90 backdrop-blur-md text-slate-700 px-3 py-2 rounded-lg shadow-lg border border-white/20">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                      <span className="font-medium text-sm">Under Maintenance</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           
           <div className="space-y-4">
@@ -376,12 +533,22 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                     ✏️ Edit
                   </button>
                   <button
-                    onClick={() => setShowStatusConfirm(true)}
+                    onClick={() => {
+                      if (getRoomStatus() === 'ongoing' && room.isActive === true) {
+                        alert('Tidak dapat menonaktifkan ruangan karena ada reservasi yang sedang berlangsung!');
+                        return;
+                      }
+                      setShowStatusConfirm(true);
+                    }}
+                    disabled={getRoomStatus() === 'ongoing' && room.isActive === true}
                     className={`text-white px-4 py-2 rounded-lg transition text-sm font-medium ${
                       room.isActive === false 
                         ? (isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600')
-                        : (isDarkMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600')
+                        : getRoomStatus() === 'ongoing'
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : (isDarkMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600')
                     }`}
+                    title={getRoomStatus() === 'ongoing' && room.isActive === true ? 'Tidak dapat menonaktifkan karena ada reservasi yang sedang berlangsung' : ''}
                   >
                     {room.isActive === false ? '✅ Aktifkan' : '⏸️ Nonaktifkan'}
                   </button>
@@ -398,37 +565,101 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                 <p><span className="font-semibold">Lantai:</span> {room.floor}</p>
                 <p><span className="font-semibold">Alamat:</span> {room.address}</p>
                 <p><span className="font-semibold">Fasilitas:</span> {room.facilities.join(', ')}</p>
-                <p>
+                <div className="flex items-center gap-2">
                   <span className="font-semibold">Status:</span> 
-                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                    room.isActive === false 
-                      ? 'bg-red-100 text-red-800' 
-                      : 'bg-green-100 text-green-800'
-                  }`}>
-                    {room.isActive === false ? '❌ Nonaktif' : '✅ Aktif'}
-                  </span>
-                </p>
+                  {(() => {
+                    const roomStatus = getRoomStatus();
+                    
+                    if (roomStatus === 'inactive') {
+                      return (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200`}>
+                          <span className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
+                            Maintenance
+                          </span>
+                        </span>
+                      );
+                    } else if (roomStatus === 'ongoing') {
+                      return (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200`}>
+                          <span className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                            Sedang Berlangsung
+                          </span>
+                        </span>
+                      );
+                    } else if (roomStatus === 'upcoming') {
+                      return (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200`}>
+                          <span className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                            Akan Datang
+                          </span>
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200`}>
+                          <span className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                            Tersedia
+                          </span>
+                        </span>
+                      );
+                    }
+                  })()}
+                </div>
               </div>
             </div>
+
+            {/* Warning message for ongoing bookings */}
+            {getRoomStatus() === 'ongoing' && room.isActive === true && (
+              <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm text-orange-700 font-medium">
+                    ⚠️ Ruangan tidak dapat dinonaktifkan karena ada reservasi yang sedang berlangsung
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="pt-4">
               <button
                 onClick={() => onBookRoom(room)}
                 disabled={room.isActive === false}
-                className={`w-full py-3 px-6 rounded-lg font-semibold transition text-white ${
+                className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 ${
                   room.isActive === false
-                    ? 'bg-gray-400 cursor-not-allowed'
+                    ? 'bg-slate-100 text-slate-500 cursor-not-allowed border border-slate-200'
                     : isDarkMode 
-                      ? 'bg-cyan-600 hover:bg-cyan-700' 
-                      : 'bg-cyan-500 hover:bg-cyan-600'
+                      ? 'bg-cyan-600 hover:bg-cyan-700 shadow-md hover:shadow-lg text-white' 
+                      : 'bg-cyan-500 hover:bg-cyan-600 shadow-md hover:shadow-lg text-white'
                 }`}
               >
-                {room.isActive === false ? '❌ Ruangan Nonaktif' : 'Pesan Ruangan'}
+                {room.isActive === false ? (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    Unavailable
+                  </span>
+                ) : (
+                  '📅 Pesan Ruangan'
+                )}
               </button>
               {room.isActive === false && (
-                <p className="text-sm text-red-600 mt-2 text-center">
-                  Ruangan ini sedang dinonaktifkan dan tidak dapat dipesan
-                </p>
+                <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-slate-600 font-medium">
+                      This room is currently under maintenance and temporarily unavailable for booking
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -911,6 +1142,20 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                   : '⏸️ Ruangan tidak dapat dipesan setelah dinonaktifkan.'
                 }
               </p>
+              
+              {/* Warning for ongoing bookings */}
+              {getRoomStatus() === 'ongoing' && room.isActive === true && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-red-700 font-medium">
+                      ⚠️ Ada reservasi yang sedang berlangsung! Ruangan tidak dapat dinonaktifkan.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -926,9 +1171,11 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                 className={`flex-1 px-4 py-3 text-white rounded-lg transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
                   room.isActive === false 
                     ? 'bg-green-500 hover:bg-green-600' 
-                    : 'bg-orange-500 hover:bg-orange-600'
+                    : getRoomStatus() === 'ongoing'
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-orange-500 hover:bg-orange-600'
                 }`}
-                disabled={updatingStatus}
+                disabled={updatingStatus || (getRoomStatus() === 'ongoing' && room.isActive === true)}
               >
                 {updatingStatus ? (
                   <span className="flex items-center justify-center gap-2">
@@ -936,7 +1183,8 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                     Memproses...
                   </span>
                 ) : (
-                  room.isActive === false ? 'Ya, Aktifkan' : 'Ya, Nonaktifkan'
+                  room.isActive === false ? 'Ya, Aktifkan' : 
+                  getRoomStatus() === 'ongoing' ? 'Tidak Dapat Dinonaktifkan' : 'Ya, Nonaktifkan'
                 )}
               </button>
             </div>

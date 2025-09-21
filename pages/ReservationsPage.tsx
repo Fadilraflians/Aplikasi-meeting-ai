@@ -240,26 +240,12 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
               
               <div className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-gray-600' : 'bg-gray-100'}`}>
-                  <span className="text-cyan-600 text-sm">⚙️</span>
+                  <span className="text-purple-600 text-sm">📋</span>
                 </div>
                 <div>
-                  <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Fasilitas</div>
+                  <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Jenis Rapat</div>
                   <div className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                    {(() => {
-                      if (booking.facilities && Array.isArray(booking.facilities) && booking.facilities.length > 0) {
-                        return booking.facilities.slice(0, 2).join(', ') + (booking.facilities.length > 2 ? '...' : '');
-                      } else if (booking.facilities && typeof booking.facilities === 'string') {
-                        try {
-                          const parsed = JSON.parse(booking.facilities);
-                          if (Array.isArray(parsed) && parsed.length > 0) {
-                            return parsed.slice(0, 2).join(', ') + (parsed.length > 2 ? '...' : '');
-                          }
-                        } catch (e) {
-                          return booking.facilities.length > 20 ? booking.facilities.substring(0, 20) + '...' : booking.facilities;
-                        }
-                      }
-                      return 'Tidak ada';
-                    })()}
+                    {booking.meetingType === 'internal' ? 'Internal' : booking.meetingType === 'external' ? 'Eksternal' : booking.meetingType || 'Internal'}
                   </div>
                 </div>
                 
