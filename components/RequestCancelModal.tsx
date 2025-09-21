@@ -43,9 +43,9 @@ const RequestCancelModal: React.FC<RequestCancelModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[85vh] flex flex-col mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-500 to-pink-500 p-6 rounded-t-2xl">
+        <div className="bg-gradient-to-r from-red-500 to-pink-500 p-6 rounded-t-2xl flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
@@ -69,8 +69,8 @@ const RequestCancelModal: React.FC<RequestCancelModalProps> = ({
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Booking Info */}
           <div className="bg-gray-50 rounded-xl p-4 mb-6">
             <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
@@ -139,11 +139,14 @@ const RequestCancelModal: React.FC<RequestCancelModalProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
+        </div>
+
+        {/* Footer - Fixed Action Buttons */}
+        <div className="border-t border-gray-200 p-4 sm:p-6 flex-shrink-0 bg-gray-50 rounded-b-2xl">
           <div className="flex gap-3">
             <button
               onClick={handleClose}
-              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-white transition-colors font-medium"
             >
               Batal
             </button>
@@ -177,3 +180,4 @@ const RequestCancelModal: React.FC<RequestCancelModalProps> = ({
 };
 
 export default RequestCancelModal;
+
