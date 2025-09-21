@@ -10,7 +10,13 @@ class Booking {
     private $table_name = "ai_booking_data";
 
     public function __construct($db) {
-        $this->conn = $db;
+        // Check if $db is a Database instance or PDO connection
+        if ($db instanceof Database) {
+            $this->conn = $db->getConnection();
+        } else {
+            // $db is already a PDO connection
+            $this->conn = $db;
+        }
     }
 
     /**
@@ -209,14 +215,14 @@ class Booking {
     }
 
     /**
-     * Get bookings by user ID including completed ones
+     * Get active bookings by user ID (only BOOKED status)
      */
     public function getAllBookingsByUserId($userId) {
         try {
             $query = "SELECT b.*, r.room_name, r.capacity as room_capacity, r.image_url
                       FROM " . $this->table_name . " b
                       LEFT JOIN meeting_rooms r ON b.room_id = r.id
-                      WHERE b.user_id = :user_id
+                      WHERE b.user_id = :user_id AND b.booking_state = 'BOOKED'
                       ORDER BY b.created_at DESC";
 
             $stmt = $this->conn->prepare($query);
@@ -226,6 +232,28 @@ class Booking {
             return $stmt->fetchAll();
         } catch (PDOException $e) {
             error_log("Error getting all bookings by user ID: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get all bookings by user ID including completed and cancelled ones (for HistoryPage)
+     */
+    public function getAllBookingsByUserIdIncludingCompleted($userId) {
+        try {
+            $query = "SELECT b.*, r.room_name, r.capacity as room_capacity, r.image_url
+                      FROM " . $this->table_name . " b
+                      LEFT JOIN meeting_rooms r ON b.room_id = r.id
+                      WHERE b.user_id = :user_id AND b.booking_state IN ('BOOKED', 'COMPLETED', 'CANCELLED')
+                      ORDER BY b.created_at DESC";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":user_id", $userId);
+            $stmt->execute();
+
+            return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            error_log("Error getting all bookings by user ID including completed: " . $e->getMessage());
             return [];
         }
     }
@@ -303,14 +331,38 @@ class Booking {
     /**
      * Delete booking
      */
-    public function deleteBooking($id) {
+    public function deleteBooking($id, $cancelReason = null) {
         try {
-            $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
-            
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(":id", $id);
+            if ($cancelReason) {
+                // Update booking state to cancelled and save reason (DO NOT DELETE)
+                $query = "UPDATE " . $this->table_name . " 
+                         SET booking_state = 'CANCELLED', cancel_reason = :cancel_reason, updated_at = CURRENT_TIMESTAMP 
+                         WHERE id = :id";
+                
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(":id", $id);
+                $stmt->bindParam(":cancel_reason", $cancelReason);
+                
+                $result = $stmt->execute();
+                $rowCount = $stmt->rowCount();
+                
+                error_log("UPDATE query executed for ID: $id with reason: $cancelReason, Result: " . ($result ? 'true' : 'false') . ", Rows affected: $rowCount");
+                
+                return $result && $rowCount > 0;
+            } else {
+                // Original delete without reason
+                $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
+                
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(":id", $id);
 
-            return $stmt->execute();
+                $result = $stmt->execute();
+                $rowCount = $stmt->rowCount();
+                
+                error_log("DELETE query executed for ID: $id, Result: " . ($result ? 'true' : 'false') . ", Rows affected: $rowCount");
+                
+                return $result && $rowCount > 0;
+            }
         } catch (PDOException $e) {
             error_log("Error deleting booking: " . $e->getMessage());
             return false;

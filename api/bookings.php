@@ -52,29 +52,62 @@ try {
                     sendResponse(false, 'User ID required for AI bookings', null, 400);
                 }
             } else {
-                // Regular bookings request
-                if ($userId) {
-                    // Get all bookings by user ID (including completed and cancelled ones)
-                    $result = $booking->getAllBookingsByUserId($userId);
-                    
-                    // Filter by status if provided
-                    if ($status && $result) {
-                        $result = array_filter($result, function($booking) use ($status) {
-                            return $booking['booking_state'] === $status || $booking['status'] === $status;
-                        });
+                // Check if this is a request for AI booking data
+                $aiData = $_GET['ai-data'] ?? null;
+                if ($aiData === 'true' || strpos($_SERVER['REQUEST_URI'], '/ai-data') !== false) {
+                    // Get AI bookings from ai_bookings_success table with room names
+                    if ($userId) {
+                        $query = "SELECT abs.*, mr.room_name, mr.capacity as room_capacity, mr.image_url
+                                  FROM ai_bookings_success abs 
+                                  LEFT JOIN meeting_rooms mr ON abs.room_id = mr.id 
+                                  WHERE abs.user_id = :user_id
+                                  ORDER BY abs.created_at DESC";
+                        
+                        $stmt = $db->prepare($query);
+                        $stmt->bindParam(':user_id', $userId);
+                        $stmt->execute();
+                        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        echo json_encode([
+                            'success' => true,
+                            'data' => $result
+                        ]);
+                    } else {
+                        sendResponse(false, 'User ID required for AI booking data', null, 400);
                     }
-                    
-                    echo json_encode([
-                        'success' => true,
-                        'data' => array_values($result) // Re-index array
-                    ]);
                 } else {
-                    // Get all bookings
-                    $result = $booking->getAllBookings();
-                    echo json_encode([
-                        'success' => true,
-                        'data' => $result
-                    ]);
+                    // Regular bookings request
+                    if ($userId) {
+                        // Check if this is for history (include completed/cancelled) or active bookings only
+                        $includeCompleted = $_GET['include_completed'] ?? false;
+                        
+                        if ($includeCompleted) {
+                            // Get all bookings including completed and cancelled ones (for HistoryPage)
+                            $result = $booking->getAllBookingsByUserIdIncludingCompleted($userId);
+                        } else {
+                            // Get only active bookings (for ReservationsPage)
+                            $result = $booking->getAllBookingsByUserId($userId);
+                        }
+                        
+                        // Filter by status if provided
+                        if ($status && $result) {
+                            $result = array_filter($result, function($booking) use ($status) {
+                                return $booking['booking_state'] === $status;
+                            });
+                        }
+                        
+                        echo json_encode([
+                            'success' => true,
+                            'data' => array_values($result) // Re-index array
+                        ]);
+                    } else {
+                        // Get all bookings
+                        $result = $booking->getAllBookings();
+                        echo json_encode([
+                            'success' => true,
+                            'data' => $result
+                        ]);
+                    }
                 }
             }
             break;
@@ -113,6 +146,22 @@ try {
                     }
                     break;
                     
+                case 'cleanup_old_ai_bookings':
+                    // Hapus AI bookings yang sudah berlalu lebih dari 7 hari
+                    $query = "DELETE FROM ai_bookings_success 
+                              WHERE meeting_date < DATE_SUB(NOW(), INTERVAL 7 DAY) 
+                              AND booking_state IN ('BOOKED', 'COMPLETED')";
+                    $stmt = $db->prepare($query);
+                    $result = $stmt->execute();
+                    
+                    if ($result) {
+                        $deletedCount = $stmt->rowCount();
+                        sendResponse(true, "Cleaned up {$deletedCount} old AI bookings", ['deleted_count' => $deletedCount]);
+                    } else {
+                        sendResponse(false, 'Failed to cleanup old AI bookings', null, 500);
+                    }
+                    break;
+                    
                 case 'create_ai_success':
                     $bookingData = $input['booking_data'] ?? null;
                     error_log("Bookings API create_ai_success - booking data: " . json_encode($bookingData));
@@ -145,6 +194,7 @@ try {
                         'topic' => $bookingData['topic'],
                         'meeting_date' => $bookingData['meeting_date'],
                         'meeting_time' => $bookingData['meeting_time'],
+                        'end_time' => $bookingData['end_time'] ?? null,
                         'duration' => $bookingData['duration'],
                         'participants' => $bookingData['participants'],
                         'pic' => $bookingData['pic'],
@@ -193,6 +243,8 @@ try {
             if ($endpoint === 'ai-cancel') {
                 // Cancel AI booking
                 $aiId = $_GET['id'] ?? null;
+                $cancelReason = $_GET['reason'] ?? null;
+                
                 if (!$aiId || !is_numeric($aiId)) {
                     sendResponse(false, 'AI booking ID required', null, 400);
                     return;
@@ -205,7 +257,7 @@ try {
                     // Try to cancel from ai_bookings_success table first
                     require_once '../backend/models/AiBookingSuccess.php';
                     $aiBookingSuccess = new AiBookingSuccess($db);
-                    $result1 = $aiBookingSuccess->deleteBooking($aiId);
+                    $result1 = $aiBookingSuccess->deleteBooking($aiId, $cancelReason);
                     
                     if ($result1) {
                         $cancelled = true;
@@ -214,7 +266,7 @@ try {
                         // Try to cancel from ai_booking_data table
                         require_once '../backend/models/Booking.php';
                         $booking = new Booking($db);
-                        $result2 = $booking->deleteBooking($aiId);
+                        $result2 = $booking->deleteBooking($aiId, $cancelReason);
                         
                         if ($result2) {
                             $cancelled = true;
@@ -233,7 +285,8 @@ try {
                 }
             } elseif (is_numeric($endpoint)) {
                 // Cancel regular booking
-                $result = $booking->deleteBooking($endpoint);
+                $cancelReason = $_GET['reason'] ?? null;
+                $result = $booking->deleteBooking($endpoint, $cancelReason);
                 if ($result) {
                     sendResponse(true, 'Booking cancelled successfully');
                 } else {

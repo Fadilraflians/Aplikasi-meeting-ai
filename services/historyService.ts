@@ -13,6 +13,7 @@ export interface HistoryEntry {
   savedAt: string; // ISO timestamp
   completedAt?: string; // ISO timestamp for expired bookings
   source?: string; // 'server' or 'ai'
+  cancelReason?: string; // Alasan pembatalan
   rispatFiles?: Array<{
     id: number;
     file_name: string;
@@ -41,6 +42,22 @@ export function getHistory(): HistoryEntry[] {
 
 export function addHistory(entry: Omit<HistoryEntry, 'savedAt'>) {
   const list = getHistory();
+  
+  // Check for duplicates before adding
+  const isDuplicate = list.some(existing => 
+    existing.id === entry.id && 
+    existing.topic === entry.topic && 
+    existing.date === entry.date && 
+    existing.time === entry.time && 
+    existing.roomName === entry.roomName &&
+    existing.status === entry.status
+  );
+  
+  if (isDuplicate) {
+    console.log('🚫 Duplicate history entry prevented:', entry.topic);
+    return;
+  }
+  
   const saved: HistoryEntry = { ...entry, savedAt: new Date().toISOString() };
   list.unshift(saved);
   // Keep last 200

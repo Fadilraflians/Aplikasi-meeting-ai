@@ -27,7 +27,7 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
         setMongoBookings([]);
         return;
     }
-    ApiService.getUserBookings(userId).then(res=> setServerBookings(res.data||[])).catch(()=>setServerBookings([]));
+    ApiService.getUserBookings(userId, true).then(res=> setServerBookings(res.data||[])).catch(()=>setServerBookings([]));
     ApiService.getUserAIBookingsMongo(userId).then(res=> setMongoBookings(res.data||[])).catch(()=>setMongoBookings([]));
   }, []);
 
@@ -39,7 +39,12 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
     console.log('HistoryPage - Selected date:', date);
     
     // Filter data lokal dengan status 'Selesai' atau 'Dibatalkan' (EXCLUDE expired)
-    const localFiltered = local.filter(h => h.date === date && h.status !== 'expired');
+    const localFiltered = local.filter(h => h.date === date && h.status !== 'expired').sort((a, b) => {
+      // Sort local data by time (newest first)
+      const timeA = a.time || '00:00';
+      const timeB = b.time || '00:00';
+      return timeB.localeCompare(timeA);
+    });
     
     // Filter data server untuk tanggal yang sama dan status complete/cancelled
     const serverFiltered = serverBookings.filter(booking => {
@@ -49,6 +54,11 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
                                    booking.status === 'completed' ||
                                    booking.status === 'cancelled';
       return bookingDate === date && isCompleteOrCancelled;
+    }).sort((a, b) => {
+      // Sort server data by time (newest first)
+      const timeA = a.start_time || a.time || '00:00';
+      const timeB = b.start_time || b.time || '00:00';
+      return timeB.localeCompare(timeA);
     });
     
     // Gabungkan dan format data
@@ -66,17 +76,60 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
         endTime: booking.end_time,
         participants: booking.participants,
         pic: booking.pic,
-        status: booking.booking_state === 'COMPLETED' || booking.status === 'completed' ? 'Selesai' : 'Dibatalkan',
+        status: booking.booking_state === 'COMPLETED' || booking.status === 'completed' ? 'Selesai' : 
+                booking.booking_state === 'CANCELLED' || booking.status === 'cancelled' ? 'Dibatalkan' : 'Selesai',
+        cancelReason: booking.cancel_reason || booking.cancelReason,
         source: 'server'
       }))
     ];
     
-    // Remove duplicates berdasarkan ID
+    // Remove duplicates berdasarkan ID (handle ai_ prefix)
     const uniqueItems = combinedItems.filter((item, index, self) => 
-      index === self.findIndex(t => t.id === item.id)
+      index === self.findIndex(t => 
+        String(t.id).replace('ai_', '') === String(item.id).replace('ai_', '')
+      )
     );
     
-    const sorted = uniqueItems.sort((a,b)=> (a.time>b.time?1:-1));
+    const sorted = uniqueItems.sort((a,b)=> {
+      // Normalize time format and create proper datetime
+      const normalizeTime = (timeStr) => {
+        if (!timeStr) return '00:00';
+        // If time is in HH:MM:SS format, take only HH:MM
+        if (timeStr.includes(':') && timeStr.split(':').length === 3) {
+          return timeStr.substring(0, 5);
+        }
+        return timeStr;
+      };
+      
+      const normalizeDate = (dateStr) => {
+        if (!dateStr) return new Date().toISOString().split('T')[0];
+        // Ensure date is in YYYY-MM-DD format
+        if (dateStr.includes('/')) {
+          const parts = dateStr.split('/');
+          return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+        return dateStr;
+      };
+      
+      const timeA = normalizeTime(a.time);
+      const timeB = normalizeTime(b.time);
+      const dateA = normalizeDate(a.date);
+      const dateB = normalizeDate(b.date);
+      
+      // Create datetime objects for comparison
+      const datetimeA = new Date(dateA + ' ' + timeA);
+      const datetimeB = new Date(dateB + ' ' + timeB);
+      
+      // Debug logging (can be removed in production)
+      // console.log('Sorting:', {
+      //   a: { date: a.date, normalizedDate: dateA, time: a.time, normalizedTime: timeA, datetime: datetimeA },
+      //   b: { date: b.date, normalizedDate: dateB, time: b.time, normalizedTime: timeB, datetime: datetimeB },
+      //   result: datetimeB.getTime() - datetimeA.getTime()
+      // });
+      
+      // Sort in descending order (newest first)
+      return datetimeB.getTime() - datetimeA.getTime();
+    });
     console.log('HistoryPage - Final combined entries:', sorted);
     
     return sorted;
@@ -218,6 +271,19 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
                             </span>
                           </div>
                         </div>
+                        
+                        {/* Additional info for cancelled bookings */}
+                        {h.status === 'Dibatalkan' && h.cancelReason && (
+                          <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                            <div className="flex items-start gap-2 text-red-700 text-sm">
+                              <span className="w-1.5 h-1.5 bg-red-500 rounded-full mt-1"></span>
+                              <div>
+                                <span className="font-medium">Alasan Pembatalan:</span>
+                                <p className="mt-1 text-red-600">{h.cancelReason}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Additional info for expired bookings */}
                         {h.status === 'expired' && h.completedAt && (

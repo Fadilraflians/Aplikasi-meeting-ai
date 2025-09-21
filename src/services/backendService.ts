@@ -197,10 +197,10 @@ export class BackendService {
     /**
      * Cancel booking in backend
      */
-    static async cancelBooking(bookingId: number) {
+    static async cancelBooking(bookingId: number, reason?: string) {
         try {
-            console.log('Cancelling booking in backend:', bookingId);
-            const result = await ApiService.cancelBooking(bookingId);
+            console.log('Cancelling booking in backend:', bookingId, 'with reason:', reason);
+            const result = await ApiService.cancelBooking(bookingId, reason);
             console.log('Booking cancelled successfully:', result);
             return result;
         } catch (error) {

@@ -63,6 +63,11 @@ export interface Booking {
   notes?: string; // Catatan tambahan
   roomNotFound?: boolean; // Flag untuk ruangan yang tidak ditemukan di database
   isConfirmation?: boolean; // Flag untuk konfirmasi user
+  // Status fields untuk database
+  status?: string; // Status dari database (active, expired, cancelled, completed)
+  booking_state?: string; // Booking state dari database (BOOKED, COMPLETED, CANCELLED)
+  cancel_reason?: string; // Alasan pembatalan
+  source?: string; // Sumber booking ('ai' atau 'form')
 }
 
 export enum BookingState {

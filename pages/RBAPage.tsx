@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Page, Booking, MeetingRoom } from '../types';
-import RoomBookingAssistant, { createRoomBookingAssistant } from '../services/roomBookingAssistant';
+import RoomBookingAssistant from '../services/roomBookingAssistant';
+import { createRoomBookingAssistant } from '../services/roomBookingAssistant';
 import { BackArrowIcon, SendIcon, RobotIcon, CheckIcon, XIcon, BookingIcon } from '../components/icons';
 
 const AiIcon: React.FC = () => {
@@ -116,7 +117,7 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                                    response.bookingData.topic && 
                                    response.bookingData.pic && 
                                    response.bookingData.date && 
-                                   response.bookingData.time && 
+                                   (response.bookingData.time || response.bookingData.meeting_time) && 
                                    response.bookingData.participants && 
                                    response.bookingData.meetingType;
                 
@@ -132,10 +133,11 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                         topic: !response.bookingData.topic,
                         pic: !response.bookingData.pic,
                         date: !response.bookingData.date,
-                        time: !response.bookingData.time,
+                        time: !response.bookingData.time && !response.bookingData.meeting_time,
                         participants: !response.bookingData.participants,
                         meetingType: !response.bookingData.meetingType
                     });
+                    console.log('❌ RBAPage - Actual booking data:', response.bookingData);
                 }
             }
         } catch (error) {
@@ -160,49 +162,87 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
     };
 
     const handleOptionClick = async (option: string) => {
-        if (option === 'Pesan Ruangan') {
-            onNavigate(Page.Booking);
-        } else if (option === 'Bantuan') {
-            onNavigate(Page.HelpCenter);
-        } else {
-            // Handle quick actions from AI
-            if (assistant) {
-                try {
-                    setIsLoading(true);
-                    const response = await assistant.handleQuickAction(option);
+        // Semua quick buttons sekarang akan mengirim pesan ke AI
+        if (assistant) {
+            try {
+                setIsLoading(true);
+                
+                // Buat pesan user untuk ditampilkan di chat
+                const userMessage = {
+                    id: Date.now(),
+                    text: option,
+                    sender: 'user' as const,
+                    timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: true })
+                };
+                setMessages(prev => [...prev, userMessage]);
+                
+                // Handle quick action atau process input biasa
+                let response;
+                if (option === 'Pesan Ruangan') {
+                    response = await assistant.processInput('Saya ingin memesan ruang rapat');
+                } else if (option === 'Bantuan') {
+                    response = await assistant.processInput('Saya butuh bantuan');
+                } else {
+                    // Handle quick actions dari AI
+                    response = await assistant.handleQuickAction(option);
+                }
+                
+                const aiMessage = {
+                    id: Date.now() + 1,
+                    text: response.message,
+                    sender: 'ai' as const,
+                    timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                    options: response.quickActions?.map(qa => qa.label)
+                };
+
+                setMessages(prev => [...prev, aiMessage]);
+
+                // If booking is confirmed, navigate to confirmation page
+                if (response.action === 'complete' && response.bookingData) {
+                    // Validate data before sending
+                    const hasValidData = response.bookingData.roomName && 
+                                       response.bookingData.topic && 
+                                       response.bookingData.pic && 
+                                       response.bookingData.date && 
+                                       (response.bookingData.time || response.bookingData.meeting_time) && 
+                                       response.bookingData.participants && 
+                                       response.bookingData.meetingType;
                     
-                    const aiMessage = {
-                        id: Date.now() + 1,
-                        text: response.message,
-                        sender: 'ai' as const,
-                        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                        options: response.quickActions?.map(qa => qa.label)
-                    };
-
-                    setMessages(prev => [...prev, aiMessage]);
-
-                    // If booking is confirmed, navigate to confirmation page
-                    if (response.action === 'complete' && response.bookingData) {
+                    if (hasValidData) {
+                        console.log('✅ RBAPage (OptionClick) - All booking data is valid, proceeding to confirmation');
                         setTimeout(() => {
                             onBookingConfirmed(response.bookingData as any);
                         }, 1000);
+                    } else {
+                        console.log('❌ RBAPage (OptionClick) - Booking data is incomplete, not proceeding to confirmation');
+                        console.log('❌ RBAPage (OptionClick) - Missing fields:', {
+                            roomName: !response.bookingData.roomName,
+                            topic: !response.bookingData.topic,
+                            pic: !response.bookingData.pic,
+                            date: !response.bookingData.date,
+                            time: !response.bookingData.time && !response.bookingData.meeting_time,
+                            participants: !response.bookingData.participants,
+                            meetingType: !response.bookingData.meetingType
+                        });
+                        console.log('❌ RBAPage (OptionClick) - Actual booking data:', response.bookingData);
                     }
-                } catch (error) {
-                    console.error('Error handling quick action:', error);
-                    const errorMessage = {
-                        id: Date.now() + 1,
-                        text: "Maaf, terjadi kesalahan. Silakan coba lagi.",
-                        sender: 'ai' as const,
-                        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: true })
-                    };
-                    setMessages(prev => [...prev, errorMessage]);
-                } finally {
-                    setIsLoading(false);
                 }
-            } else {
-                setInputValue(option);
-                handleSendMessage();
+            } catch (error) {
+                console.error('Error handling quick action:', error);
+                const errorMessage = {
+                    id: Date.now() + 1,
+                    text: "Maaf, terjadi kesalahan. Silakan coba lagi.",
+                    sender: 'ai' as const,
+                    timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: true })
+                };
+                setMessages(prev => [...prev, errorMessage]);
+            } finally {
+                setIsLoading(false);
             }
+        } else {
+            // Fallback jika assistant belum tersedia
+            setInputValue(option);
+            handleSendMessage();
         }
     };
 

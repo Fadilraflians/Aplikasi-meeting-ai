@@ -161,7 +161,7 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
   console.log('🔍 ReservationCard received booking:', booking);
   // Hitung apakah reservasi sudah lewat atau akan datang
   const normalizeTime = (t: string) => {
-    if (!t) return '00:00:00';
+    if (!t) return '00:00';
     
     // Handle time range format "HH:MM - HH:MM"
     if (t.includes(' - ')) {
@@ -171,8 +171,7 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
       if (!m) return v;
       const hh = String(Math.min(23, Math.max(0, parseInt(m[1], 10)))).padStart(2, '0');
       const mm = String(Math.min(59, Math.max(0, parseInt(m[2], 10)))).padStart(2, '0');
-      const ss = m[3] ? String(Math.min(59, Math.max(0, parseInt(m[3], 10)))).padStart(2, '0') : '00';
-      return `${hh}:${mm}:${ss}`;
+      return `${hh}:${mm}`;
     }
     
     // Handle single time format "HH:MM" or "HH:MM:SS"
@@ -181,8 +180,7 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
     if (!m) return v;
     const hh = String(Math.min(23, Math.max(0, parseInt(m[1], 10)))).padStart(2, '0');
     const mm = String(Math.min(59, Math.max(0, parseInt(m[2], 10)))).padStart(2, '0');
-    const ss = m[3] ? String(Math.min(59, Math.max(0, parseInt(m[3], 10)))).padStart(2, '0') : '00';
-    return `${hh}:${mm}:${ss}`;
+    return `${hh}:${mm}`;
   };
 
   const toTs = (b: Booking, useEndTime = false) => {
@@ -362,10 +360,24 @@ const ReservationCard: React.FC<{ booking: Booking }> = ({ booking }) => {
               <span className="text-xs font-medium text-gray-500">Waktu</span>
             </div>
             <p className="font-semibold text-gray-800">
-              {booking.time}
-              {booking.endTime && (
-                <span className="text-gray-500 text-sm ml-1">- {booking.endTime}</span>
-              )}
+              {(() => {
+                const startTime = booking.time || '00:00';
+                const endTime = booking.endTime || '';
+                
+                // Normalize time format: replace dots with colons and ensure HH:MM format
+                const normalizeDisplayTime = (time: string) => {
+                  const normalizedTime = time.replace(/\./g, ':');
+                  // If it's in HH:MM:SS format, take only HH:MM
+                  return normalizedTime.includes(':') && normalizedTime.split(':').length === 3 
+                    ? normalizedTime.substring(0, 5) 
+                    : normalizedTime;
+                };
+                
+                const formattedStartTime = normalizeDisplayTime(startTime);
+                const formattedEndTime = endTime ? normalizeDisplayTime(endTime) : '';
+                
+                return formattedStartTime + (formattedEndTime ? ` - ${formattedEndTime}` : '');
+              })()}
               {!booking.endTime && (
                 <span className="text-red-500 text-xs ml-1">(No endTime)</span>
               )}
@@ -452,6 +464,7 @@ const HistoryListPreview: React.FC = () => {
 
 const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Booking[] }> = ({ onNavigate, bookings }) => {
     const { t } = useLanguage();
+    const [refreshKey, setRefreshKey] = useState(0);
 
     // Use bookings from props directly - no need to fetch separately
     console.log('🔍 Dashboard received bookings from props:', bookings);
@@ -471,7 +484,27 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
         console.log('🔍 Dashboard useEffect triggered, bookings:', bookings);
     }, [bookings]);
 
-    // No need for auto-refresh since data comes from props
+    // Listen for refresh events to update data
+    useEffect(() => {
+        const handleRefreshBookings = () => {
+            console.log('🔍 Dashboard received refreshBookings event');
+            console.log('🔍 Current refreshKey:', refreshKey);
+            // Force re-render by updating refresh key
+            setRefreshKey(prev => {
+                const newKey = prev + 1;
+                console.log('🔍 Updated refreshKey from', prev, 'to', newKey);
+                return newKey;
+            });
+        };
+
+        console.log('🔍 Dashboard setting up refreshBookings event listener');
+        window.addEventListener('refreshBookings', handleRefreshBookings);
+        
+        return () => {
+            console.log('🔍 Dashboard removing refreshBookings event listener');
+            window.removeEventListener('refreshBookings', handleRefreshBookings);
+        };
+    }, []);
 
     // Pilih reservasi mendatang terdekat dari gabungan DB + lokal
     const normalizeTime = (t: string) => {
@@ -621,7 +654,9 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
     };
     
     // Filter booking berdasarkan status yang sama dengan ReservationsPage
-    const upcomingBookings = unified.filter(booking => {
+    const upcomingBookings = React.useMemo(() => {
+        console.log('🔍 Dashboard useMemo triggered, unified length:', unified.length, 'refreshKey:', refreshKey);
+        return unified.filter(booking => {
         const status = getBookingStatus(booking.date, booking.time, booking.endTime);
         console.log(`🔍 Dashboard Booking ${booking.topic} (${booking.date} ${booking.time}): Status = ${status}`);
         
@@ -638,7 +673,7 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
         // Filter out completed bookings (same logic as ReservationsPage)
         const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
         const isCompleted = history.some((h: any) => 
-            String(h.id) === String(booking.id) && h.status === 'Selesai'
+            String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Selesai'
         );
         
         if (isCompleted) {
@@ -646,8 +681,19 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
             return false;
         }
         
+        // Filter out cancelled bookings (same logic as ReservationsPage)
+        const isCancelled = history.some((h: any) => 
+            String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Dibatalkan'
+        );
+        
+        if (isCancelled) {
+            console.log('🔍 Dashboard Filtering out cancelled booking:', booking.topic, 'ID:', booking.id);
+            return false;
+        }
+        
         return isUpcoming;
-    });
+        });
+    }, [unified, refreshKey]);
     
     const pastBookings = unified.filter(booking => {
         const status = getBookingStatus(booking.date, booking.time, booking.endTime);

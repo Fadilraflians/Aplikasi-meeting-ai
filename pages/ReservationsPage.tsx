@@ -165,12 +165,12 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between mb-3">
-        <div>
+              <div>
                 <h4 className={`font-bold text-xl mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {booking.roomName || 'Meeting Room'}
+                  {booking.topic || booking.meeting_topic || 'Meeting'}
                 </h4>
                 <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  {booking.topic || 'Meeting'}
+                  {booking.roomName || booking.room_name || 'Meeting Room'}
                 </p>
               </div>
               
@@ -197,7 +197,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                 <div>
                   <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('reservations.date')}</div>
                   <div className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                    {new Date(booking.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    {new Date(booking.date || booking.meeting_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                   </div>
                 </div>
               </div>
@@ -209,7 +209,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                 <div>
                   <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('reservations.time')}</div>
                   <div className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                    {formatTime(booking.time, booking.endTime)}
+                    {formatTime(booking.time || booking.meeting_time, booking.endTime)}
                   </div>
                 </div>
               </div>
@@ -233,7 +233,7 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
                 <div>
                   <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('reservations.participants')}</div>
                   <div className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                    {booking.participants} {t('meetingRooms.people')}
+                    {booking.participants || booking.meeting_participants || 0} {t('meetingRooms.people')}
                   </div>
                 </div>
               </div>
@@ -341,12 +341,26 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
 
 
 const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Booking[], onCancelBooking: (id: number) => void, onRemoveLocalBooking?: (id:number)=>void, refreshTrigger?: number }> = ({ onNavigate, bookings, onCancelBooking, onRemoveLocalBooking, refreshTrigger }) => {
+    // Debug logging for bookings data
+    console.log('🔍 ReservationsPage - Received bookings:', bookings.map(b => ({
+        id: b.id,
+        topic: b.topic,
+        roomName: b.roomName,
+        date: b.date,
+        time: b.time,
+        participants: b.participants,
+        pic: b.pic
+    })));
+    
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<'Terbaru' | 'Terlama'>('Terbaru');
     const [serverBookings, setServerBookings] = useState<any[]>([]);
     const [aiBookings, setAiBookings] = useState<any[]>([]);
     const [serverCurrentTime, setServerCurrentTime] = useState<any>(null);
     const [rispatStatus, setRispatStatus] = useState<{[key: string]: boolean}>({}); // Track rispat status for each booking
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+    const [bookingToCancel, setBookingToCancel] = useState<any>(null);
+    const [cancelReason, setCancelReason] = useState('');
     
     // Calculate active reservations based on current time and status
     const getActiveReservations = () => {
@@ -369,10 +383,15 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             // Also check if booking is not completed
             const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
             const isCompleted = history.some((h: any) => 
-                String(h.id) === String(booking.id) && h.status === 'Selesai'
+                String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Selesai'
             );
             
-            return isTimeActive && !isCompleted;
+            // Also check if booking is not cancelled
+            const isCancelled = history.some((h: any) => 
+                String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Dibatalkan'
+            );
+            
+            return isTimeActive && !isCompleted && !isCancelled;
         });
     };
     
@@ -670,67 +689,154 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
         };
     }, []);
 
-    const handleCancel = async (id: string | number) => {
-        try {
-            // Show confirmation dialog
-            const confirmed = window.confirm(t('reservations.confirmCancel'));
-            if (!confirmed) return;
-
-            console.log('Cancelling booking:', id);
-            
-            // Check if this is an AI booking
-            const isAiBooking = String(id).startsWith('ai_');
-            
-            if (isAiBooking) {
-                // For AI bookings, call the AI cancel endpoint
-                console.log('Attempting to cancel AI booking:', String(id));
-                const result = await ApiService.cancelBooking(String(id));
-                console.log('AI booking cancel result:', result);
-            } else {
-                // For form bookings, call the regular API
-                console.log('Attempting to cancel form booking:', Number(id));
-                await onCancelBooking(Number(id));
-                console.log('Form booking cancelled successfully');
-            }
-            
-            // Add to history
-            const bookingToCancel = [...serverBookings, ...aiBookings].find(b => 
+    const handleCancel = (id: string | number) => {
+        // Find the booking to cancel from the main bookings prop (same data shown in the UI)
+        const booking = bookings.find(b => 
+            String(b.id) === String(id) || String(b.id) === String(id).replace('ai_', '')
+        );
+        
+        console.log('🔍 handleCancel - Looking for booking with ID:', id);
+        console.log('🔍 handleCancel - Available bookings:', bookings.map(b => ({ id: b.id, topic: b.topic })));
+        console.log('🔍 handleCancel - Found booking:', booking);
+        
+        if (booking) {
+            console.log('🔍 handleCancel - Setting bookingToCancel with data:', {
+                id: booking.id,
+                topic: booking.topic,
+                roomName: booking.roomName,
+                date: booking.date,
+                time: booking.time,
+                participants: booking.participants,
+                pic: booking.pic
+            });
+            setBookingToCancel({ ...booking, id });
+            setCancelModalOpen(true);
+        } else {
+            // Fallback if booking not found - try to find from serverBookings or aiBookings
+            const fallbackBooking = [...serverBookings, ...aiBookings].find(b => 
                 String(b.id) === String(id) || String(b.id) === String(id).replace('ai_', '')
             );
             
-            if (bookingToCancel) {
-                addHistory({
-                    id: id,
-                    roomName: bookingToCancel.room_name || bookingToCancel.roomName,
-                    topic: bookingToCancel.topic,
-                    date: bookingToCancel.meeting_date || bookingToCancel.date,
-                    time: bookingToCancel.meeting_time || bookingToCancel.time,
-                    participants: bookingToCancel.participants,
-                    status: 'Dibatalkan'
-                });
+            if (fallbackBooking) {
+                console.log('🔍 handleCancel - Using fallback booking:', fallbackBooking);
+                setBookingToCancel({ ...fallbackBooking, id });
+                setCancelModalOpen(true);
+            } else {
+                // Last resort fallback - show error message instead of incomplete data
+                console.error('🔍 handleCancel - No booking found for ID:', id);
+                alert('Data reservasi tidak ditemukan. Silakan refresh halaman dan coba lagi.');
+                return;
+            }
+        }
+    };
+
+    const handleConfirmCancel = async () => {
+        if (!bookingToCancel || !cancelReason.trim()) {
+            alert('Mohon masukkan alasan pembatalan');
+            return;
+        }
+
+        try {
+            console.log('Cancelling booking:', bookingToCancel.id, 'with reason:', cancelReason);
+            console.log('Booking data:', bookingToCancel);
+            
+            // Check if this is an AI booking
+            const isAiBooking = String(bookingToCancel.id).startsWith('ai_');
+            
+            let cancelSuccess = false;
+            
+            if (isAiBooking) {
+                // For AI bookings, call the AI cancel endpoint with reason
+                console.log('Attempting to cancel AI booking:', String(bookingToCancel.id));
+                try {
+                    const result = await ApiService.cancelBooking(String(bookingToCancel.id), cancelReason.trim());
+                    console.log('AI booking cancel result:', result);
+                    cancelSuccess = true;
+                } catch (error) {
+                    console.error('AI booking cancel failed:', error);
+                    // Check if it's a 404 error (booking not found)
+                    if (error.message && error.message.includes('not found')) {
+                        alert('Reservasi tidak ditemukan atau sudah dibatalkan sebelumnya. Data akan dihapus dari tampilan.');
+                        
+                        // Remove the booking from UI since it doesn't exist in database
+                        onRemoveLocalBooking?.(bookingToCancel.id);
+                        
+                        // Close modal
+                        setCancelModalOpen(false);
+                        setBookingToCancel(null);
+                        setCancelReason('');
+                        return;
+                    }
+                    throw error; // Re-throw other errors
+                }
+            } else {
+                // For form bookings, call the regular API
+                console.log('Attempting to cancel form booking:', Number(bookingToCancel.id));
+                await onCancelBooking(Number(bookingToCancel.id));
+                console.log('Form booking cancelled successfully');
+                cancelSuccess = true;
             }
             
-            // Remove from all states - PERMANENT REMOVAL
-            onRemoveLocalBooking?.(id);
+            if (!cancelSuccess) {
+                throw new Error('Failed to cancel booking');
+            }
             
-            // Remove from server bookings (form bookings)
-            setServerBookings(prev => prev.filter((b:any) => String(b.id) !== String(id)));
+            // Add to history with cancellation reason
+            addHistory({
+                id: String(bookingToCancel.id).replace('ai_', ''),
+                roomName: bookingToCancel.room_name || bookingToCancel.roomName || 'Unknown Room',
+                topic: bookingToCancel.topic || 'Reservasi Meeting',
+                date: bookingToCancel.meeting_date || bookingToCancel.date || new Date().toISOString().split('T')[0],
+                time: bookingToCancel.meeting_time || bookingToCancel.time || new Date().toLocaleTimeString(),
+                participants: bookingToCancel.participants || 0,
+                status: 'Dibatalkan',
+                cancelReason: cancelReason.trim()
+            });
             
-            // Remove from AI bookings (AI bookings)
-            setAiBookings(prev => prev.filter((b:any) => String(b.id) !== String(String(id).replace('ai_', ''))));
+            // Update booking status to cancelled instead of removing
+            // For form bookings, update the status in local state
+            if (!isAiBooking) {
+                setServerBookings(prev => prev.map((b:any) => 
+                    String(b.id) === String(bookingToCancel.id) 
+                        ? { ...b, status: 'cancelled', cancel_reason: cancelReason.trim() }
+                        : b
+                ));
+            } else {
+                // For AI bookings, update the status in local state
+                setAiBookings(prev => prev.map((b:any) => 
+                    String(b.id) === String(bookingToCancel.id).replace('ai_', '') 
+                        ? { ...b, booking_state: 'CANCELLED', cancel_reason: cancelReason.trim() }
+                        : b
+                ));
+            }
+            
+            // Remove from active bookings list (but keep in history)
+            onRemoveLocalBooking?.(bookingToCancel.id);
+            
+            // Close modal and reset
+            setCancelModalOpen(false);
+            setBookingToCancel(null);
+            setCancelReason('');
             
             // Show success message
-            alert(t('reservations.cancelSuccess'));
+            alert('Reservasi berhasil dibatalkan');
             
-        } catch (e) {
-            console.error('Error cancelling booking:', e);
-            console.error('Error details:', {
-                id,
-                isAiBooking: String(id).startsWith('ai_'),
-                error: e
-            });
-            alert(`Failed to cancel booking. Error: ${e.message || e}`);
-            return;
+        } catch (error) {
+            console.error('Error cancelling booking:', error);
+            
+            // Provide more specific error messages
+            let errorMessage = 'Gagal membatalkan reservasi';
+            if (error.message) {
+                if (error.message.includes('not found')) {
+                    errorMessage = 'Reservasi tidak ditemukan atau sudah dibatalkan sebelumnya';
+                } else if (error.message.includes('network')) {
+                    errorMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda';
+                } else if (error.message.includes('timeout')) {
+                    errorMessage = 'Permintaan timeout. Silakan coba lagi';
+                }
+            }
+            
+            alert(errorMessage);
         }
     };
 
@@ -753,7 +859,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             
             // Add to history
             addHistory({
-                id: b.id,
+                id: String(b.id).replace('ai_', ''), // Remove ai_ prefix for consistency
                 roomName: b.roomName,
                 topic: b.topic,
                 date: b.date,
@@ -765,13 +871,27 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             
             // Remove booking from active list completely
             // This will make it disappear from ReservationsPage
-            onRemoveLocalBooking?.(Number(b.id));
+            if (isAiBooking) {
+                onRemoveLocalBooking?.(b.id); // Keep as string for AI bookings
+                // Also remove from local AI bookings state
+                setAiBookings(prev => prev.filter(aiBooking => String(aiBooking.id) !== String(b.id).replace('ai_', '')));
+                // Remove from server bookings state as well
+                setServerBookings(prev => prev.filter(serverBooking => String(serverBooking.id) !== String(b.id).replace('ai_', '')));
+            } else {
+                onRemoveLocalBooking?.(Number(b.id)); // Convert to number for regular bookings
+                // Remove from server bookings state as well
+                setServerBookings(prev => prev.filter(serverBooking => String(serverBooking.id) !== String(b.id)));
+            }
             
             // The completed booking will now appear in RispatPage and HistoryPage
             // The filteredSorted useMemo will automatically filter out completed bookings
             
             // Show success message
             alert('✅ Reservasi berhasil diselesaikan! Risalah rapat dapat dilihat di halaman View Rispat.');
+            
+            // Refresh data to ensure completed booking is removed from active list
+            // This will trigger a re-fetch from server
+            window.dispatchEvent(new CustomEvent('refreshBookings'));
             
         } catch (e) {
             console.error('Error completing booking:', e);
@@ -856,15 +976,42 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                 }
             }
             
-            // Filter out completed bookings (they should appear in View Rispat/History)
-            // Check if booking is completed in localStorage history
+            // Filter out completed and cancelled bookings (they should appear in View Rispat/History)
+            // Check if booking is completed or cancelled in localStorage history
             const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
-            const isCompleted = history.some((h: any) => 
-                String(h.id) === String(b.id) && h.status === 'Selesai'
+            const isCompletedInHistory = history.some((h: any) => 
+                String(h.id) === String(b.id).replace('ai_', '') && h.status === 'Selesai'
+            );
+            const isCancelledInHistory = history.some((h: any) => 
+                String(h.id) === String(b.id).replace('ai_', '') && h.status === 'Dibatalkan'
             );
             
-            if (isCompleted) {
-                console.log('Filtering out completed booking:', b.topic, 'ID:', b.id);
+            // Also check booking status from database
+            const isCompletedInDB = b.status === 'completed' || b.booking_state === 'COMPLETED';
+            const isCancelledInDB = b.status === 'cancelled' || b.booking_state === 'CANCELLED';
+            
+            // Combined check - booking is completed if it's completed in history OR database
+            const isCompleted = isCompletedInHistory || isCompletedInDB;
+            const isCancelled = isCancelledInHistory || isCancelledInDB;
+            
+            console.log('🔍 ReservationsPage - Checking booking:', {
+                id: b.id,
+                topic: b.topic,
+                status: b.status,
+                booking_state: b.booking_state,
+                isCompleted,
+                isCompletedInDB,
+                isCancelled,
+                isCancelledInDB
+            });
+            
+            if (isCompleted || isCompletedInDB) {
+                console.log('Filtering out completed booking:', b.topic, 'ID:', b.id, 'Status:', b.status, 'Booking State:', b.booking_state);
+                return false;
+            }
+            
+            if (isCancelled || isCancelledInDB) {
+                console.log('Filtering out cancelled booking:', b.topic, 'ID:', b.id, 'Status:', b.status, 'Booking State:', b.booking_state);
                 return false;
             }
             
@@ -1014,6 +1161,151 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                 )}
                 </div>
             </div>
+
+            {/* Cancel Booking Modal */}
+            {cancelModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-2xl p-4 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl transform transition-all duration-300 scale-100 animate-slideIn">
+                        {/* Header */}
+                        <div className="text-center mb-4 sm:mb-5">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                                <span className="text-red-600 text-lg sm:text-xl">⚠️</span>
+                            </div>
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">Batalkan Reservasi</h3>
+                            <p className="text-xs sm:text-sm text-gray-600">Apakah Anda yakin ingin membatalkan reservasi ini?</p>
+                        </div>
+
+                        {/* Booking Details */}
+                        {bookingToCancel && (
+                            <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-5">
+                                <h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-base sm:text-lg">
+                                    {bookingToCancel.topic || bookingToCancel.meeting_topic || 'Reservasi Meeting'}
+                                </h4>
+                                <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-600">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-4 h-4 bg-blue-500 rounded-full"></span>
+                                        <span className="font-medium">Ruangan:</span>
+                                        <span className={!bookingToCancel.roomName && !bookingToCancel.room_name ? 'text-red-500 italic' : ''}>
+                                            {bookingToCancel.roomName || bookingToCancel.room_name || 'Data tidak tersedia'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-4 h-4 bg-green-500 rounded-full"></span>
+                                        <span className="font-medium">Tanggal:</span>
+                                        <span className={!bookingToCancel.date && !bookingToCancel.meeting_date ? 'text-red-500 italic' : ''}>
+                                            {(() => {
+                                                const dateStr = bookingToCancel.date || bookingToCancel.meeting_date;
+                                                if (!dateStr) return 'Data tidak tersedia';
+                                                
+                                                // Format date to DD MMM YYYY if it's in YYYY-MM-DD format
+                                                if (dateStr.includes('-') && dateStr.split('-').length === 3) {
+                                                    const [year, month, day] = dateStr.split('-');
+                                                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 
+                                                                      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                                                    return `${day} ${monthNames[parseInt(month) - 1]} ${year}`;
+                                                }
+                                                return dateStr;
+                                            })()}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-4 h-4 bg-orange-500 rounded-full"></span>
+                                        <span className="font-medium">Waktu:</span>
+                                        <span className={!bookingToCancel.time && !bookingToCancel.meeting_time ? 'text-red-500 italic' : ''}>
+                                            {(() => {
+                                                const startTime = bookingToCancel.time || bookingToCancel.meeting_time;
+                                                const endTime = bookingToCancel.endTime;
+                                                
+                                                if (!startTime) return 'Data tidak tersedia';
+                                                
+                                                // Format time to HH:MM if it's in HH:MM:SS format
+                                                const formatTime = (timeStr: string) => {
+                                                    if (!timeStr) return '';
+                                                    // If time is in HH:MM:SS format, take only HH:MM
+                                                    if (timeStr.includes(':') && timeStr.split(':').length === 3) {
+                                                        return timeStr.substring(0, 5);
+                                                    }
+                                                    return timeStr;
+                                                };
+                                                
+                                                const formattedStartTime = formatTime(startTime);
+                                                const formattedEndTime = endTime ? formatTime(endTime) : '';
+                                                
+                                                return formattedStartTime + (formattedEndTime ? ` - ${formattedEndTime}` : '');
+                                            })()}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-4 h-4 bg-purple-500 rounded-full"></span>
+                                        <span className="font-medium">PIC:</span>
+                                        <span className={!bookingToCancel.pic && !bookingToCancel.meeting_pic ? 'text-red-500 italic' : ''}>
+                                            {bookingToCancel.pic || bookingToCancel.meeting_pic || 'Data tidak tersedia'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-4 h-4 bg-pink-500 rounded-full"></span>
+                                        <span className="font-medium">Peserta:</span>
+                                        <span className={!bookingToCancel.participants && !bookingToCancel.meeting_participants ? 'text-red-500 italic' : ''}>
+                                            {bookingToCancel.participants || bookingToCancel.meeting_participants || 0} orang
+                                        </span>
+                                    </div>
+                                    {(bookingToCancel.meeting_type || bookingToCancel.meetingType) && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-4 h-4 bg-indigo-500 rounded-full"></span>
+                                            <span className="font-medium">Jenis Rapat:</span>
+                                            <span>{bookingToCancel.meeting_type || bookingToCancel.meetingType}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Debug info */}
+                                {(!bookingToCancel.roomName && !bookingToCancel.room_name) && (
+                                    <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <p className="text-xs text-yellow-700">
+                                            ⚠️ Data reservasi tidak lengkap. Silakan refresh halaman dan coba lagi.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Cancellation Reason Input */}
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                Alasan Pembatalan <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                                value={cancelReason}
+                                onChange={(e) => setCancelReason(e.target.value)}
+                                placeholder="Masukkan alasan pembatalan reservasi..."
+                                className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
+                                rows={4}
+                                required
+                            />
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 sm:gap-3">
+                            <button
+                                onClick={() => {
+                                    setCancelModalOpen(false);
+                                    setBookingToCancel(null);
+                                    setCancelReason('');
+                                }}
+                                className="flex-1 py-2 sm:py-2.5 px-3 sm:px-4 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-xs sm:text-sm"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={handleConfirmCancel}
+                                className="flex-1 py-2 sm:py-2.5 px-3 sm:px-4 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors text-xs sm:text-sm"
+                            >
+                                Konfirmasi Batalkan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

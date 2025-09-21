@@ -89,7 +89,12 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
         // Check if booking is completed (same logic as ReservationsPage)
         const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
         const isCompleted = history.some((h: any) => 
-          String(h.id) === String(booking.id) && h.status === 'Selesai'
+          String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Selesai'
+        );
+        
+        // Check if booking is cancelled (same logic as ReservationsPage)
+        const isCancelled = history.some((h: any) => 
+          String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Dibatalkan'
         );
         
         if (isExpired) {
@@ -100,7 +105,11 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
           console.log(`🔍 RoomDetailPage - Hiding completed booking: ${booking.topic} (ID: ${booking.id})`);
         }
         
-        const shouldShow = roomMatch && dateMatch && !isExpired && !isCompleted;
+        if (isCancelled) {
+          console.log(`🔍 RoomDetailPage - Hiding cancelled booking: ${booking.topic} (ID: ${booking.id})`);
+        }
+        
+        const shouldShow = roomMatch && dateMatch && !isExpired && !isCompleted && !isCancelled;
         console.log(`🔍 RoomDetailPage - Booking ${booking.topic}: roomMatch=${roomMatch}, dateMatch=${dateMatch}, isExpired=${isExpired}, isCompleted=${isCompleted}, shouldShow=${shouldShow}`);
         
         return shouldShow;

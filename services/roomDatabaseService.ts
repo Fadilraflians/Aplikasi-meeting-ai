@@ -50,7 +50,7 @@ class RoomDatabaseService {
 
   constructor() {
     // Gunakan URL backend yang sesuai dengan struktur aplikasi
-    this.baseUrl = 'http://localhost:5174/backend/api';
+    this.baseUrl = 'http://127.0.0.1:8080/api';
   }
 
   /**
@@ -59,6 +59,14 @@ class RoomDatabaseService {
   async getAllRooms(): Promise<Room[]> {
     try {
       const response = await fetch(`${this.baseUrl}/meeting_rooms.php?action=get_all`);
+      
+      // Check if response is valid JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.warn('API returned non-JSON response, using fallback data');
+        return this.getFallbackRooms();
+      }
+      
       const result = await response.json();
       
       if (result.success) {
@@ -78,11 +86,80 @@ class RoomDatabaseService {
           updated_at: room.updated_at
         }));
       }
-      return [];
+      return this.getFallbackRooms();
     } catch (error) {
       console.error('Error fetching all rooms:', error);
-      return [];
+      console.log('Using fallback room data');
+      return this.getFallbackRooms();
     }
+  }
+
+  /**
+   * Data ruangan fallback jika API tidak tersedia
+   */
+  private getFallbackRooms(): Room[] {
+    return [
+      {
+        id: 1,
+        room_name: 'Ruang Meeting A',
+        room_number: 'RMA-001',
+        capacity: 8,
+        floor: '3',
+        building: 'Gedung Utama',
+        description: 'Ruang meeting kecil untuk rapat tim',
+        features: 'Proyektor, Whiteboard, Wi-Fi',
+        is_available: true,
+        is_maintenance: false
+      },
+      {
+        id: 2,
+        room_name: 'Ruang Konferensi Bintang',
+        room_number: 'RKB-002',
+        capacity: 12,
+        floor: '5',
+        building: 'Gedung Utama',
+        description: 'Ruang konferensi dengan fasilitas lengkap',
+        features: 'Proyektor, Sound System, Video Conference',
+        is_available: true,
+        is_maintenance: false
+      },
+      {
+        id: 3,
+        room_name: 'Auditorium Utama',
+        room_number: 'AU-003',
+        capacity: 50,
+        floor: '1',
+        building: 'Gedung Utama',
+        description: 'Auditorium besar untuk presentasi dan seminar',
+        features: 'Panggung, Sound System, Layar Besar',
+        is_available: true,
+        is_maintenance: false
+      },
+      {
+        id: 4,
+        room_name: 'Ruang Kolaborasi Alpha',
+        room_number: 'RKA-004',
+        capacity: 6,
+        floor: '2',
+        building: 'Gedung Utama',
+        description: 'Ruang kolaborasi dengan meja fleksibel',
+        features: 'Whiteboard Besar, TV Smart, Meja Fleksibel',
+        is_available: true,
+        is_maintenance: false
+      },
+      {
+        id: 5,
+        room_name: 'Ruang Meeting Executive',
+        room_number: 'RME-005',
+        capacity: 15,
+        floor: '4',
+        building: 'Gedung Utama',
+        description: 'Ruang meeting executive dengan fasilitas premium',
+        features: 'Proyektor 4K, Sound System Premium, Video Conference HD',
+        is_available: true,
+        is_maintenance: false
+      }
+    ];
   }
 
   /**

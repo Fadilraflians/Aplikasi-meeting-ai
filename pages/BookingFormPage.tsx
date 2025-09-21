@@ -20,6 +20,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
     const [time, setTime] = useState(bookingData?.time || '');
     const [endTime, setEndTime] = useState(bookingData?.endTime || '');
     const [participants, setParticipants] = useState(bookingData?.participants || 1);
+    const [participantsInput, setParticipantsInput] = useState(String(bookingData?.participants || 1));
     const [pic, setPic] = useState(bookingData?.pic || '');
     const [meetingType, setMeetingType] = useState<'internal' | 'external'>(bookingData?.meetingType || 'internal');
     const [selectedFacilities, setSelectedFacilities] = useState<string[]>(bookingData?.facilities || []);
@@ -84,6 +85,19 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
             }
         }
     }, [bookingData?.pic]);
+
+    // Sync participantsInput with participants only when participants changes externally
+    useEffect(() => {
+        // Only update participantsInput if it's significantly different from participants
+        // and not currently being edited by user
+        const currentInputAsNumber = parseInt(participantsInput, 10);
+        if (isNaN(currentInputAsNumber) || currentInputAsNumber !== participants) {
+            // Only sync if the difference is not due to user typing
+            if (participantsInput === '' || participantsInput === '1') {
+                setParticipantsInput(String(participants));
+            }
+        }
+    }, [participants]);
 
     // Load available rooms from database
     useEffect(() => {
@@ -153,12 +167,24 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
 
     const handleTimeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         // Normalisasi segera: ganti titik menjadi titik dua (beberapa locale menuliskan 15.34)
-        const val = (e.target.value || '').replace(/\./g, ':');
+        let val = (e.target.value || '').replace(/\./g, ':');
+        
+        // Ensure HH:MM format (remove seconds if present)
+        if (val.includes(':') && val.split(':').length === 3) {
+            val = val.substring(0, 5); // Take only HH:MM
+        }
+        
         setTime(val);
     }, []);
 
     const handleEndTimeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = (e.target.value || '').replace(/\./g, ':');
+        let val = (e.target.value || '').replace(/\./g, ':');
+        
+        // Ensure HH:MM format (remove seconds if present)
+        if (val.includes(':') && val.split(':').length === 3) {
+            val = val.substring(0, 5); // Take only HH:MM
+        }
+        
         setEndTime(val);
     }, []);
 
@@ -167,7 +193,21 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
     }, []);
 
     const handleParticipantsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setParticipants(parseInt(e.target.value, 10));
+        const value = e.target.value;
+        
+        // Always update the input value (allow user to clear and type)
+        setParticipantsInput(value);
+        
+        // Only update the actual participants value if it's a valid number
+        if (value === '') {
+            setParticipants(1); // Default value
+        } else {
+            const parsedValue = parseInt(value, 10);
+            if (!isNaN(parsedValue) && parsedValue > 0) {
+                setParticipants(parsedValue);
+            }
+            // If invalid input, don't change participants value
+        }
     }, []);
 
     const handleMeetingTypeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -539,7 +579,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         id="participants" 
                                         name="participants" 
                                         min={1}
-                                        value={participants} 
+                                        value={participantsInput} 
                                         onChange={handleParticipantsChange}
                                         placeholder="Jumlah peserta"
                                         autoComplete="off"

@@ -255,8 +255,11 @@ export class ApiService {
         return this.makeRequest(API_ENDPOINTS.RESERVATIONS.GET_BY_ID(id));
     }
 
-    static async getUserBookings(userId: number) {
-        return this.makeRequest(API_ENDPOINTS.RESERVATIONS.GET_USER_RESERVATIONS(userId));
+    static async getUserBookings(userId: number, includeCompleted: boolean = false) {
+        const url = includeCompleted 
+            ? `${API_ENDPOINTS.RESERVATIONS.GET_USER_RESERVATIONS(userId)}&include_completed=true`
+            : API_ENDPOINTS.RESERVATIONS.GET_USER_RESERVATIONS(userId);
+        return this.makeRequest(url);
     }
 
     static async getAIBookingsByUserId(userId: number) {
@@ -318,19 +321,25 @@ export class ApiService {
         });
     }
 
-    static async cancelBooking(id: number | string) {
+    static async cancelBooking(id: number | string, reason?: string) {
         // Check if this is an AI booking
         const isAiBooking = String(id).startsWith('ai_');
         
         if (isAiBooking) {
             // For AI bookings, use AI-specific endpoint
             const aiId = String(id).replace('ai_', '');
-            return this.makeRequest(`${API_BASE_URL}/bookings.php/ai-cancel?id=${aiId}`, {
+            const url = reason ? 
+                `${API_BASE_URL}/bookings.php/ai-cancel?id=${aiId}&reason=${encodeURIComponent(reason)}` :
+                `${API_BASE_URL}/bookings.php/ai-cancel?id=${aiId}`;
+            return this.makeRequest(url, {
                 method: 'DELETE'
             });
         } else {
             // For form bookings, use regular endpoint
-            return this.makeRequest(API_ENDPOINTS.RESERVATIONS.CANCEL(Number(id)), {
+            const url = reason ? 
+                `${API_ENDPOINTS.RESERVATIONS.CANCEL(Number(id))}?reason=${encodeURIComponent(reason)}` :
+                API_ENDPOINTS.RESERVATIONS.CANCEL(Number(id));
+            return this.makeRequest(url, {
                 method: 'DELETE'
             });
         }

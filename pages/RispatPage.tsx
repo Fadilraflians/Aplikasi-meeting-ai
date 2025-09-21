@@ -14,8 +14,6 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
   const [rispatFiles, setRispatFiles] = useState<any[]>([]);
   const [showRispatModal, setShowRispatModal] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | number | null>(null);
-  const [serverBookings, setServerBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const { t } = useLanguage();
 
   // Fungsi untuk load rispat files
@@ -40,41 +38,7 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
     }
   };
 
-  // Fungsi untuk load bookings dari server
-  const loadServerBookings = async () => {
-    try {
-      setLoading(true);
-      const userDataStr = localStorage.getItem('user_data');
-      const userData = userDataStr ? JSON.parse(userDataStr) : null;
-      const userId = userData?.id;
-      
-      if (!userId) {
-        console.log('No user ID found');
-        setServerBookings([]);
-        return;
-      }
-      
-      // Load all bookings from server (including completed ones)
-      const response = await fetch(`/api/bookings.php?user_id=${userId}`);
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        setServerBookings(result.data);
-      } else {
-        setServerBookings([]);
-      }
-    } catch (error) {
-      console.error('Error loading server bookings:', error);
-      setServerBookings([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load server bookings on component mount
-  useEffect(() => {
-    loadServerBookings();
-  }, []);
+  // Tidak perlu load server bookings lagi karena hanya menggunakan AI data
 
   // Fungsi untuk handle view rispat
   const handleViewRispat = async (bookingId: string | number) => {
@@ -84,52 +48,102 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const items = useMemo(() => {
-    // Gabungkan data dari localStorage dan server
+    // HANYA gunakan data dari localStorage (AI data)
     const local = getHistory();
     console.log('RispatPage - All history entries:', local);
-    console.log('RispatPage - Server bookings:', serverBookings);
     console.log('RispatPage - Selected date:', date);
     
     // Filter data lokal dengan status 'Selesai'
     const localFiltered = local.filter(h => h.date === date && h.status === 'Selesai');
+    console.log('RispatPage - Local filtered entries:', localFiltered.length, localFiltered);
     
-    // Filter data server untuk tanggal yang sama dan status complete
-    const serverFiltered = serverBookings.filter(booking => {
-      const bookingDate = booking.meeting_date || booking.date;
-      const isComplete = booking.booking_state === 'COMPLETED' || booking.status === 'completed';
-      return bookingDate === date && isComplete;
+    // Debug: Log setiap item lokal untuk melihat detail
+    localFiltered.forEach((item, index) => {
+      console.log(`RispatPage - Local item ${index}:`, {
+        id: item.id,
+        topic: item.topic,
+        date: item.date,
+        time: item.time,
+        roomName: item.roomName,
+        pic: item.pic,
+        status: item.status
+      });
     });
     
-    // Gabungkan dan format data
-    const combinedItems = [
-      ...localFiltered.map(item => ({
-        ...item,
-        source: 'local'
-      })),
-      ...serverFiltered.map(booking => ({
-        id: booking.id,
-        roomName: booking.room_name,
-        topic: booking.topic,
-        date: booking.meeting_date || booking.date,
-        time: booking.start_time || booking.time,
-        endTime: booking.end_time,
-        participants: booking.participants,
-        pic: booking.pic,
-        status: 'Selesai', // Server bookings dianggap selesai
-        source: 'server'
-      }))
-    ];
+    // Remove duplicates dari local data saja
+    const uniqueItems = [];
+    const seenItems = new Set();
     
-    // Remove duplicates berdasarkan ID
-    const uniqueItems = combinedItems.filter((item, index, self) => 
-      index === self.findIndex(t => t.id === item.id)
-    );
+    // Tambahkan local items dengan deduplikasi
+    localFiltered.forEach((item, index) => {
+      // Buat key yang lebih ketat untuk local items
+      const key = `${item.topic}-${item.date}-${item.time}-${item.roomName}-${item.pic}-${item.participants}`;
+      console.log(`RispatPage - Local key ${index}:`, key);
+      
+      if (!seenItems.has(key)) {
+        seenItems.add(key);
+        uniqueItems.push({
+          ...item,
+          source: 'local'
+        });
+        console.log(`RispatPage - Added local item ${index}:`, item.topic);
+      } else {
+        console.log(`RispatPage - Skipped duplicate local item ${index}:`, item.topic);
+      }
+    });
     
-    const sorted = uniqueItems.sort((a,b)=> (a.time>b.time?1:-1));
+    // Sort by completion timestamp in descending order (newest first)
+    const sorted = uniqueItems.sort((a, b) => {
+      // Use completedAt if available (most accurate timestamp)
+      const timestampA = a.completedAt || a.savedAt || new Date().toISOString();
+      const timestampB = b.completedAt || b.savedAt || new Date().toISOString();
+      
+      const dateA = new Date(timestampA);
+      const dateB = new Date(timestampB);
+      
+      // Sort by timestamp in descending order (newest first)
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    // Debug logging untuk duplikasi
+    console.log('RispatPage - Local filtered entries:', localFiltered.length);
+    console.log('RispatPage - Unique items after deduplication:', uniqueItems.length);
+    console.log('RispatPage - Duplicates removed:', localFiltered.length - uniqueItems.length);
     console.log('RispatPage - Final combined entries:', sorted);
     
-    return sorted;
-  }, [date, serverBookings]);
+    // Log setiap item yang ditampilkan untuk debugging
+    sorted.forEach((item, index) => {
+      console.log(`RispatPage - Final item ${index}:`, {
+        topic: item.topic,
+        roomName: item.roomName,
+        date: item.date,
+        time: item.time,
+        participants: item.participants,
+        pic: item.pic,
+        source: item.source
+      });
+    });
+    
+    // Final check untuk memastikan tidak ada duplikasi
+    const finalCheck = sorted.filter((item, index, self) => {
+      const key = `${item.topic}-${item.date}-${item.time}-${item.roomName}-${item.pic}-${item.participants}`;
+      const firstIndex = self.findIndex(t => `${t.topic}-${t.date}-${t.time}-${t.roomName}-${t.pic}-${t.participants}` === key);
+      
+      if (firstIndex !== index) {
+        console.log(`RispatPage - Final check: Found duplicate, keeping first:`, item.topic);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    if (finalCheck.length !== sorted.length) {
+      console.warn('RispatPage - WARNING: Still found duplicates after deduplication!');
+      console.warn('RispatPage - Original length:', sorted.length, 'Final length:', finalCheck.length);
+    }
+    
+    return finalCheck;
+  }, [date]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100">

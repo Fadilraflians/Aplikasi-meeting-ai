@@ -192,13 +192,29 @@ const BookingConfirmationPage: React.FC<BookingConfirmationPageProps> = ({ onNav
                     <div>
                         <p className="text-sm text-gray-500">Waktu Mulai</p>
                         <p className="font-semibold text-lg text-gray-800">
-                            {booking.time || '09:00'}
+                            {(() => {
+                                const time = booking.time || '09:00';
+                                // Normalize time format: replace dots with colons and ensure HH:MM format
+                                const normalizedTime = time.replace(/\./g, ':');
+                                // If it's in HH:MM:SS format, take only HH:MM
+                                return normalizedTime.includes(':') && normalizedTime.split(':').length === 3 
+                                    ? normalizedTime.substring(0, 5) 
+                                    : normalizedTime;
+                            })()}
                         </p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Waktu Berakhir</p>
                         <p className="font-semibold text-lg text-gray-800">
-                            {booking.endTime || calculateEndTime(booking.time || '09:00', booking.duration || 60)}
+                            {(() => {
+                                const endTime = booking.endTime || calculateEndTime(booking.time || '09:00', booking.duration || 60);
+                                // Normalize time format: replace dots with colons and ensure HH:MM format
+                                const normalizedTime = endTime.replace(/\./g, ':');
+                                // If it's in HH:MM:SS format, take only HH:MM
+                                return normalizedTime.includes(':') && normalizedTime.split(':').length === 3 
+                                    ? normalizedTime.substring(0, 5) 
+                                    : normalizedTime;
+                            })()}
                         </p>
                     </div>
                     <div>

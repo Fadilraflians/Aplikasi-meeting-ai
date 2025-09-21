@@ -8,7 +8,13 @@ class AiBookingSuccess {
     private $table_name = "ai_bookings_success";
 
     public function __construct($db) {
-        $this->conn = $db;
+        // Check if $db is a Database instance or PDO connection
+        if ($db instanceof Database) {
+            $this->conn = $db->getConnection();
+        } else {
+            // $db is already a PDO connection
+            $this->conn = $db;
+        }
     }
 
     /**
@@ -175,20 +181,39 @@ class AiBookingSuccess {
     /**
      * Menghapus pemesanan berdasarkan ID
      */
-    public function deleteSuccessBooking($id) {
+    public function deleteSuccessBooking($id, $cancelReason = null) {
         try {
-            $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
-            
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(":id", $id);
+            if ($cancelReason) {
+                // Update booking state to CANCELLED and save reason (DO NOT DELETE)
+                $query = "UPDATE " . $this->table_name . " 
+                         SET booking_state = 'CANCELLED', cancel_reason = :cancel_reason, updated_at = CURRENT_TIMESTAMP 
+                         WHERE id = :id";
+                
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(":id", $id);
+                $stmt->bindParam(":cancel_reason", $cancelReason);
+                
+                $result = $stmt->execute();
+                $rowCount = $stmt->rowCount();
+                
+                error_log("UPDATE query executed for ID: $id with reason: $cancelReason, Result: " . ($result ? 'true' : 'false') . ", Rows affected: $rowCount");
+                
+                return $result && $rowCount > 0;
+            } else {
+                // Original delete without reason
+                $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
+                
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(":id", $id);
 
-            $result = $stmt->execute();
-            $rowCount = $stmt->rowCount();
-            
-            // Log untuk debug
-            error_log("DELETE query executed for ID: $id, Result: " . ($result ? 'true' : 'false') . ", Rows affected: $rowCount");
-            
-            return $result && $rowCount > 0;
+                $result = $stmt->execute();
+                $rowCount = $stmt->rowCount();
+                
+                // Log untuk debug
+                error_log("DELETE query executed for ID: $id, Result: " . ($result ? 'true' : 'false') . ", Rows affected: $rowCount");
+                
+                return $result && $rowCount > 0;
+            }
         } catch (PDOException $e) {
             error_log("Error deleting success booking: " . $e->getMessage());
             return false;
@@ -199,8 +224,8 @@ class AiBookingSuccess {
     /**
      * Alias untuk deleteSuccessBooking untuk kompatibilitas dengan API
      */
-    public function deleteBooking($id) {
-        return $this->deleteSuccessBooking($id);
+    public function deleteBooking($id, $cancelReason = null) {
+        return $this->deleteSuccessBooking($id, $cancelReason);
     }
 
     /**
@@ -211,7 +236,7 @@ class AiBookingSuccess {
             $query = "SELECT b.*, r.room_name, r.capacity as room_capacity, r.image_url
                       FROM " . $this->table_name . " b
                       LEFT JOIN meeting_rooms r ON b.room_id = r.id
-                      WHERE b.user_id = :user_id
+                      WHERE b.user_id = :user_id AND b.booking_state = 'BOOKED'
                       ORDER BY b.created_at DESC";
 
             $stmt = $this->conn->prepare($query);

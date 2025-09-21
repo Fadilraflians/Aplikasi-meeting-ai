@@ -115,11 +115,27 @@ const App = () => {
         checkSession();
     }, []);
 
+    // Listen for refreshBookings event
+    useEffect(() => {
+        const handleRefreshBookings = async () => {
+            console.log('RefreshBookings event received, reloading bookings...');
+            if (user.id) {
+                await loadBookingsFromServer(user.id);
+            }
+        };
+
+        window.addEventListener('refreshBookings', handleRefreshBookings);
+        
+        return () => {
+            window.removeEventListener('refreshBookings', handleRefreshBookings);
+        };
+    }, [user.id]);
+
     // Load bookings from server
     const loadBookingsFromServer = async (userId: number) => {
         try {
-            // Load MySQL bookings (form-based)
-            const serverBookingsRes = await ApiService.getUserBookings(userId);
+            // Load MySQL bookings (form-based) - only active bookings for ReservationsPage
+            const serverBookingsRes = await ApiService.getUserBookings(userId, false);
             const serverBookings = serverBookingsRes.data || [];
             
             // Load AI bookings from ai_bookings_success table
@@ -191,7 +207,7 @@ const App = () => {
                 return {
                     id: `ai_${b.id}`, // Prefix dengan 'ai_' untuk membedakan dari form bookings
                     roomId: b.room_id || 0,
-                    roomName: b.room_name || `Room ${b.room_id}` || '—',
+                    roomName: b.room_name || (b.room_id ? `Room ${b.room_id}` : 'Ruangan Tidak Diketahui'),
                     topic: b.topic,
                     date: b.meeting_date,
                     time: b.meeting_time,
@@ -201,6 +217,9 @@ const App = () => {
                     pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
                     meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
                     facilities: formattedFacilities,
+                    status: b.booking_state || 'BOOKED', // Status dari database
+                    booking_state: b.booking_state || 'BOOKED', // Booking state dari database
+                    source: 'ai' // Menandai bahwa ini adalah AI booking
                 };
             });
             
@@ -226,15 +245,45 @@ const App = () => {
                 )
             );
             
-            console.log('🔍 App.tsx - Setting bookings:', uniqueBookings);
-            console.log('🔍 App.tsx - Total bookings count:', uniqueBookings.length);
+            // Filter out completed and cancelled bookings (they should only appear in History/Rispat pages)
+            const activeBookings = uniqueBookings.filter(booking => {
+                // Check if booking is completed or cancelled
+                const isCompleted = booking.status === 'completed' || booking.booking_state === 'COMPLETED';
+                const isCancelled = booking.status === 'cancelled' || booking.booking_state === 'CANCELLED';
+                
+                console.log('🔍 App.tsx - Checking booking:', {
+                    id: booking.id,
+                    topic: booking.topic,
+                    status: booking.status,
+                    booking_state: booking.booking_state,
+                    isCompleted,
+                    isCancelled,
+                    source: booking.source || 'unknown'
+                });
+                
+                if (isCompleted) {
+                    console.log('🔍 App.tsx - Filtering out completed booking:', booking.topic, 'ID:', booking.id);
+                    return false;
+                }
+                
+                if (isCancelled) {
+                    console.log('🔍 App.tsx - Filtering out cancelled booking:', booking.topic, 'ID:', booking.id);
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            console.log('🔍 App.tsx - Setting bookings:', activeBookings);
+            console.log('🔍 App.tsx - Total bookings count:', activeBookings.length);
             console.log('🔍 App.tsx - AI bookings count:', aiBookingsFormatted.length);
             console.log('🔍 App.tsx - Server bookings count:', serverBookingsFormatted.length);
             console.log('🔍 App.tsx - After ID deduplication:', uniqueByIdBookings.length);
             console.log('🔍 App.tsx - After content deduplication:', uniqueBookings.length);
+            console.log('🔍 App.tsx - After status filtering:', activeBookings.length);
             console.log('🔍 App.tsx - Total duplicates removed:', allBookings.length - uniqueBookings.length);
-            console.log('🔍 App.tsx - Sample booking:', uniqueBookings[0]);
-            setBookings(uniqueBookings);
+            console.log('🔍 App.tsx - Sample booking:', activeBookings[0]);
+            setBookings(activeBookings);
             
             // Force re-render of dashboard if it's currently active
             if (currentPage === Page.Dashboard) {
@@ -300,37 +349,30 @@ const App = () => {
     };
 
     const navigateTo = (page: Page) => {
-        if (page === Page.Booking && !selectedRoom && currentPage !== Page.MeetingRooms) {
-             alert("Silakan pilih ruangan terlebih dahulu dari halaman Meeting Room.");
-             setCurrentPage(Page.MeetingRooms);
-             // Save the redirected page to localStorage
-             localStorage.setItem('current_page', Page.MeetingRooms.toString());
-        } else {
-             setCurrentPage(page);
-             // Save current page to localStorage for session persistence
-             localStorage.setItem('current_page', page.toString());
-             
-            // Refresh bookings when navigating to dashboard
-            if (page === Page.Dashboard) {
-                const userDataStr = localStorage.getItem('user_data');
-                if (userDataStr) {
-                    try {
-                        const userData = JSON.parse(userDataStr);
-                        if (userData.id) {
-                            console.log('🔍 Refreshing bookings for dashboard...');
-                            loadBookingsFromServer(userData.id);
-                        }
-                    } catch (e) {
-                        console.error('Error parsing user data:', e);
+        setCurrentPage(page);
+        // Save current page to localStorage for session persistence
+        localStorage.setItem('current_page', page.toString());
+        
+        // Refresh bookings when navigating to dashboard
+        if (page === Page.Dashboard) {
+            const userDataStr = localStorage.getItem('user_data');
+            if (userDataStr) {
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    if (userData.id) {
+                        console.log('🔍 Refreshing bookings for dashboard...');
+                        loadBookingsFromServer(userData.id);
                     }
+                } catch (e) {
+                    console.error('Error parsing user data:', e);
                 }
             }
-            
-            // Force re-render when navigating to dashboard
-            if (page === Page.Dashboard) {
-                console.log('🔍 Navigating to dashboard, forcing re-render');
-                setRefreshTrigger(prev => prev + 1);
-            }
+        }
+        
+        // Force re-render when navigating to dashboard
+        if (page === Page.Dashboard) {
+            console.log('🔍 Navigating to dashboard, forcing re-render');
+            setRefreshTrigger(prev => prev + 1);
         }
     };
 
@@ -427,10 +469,6 @@ const App = () => {
             // Check if this is an AI booking
             const isAiBooking = String(id).startsWith('ai_');
             
-            // Show confirmation dialog
-            const confirmed = window.confirm('Apakah Anda yakin ingin membatalkan pemesanan ini? Data akan dihapus dari database secara permanen.');
-            if (!confirmed) return;
-
             console.log('Cancelling booking with ID:', id);
             
             if (isAiBooking) {
@@ -442,25 +480,18 @@ const App = () => {
                 await BackendService.cancelBooking(Number(id));
             }
             
-            // Remove from local state
-            setBookings(prev => prev.filter(b => b.id !== id));
+            // Update booking status to cancelled instead of removing
+            setBookings(prev => prev.map(b => 
+                b.id === id 
+                    ? { ...b, status: 'cancelled' }
+                    : b
+            ));
             
-            // Simpan ke histori lokal sebagai "Dibatalkan"
-            const hist = bookings.find(b => b.id === id);
-            if (hist) {
-                addHistory({
-                    id: hist.id,
-                    roomName: hist.roomName,
-                    topic: hist.topic,
-                    date: hist.date,
-                    time: hist.time,
-                    participants: hist.participants,
-                    status: 'Dibatalkan'
-                });
-            }
+            // Note: History will be added by ReservationsPage handleConfirmCancel
+            // to avoid duplication
             
             // Show success message
-            alert('Pemesanan berhasil dibatalkan dan dihapus dari database!');
+            alert('Pemesanan berhasil dibatalkan!');
         } catch (error) {
             console.error('Error cancelling booking:', error);
             alert('Gagal membatalkan pemesanan. Mohon coba lagi.');
