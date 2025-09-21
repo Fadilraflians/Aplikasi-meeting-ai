@@ -803,7 +803,7 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
                 <div className="pointer-events-none">
                     <div className="container mx-auto px-4 md:px-8 -mt-12 md:-mt-14">
                         <div className="flex">
-                            <button onClick={() => onNavigate(Page.RBA)} className="pointer-events-auto inline-flex items-center bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg px-8 py-4 rounded-2xl shadow-xl hover:from-cyan-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl">
+                            <button onClick={() => onNavigate(Page.RBA)} className="pointer-events-auto inline-flex items-center bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg px-12 py-4 rounded-2xl shadow-xl hover:from-cyan-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl">
                                 <div className="w-8 h-8 mr-3 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
                                     <img src="/images/robot.png" alt="AI" className="w-6 h-6" />
                                 </div>
