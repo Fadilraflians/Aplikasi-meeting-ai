@@ -681,10 +681,9 @@ const App = () => {
             
             if (isAiBooking) {
                 // For AI bookings, call the AI cancel endpoint
-                // Remove 'ai_' prefix to get the actual database ID
-                const actualId = String(id).replace('ai_', '');
-                await BackendService.cancelBooking(Number(actualId));
-                console.log('AI booking cancelled from App via API:', id, '-> actual ID:', actualId);
+                // Pass the full ID with 'ai_' prefix to maintain AI booking detection
+                await BackendService.cancelBooking(String(id));
+                console.log('AI booking cancelled from App via API:', id);
             } else {
                 // For form bookings, call backend API
                 await BackendService.cancelBooking(Number(id));

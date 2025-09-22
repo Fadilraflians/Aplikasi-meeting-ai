@@ -197,7 +197,7 @@ export class BackendService {
     /**
      * Cancel booking in backend
      */
-    static async cancelBooking(bookingId: number, reason?: string) {
+    static async cancelBooking(bookingId: number | string, reason?: string) {
         try {
             console.log('Cancelling booking in backend:', bookingId, 'with reason:', reason);
             const result = await ApiService.cancelBooking(bookingId, reason);

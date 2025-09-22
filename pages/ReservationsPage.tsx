@@ -817,11 +817,10 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             
             if (isAiBooking) {
                 // For AI bookings, call the AI cancel endpoint with reason
-                // Remove 'ai_' prefix to get the actual database ID
-                const actualId = String(bookingToCancel.id).replace('ai_', '');
-                console.log('Attempting to cancel AI booking:', String(bookingToCancel.id), '-> actual ID:', actualId);
+                // Keep the full ID with 'ai_' prefix so the API method can detect it's an AI booking
+                console.log('Attempting to cancel AI booking:', String(bookingToCancel.id));
                 try {
-                    const result = await ApiService.cancelBooking(actualId, cancelReason.trim());
+                    const result = await ApiService.cancelBooking(bookingToCancel.id, cancelReason.trim());
                     console.log('AI booking cancel result:', result);
                     cancelSuccess = true;
                 } catch (error) {
