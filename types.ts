@@ -45,6 +45,22 @@ export interface QuickAction {
   action: () => void;
 }
 
+export interface RBAResponse {
+  message: string;
+  action: 'continue' | 'complete' | 'clarify' | 'greeting' | 'error';
+  bookingData?: Partial<Booking>;
+  quickActions?: Array<{
+    label: string;
+    action: string;
+    type: 'primary' | 'secondary';
+    icon?: string;
+  }>;
+  suggestions?: string[];
+  recommendations?: any;
+  notifications?: any[];
+  isQuotaExceeded?: boolean; // Flag untuk menandai jika quota API exceeded
+}
+
 export interface Booking {
   id: string | number;
   roomName: string;

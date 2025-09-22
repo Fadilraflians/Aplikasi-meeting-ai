@@ -98,20 +98,39 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
           String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Dibatalkan'
         );
         
+        // For AI bookings, ignore database status and only check history
+        const isCompletedInDB = booking.source === 'ai' ? false : (booking.status === 'completed' || booking.booking_state === 'COMPLETED');
+        const isCancelledInDB = booking.source === 'ai' ? false : (booking.status === 'cancelled' || booking.booking_state === 'CANCELLED');
+        
         if (isExpired) {
           console.log(`🔍 RoomDetailPage - Hiding expired booking: ${booking.topic} (${booking.time} - ${endTime}) - Ended at ${bookingEndDateTime.toLocaleString()}`);
         }
         
         if (isCompleted) {
-          console.log(`🔍 RoomDetailPage - Hiding completed booking: ${booking.topic} (ID: ${booking.id})`);
+          console.log(`🔍 RoomDetailPage - Hiding completed booking: ${booking.topic} (ID: ${booking.id}) Source: ${booking.source}`);
         }
         
         if (isCancelled) {
-          console.log(`🔍 RoomDetailPage - Hiding cancelled booking: ${booking.topic} (ID: ${booking.id})`);
+          console.log(`🔍 RoomDetailPage - Hiding cancelled booking: ${booking.topic} (ID: ${booking.id}) Source: ${booking.source}`);
         }
         
-        const shouldShow = roomMatch && dateMatch && !isExpired && !isCompleted && !isCancelled;
-        console.log(`🔍 RoomDetailPage - Booking ${booking.topic}: roomMatch=${roomMatch}, dateMatch=${dateMatch}, isExpired=${isExpired}, isCompleted=${isCompleted}, shouldShow=${shouldShow}`);
+        if (isCompletedInDB) {
+          console.log(`🔍 RoomDetailPage - Hiding completed booking (DB): ${booking.topic} (ID: ${booking.id}) Source: ${booking.source}`);
+        }
+        
+        if (isCancelledInDB) {
+          console.log(`🔍 RoomDetailPage - Hiding cancelled booking (DB): ${booking.topic} (ID: ${booking.id}) Source: ${booking.source}`);
+        }
+        
+        // For AI bookings, be more lenient with status checking
+        if (booking.source === 'ai') {
+            const shouldShow = roomMatch && dateMatch && !isExpired && !isCompleted && !isCancelled;
+            console.log(`🔍 RoomDetailPage - AI Booking ${booking.topic}: roomMatch=${roomMatch}, dateMatch=${dateMatch}, isExpired=${isExpired}, isCompleted=${isCompleted}, isCancelled=${isCancelled}, shouldShow=${shouldShow}`);
+            return shouldShow;
+        }
+        
+        const shouldShow = roomMatch && dateMatch && !isExpired && !isCompleted && !isCancelled && !isCompletedInDB && !isCancelledInDB;
+        console.log(`🔍 RoomDetailPage - Booking ${booking.topic}: roomMatch=${roomMatch}, dateMatch=${dateMatch}, isExpired=${isExpired}, isCompleted=${isCompleted}, isCompletedInDB=${isCompletedInDB}, isCancelledInDB=${isCancelledInDB}, shouldShow=${shouldShow}`);
         
         return shouldShow;
       })

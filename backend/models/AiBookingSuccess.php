@@ -46,8 +46,8 @@ class AiBookingSuccess {
             $duration = $data['duration'] ?? 60;
             
             // Calculate end_time from meeting_time + duration
-            $end_time = null;
-            if ($meeting_time && $duration) {
+            $end_time = $data['end_time'] ?? null;
+            if (!$end_time && $meeting_time && $duration) {
                 try {
                     $startTime = new DateTime($meeting_time);
                     $startTime->add(new DateInterval('PT' . $duration . 'M'));
@@ -83,16 +83,19 @@ class AiBookingSuccess {
                 $insertId = $this->conn->lastInsertId();
                 error_log("Success booking created with ID: $insertId");
                 return $insertId;
+            } else {
+                $errorInfo = $stmt->errorInfo();
+                error_log("Failed to execute statement: " . json_encode($errorInfo));
+                return false;
             }
-            error_log("Failed to execute statement");
-            return false;
         } catch (PDOException $e) {
             error_log("Error creating success booking: " . $e->getMessage());
-            echo "PDO Error: " . $e->getMessage() . "\n";
+            error_log("PDO Error Code: " . $e->getCode());
+            error_log("PDO Error Info: " . json_encode($e->errorInfo));
             return false;
         } catch (Exception $e) {
             error_log("General error creating success booking: " . $e->getMessage());
-            echo "General Error: " . $e->getMessage() . "\n";
+            error_log("Exception Code: " . $e->getCode());
             return false;
         }
     }
@@ -233,17 +236,24 @@ class AiBookingSuccess {
      */
     public function getBookingsByUserId($userId) {
         try {
-            $query = "SELECT b.*, r.room_name, r.capacity as room_capacity, r.image_url
+            $query = "SELECT b.*, 
+                             COALESCE(r.room_name, b.room_name) as room_name, 
+                             r.capacity as room_capacity, 
+                             r.image_url
                       FROM " . $this->table_name . " b
                       LEFT JOIN meeting_rooms r ON b.room_id = r.id
-                      WHERE b.user_id = :user_id AND b.booking_state = 'BOOKED'
+                      WHERE b.user_id = :user_id 
+                        AND b.booking_state = 'BOOKED'
                       ORDER BY b.created_at DESC";
 
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":user_id", $userId);
             $stmt->execute();
 
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("AI Bookings - Found " . count($result) . " bookings for user $userId");
+            
+            return $result;
         } catch (PDOException $e) {
             error_log("Error getting AI bookings by user ID: " . $e->getMessage());
             return [];

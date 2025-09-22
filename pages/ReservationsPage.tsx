@@ -31,11 +31,11 @@ const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | 
     if (name.includes('kalamant') || name.includes('kalamanthana')) return '/images/meeting-rooms/r6.jpeg';
     if (name.includes('cedaya')) return '/images/meeting-rooms/r7.jpeg';
     if (name.includes('celebes')) return '/images/meeting-rooms/r8.jpeg';
-    if (name.includes('balidwipa')) return '/images/meeting-rooms/r9.jpeg';
-    if (name.includes('swarnadwipa')) return '/images/meeting-rooms/r10.jpeg';
-    if (name.includes('borobudur')) return '/images/meeting-rooms/r11.jpeg';
-    if (name.includes('komodo')) return '/images/meeting-rooms/r12.jpeg';
-    if (name.includes('nusantara')) return '/images/meeting-rooms/r13.jpeg';
+    if (name.includes('nusanipa')) return '/images/meeting-rooms/r9.jpeg'; // Add Nusanipa mapping
+    if (name.includes('balidwipa')) return '/images/meeting-rooms/r10.jpeg';
+    if (name.includes('swarnadwipa')) return '/images/meeting-rooms/r11.jpeg';
+    if (name.includes('borobudur')) return '/images/meeting-rooms/r12.jpeg';
+    if (name.includes('komodo')) return '/images/meeting-rooms/r13.jpeg';
     
     // Fallback ke gambar default
     return '/images/meeting-rooms/default-room.jpg';
@@ -1105,15 +1105,23 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
         console.log('🔍 ReservationsPage - After ID deduplication:', uniqueByIdBookings.length);
         
         // Additional deduplication by content (topic, date, time, room, pic)
-        const uniqueBookings = uniqueByIdBookings.filter((booking, index, self) => 
-            index === self.findIndex(b => 
+        // But preserve AI bookings even if they have similar content to regular bookings
+        const uniqueBookings = uniqueByIdBookings.filter((booking, index, self) => {
+            // Always keep AI bookings
+            if (booking.source === 'ai') {
+                return true;
+            }
+            
+            // For regular bookings, check for duplicates
+            return index === self.findIndex(b => 
                 b.topic === booking.topic && 
                 b.date === booking.date && 
                 b.time === booking.time && 
                 b.roomName === booking.roomName && 
-                b.pic === booking.pic
-            )
-        );
+                b.pic === booking.pic &&
+                b.source === booking.source // Also check source to avoid mixing AI and regular bookings
+            );
+        });
         console.log('🔍 ReservationsPage - After content deduplication:', uniqueBookings.length);
         
         // Filter bookings
@@ -1143,8 +1151,9 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             );
             
             // Also check booking status from database
-            const isCompletedInDB = b.status === 'completed' || b.booking_state === 'COMPLETED';
-            const isCancelledInDB = b.status === 'cancelled' || b.booking_state === 'CANCELLED';
+            // For AI bookings, be more lenient with status checking
+            const isCompletedInDB = b.source === 'ai' ? false : (b.status === 'completed' || b.booking_state === 'COMPLETED');
+            const isCancelledInDB = b.source === 'ai' ? false : (b.status === 'cancelled' || b.booking_state === 'CANCELLED');
             
             // Combined check - booking is completed if it's completed in history OR database
             const isCompleted = isCompletedInHistory || isCompletedInDB;
@@ -1158,16 +1167,44 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                 isCompleted,
                 isCompletedInDB,
                 isCancelled,
-                isCancelledInDB
+                isCancelledInDB,
+                source: b.source,
+                isCompletedInHistory,
+                isCancelledInHistory
             });
             
+            // For AI bookings, be more lenient with status checking
+            if (b.source === 'ai') {
+                // AI bookings should be shown if they have BOOKED status or no explicit completed/cancelled status
+                if (isCompletedInHistory) {
+                    console.log('Filtering out completed AI booking (from history):', b.topic, 'ID:', b.id, 'Source:', b.source, 'isCompletedInHistory:', isCompletedInHistory);
+                    return false;
+                }
+                
+                if (isCancelledInHistory) {
+                    console.log('Filtering out cancelled AI booking (from history):', b.topic, 'ID:', b.id, 'Source:', b.source, 'isCancelledInHistory:', isCancelledInHistory);
+                    return false;
+                }
+                
+                // Show AI booking if it has BOOKED status or no explicit status
+                console.log('🔍 ReservationsPage - AI booking will be shown:', {
+                    id: b.id,
+                    topic: b.topic,
+                    status: b.status,
+                    booking_state: b.booking_state,
+                    source: b.source,
+                    matchesSearch: matchesSearch
+                });
+                return matchesSearch;
+            }
+            
             if (isCompleted || isCompletedInDB) {
-                console.log('Filtering out completed booking:', b.topic, 'ID:', b.id, 'Status:', b.status, 'Booking State:', b.booking_state);
+                console.log('Filtering out completed booking:', b.topic, 'ID:', b.id, 'Status:', b.status, 'Booking State:', b.booking_state, 'Source:', b.source, 'isCompleted:', isCompleted, 'isCompletedInDB:', isCompletedInDB);
                 return false;
             }
             
             if (isCancelled || isCancelledInDB) {
-                console.log('Filtering out cancelled booking:', b.topic, 'ID:', b.id, 'Status:', b.status, 'Booking State:', b.booking_state);
+                console.log('Filtering out cancelled booking:', b.topic, 'ID:', b.id, 'Status:', b.status, 'Booking State:', b.booking_state, 'Source:', b.source, 'isCancelled:', isCancelled, 'isCancelledInDB:', isCancelledInDB);
                 return false;
             }
             

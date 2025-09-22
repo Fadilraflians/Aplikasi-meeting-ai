@@ -57,16 +57,43 @@ try {
                 if ($aiData === 'true' || strpos($_SERVER['REQUEST_URI'], '/ai-data') !== false) {
                     // Get AI bookings from ai_bookings_success table with room names
                     if ($userId) {
-                        $query = "SELECT abs.*, mr.room_name, mr.capacity as room_capacity, mr.image_url
+                        error_log("AI Bookings API - User ID: $userId");
+                        
+                        // All users can see all AI bookings (removed admin-only restriction)
+                        error_log("AI Bookings API - All users can see all AI bookings");
+                        
+                        // First check if table exists
+                        $tableCheck = $db->query("SHOW TABLES LIKE 'ai_bookings_success'");
+                        if ($tableCheck->rowCount() == 0) {
+                            error_log("AI Bookings API - Table ai_bookings_success does not exist");
+                            echo json_encode([
+                                'success' => false,
+                                'message' => 'AI bookings table does not exist',
+                                'data' => []
+                            ]);
+                            return;
+                        }
+                        
+                        // All users can see all AI bookings with user information
+                        $query = "SELECT abs.*, 
+                                         COALESCE(mr.room_name, abs.room_name) as room_name, 
+                                         mr.capacity as room_capacity, 
+                                         mr.image_url,
+                                         u.username as user_name
                                   FROM ai_bookings_success abs 
                                   LEFT JOIN meeting_rooms mr ON abs.room_id = mr.id 
-                                  WHERE abs.user_id = :user_id
+                                  LEFT JOIN users u ON abs.user_id = u.id
+                                  WHERE abs.booking_state = 'BOOKED'
                                   ORDER BY abs.created_at DESC";
                         
                         $stmt = $db->prepare($query);
-                        $stmt->bindParam(':user_id', $userId);
+                        error_log("AI Bookings API - All users query: $query");
+                        
                         $stmt->execute();
                         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        error_log("AI Bookings API - Query result count: " . count($result));
+                        error_log("AI Bookings API - Sample result: " . json_encode($result[0] ?? 'No results'));
                         
                         echo json_encode([
                             'success' => true,
@@ -180,13 +207,30 @@ try {
                         return;
                     }
                     
+                    // Validate required fields
+                    $requiredFields = ['user_id', 'session_id', 'room_name', 'topic', 'meeting_date', 'meeting_time'];
+                    foreach ($requiredFields as $field) {
+                        if (!isset($bookingData[$field]) || empty($bookingData[$field])) {
+                            sendResponse(false, "Missing required field: $field", null, 400);
+                            return;
+                        }
+                    }
+                    
                     // Save to ai_bookings_success table
                     require_once '../backend/models/AiBookingSuccess.php';
+                    
+                    // Check database connection
+                    if (!$db) {
+                        error_log("Database connection is null");
+                        sendResponse(false, 'Database connection failed', null, 500);
+                        return;
+                    }
+                    
                     $aiBookingSuccess = new AiBookingSuccess($db);
                     
-                    // Get room_id from room_name
-                    $roomId = null;
-                    if (isset($bookingData['room_name'])) {
+                    // Get room_id from room_name or use provided room_id
+                    $roomId = $bookingData['room_id'] ?? null;
+                    if (!$roomId && isset($bookingData['room_name'])) {
                         $roomQuery = "SELECT id FROM meeting_rooms WHERE room_name = ?";
                         $roomStmt = $db->prepare($roomQuery);
                         $roomStmt->execute([$bookingData['room_name']]);
@@ -220,6 +264,7 @@ try {
                         sendResponse(true, 'AI booking created successfully', ['id' => $result]);
                     } else {
                         error_log("Failed to save AI booking to ai_bookings_success table");
+                        error_log("Error details: " . json_encode(error_get_last()));
                         sendResponse(false, 'Failed to create AI booking', null, 500);
                     }
                     break;

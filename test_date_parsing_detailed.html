@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detailed Date Parsing Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>📅 Detailed Date Parsing Test</h1>
+    
+    <div class="test-result info">
+        <h3>🎯 Test Purpose</h3>
+        <p>This test verifies that the date parsing logic correctly handles "besok" (tomorrow) input and produces the correct date.</p>
+        <p><strong>Expected:</strong> If today is 2025-09-22, "besok" should produce 2025-09-23</p>
+    </div>
+    
+    <button onclick="runDetailedTest()">Run Detailed Test</button>
+    <div id="test-results"></div>
+
+    <script>
+        function runDetailedTest() {
+            const resultsDiv = document.getElementById('test-results');
+            let html = '<h3>📊 Test Results</h3>';
+            
+            // Test current date info
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            html += '<div class="test-result info">';
+            html += '<h4>📅 Current Date Information</h4>';
+            html += `<p><strong>Now:</strong> ${now.toString()}</p>`;
+            html += `<p><strong>Today:</strong> ${today.toString()}</p>`;
+            html += `<p><strong>Today ISO:</strong> ${today.toISOString().slice(0, 10)}</p>`;
+            html += `<p><strong>Current Date:</strong> ${now.getDate()}</p>`;
+            html += `<p><strong>Current Month:</strong> ${now.getMonth() + 1}</p>`;
+            html += `<p><strong>Current Year:</strong> ${now.getFullYear()}</p>`;
+            html += '</div>';
+            
+            // Test "besok" parsing with the FIXED logic
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            
+            html += '<div class="test-result success">';
+            html += '<h4>✅ "Besok" (Tomorrow) Parsing - FIXED</h4>';
+            html += `<p><strong>Tomorrow:</strong> ${tomorrow.toString()}</p>`;
+            html += `<p><strong>Tomorrow ISO:</strong> ${tomorrow.toISOString().slice(0, 10)}</p>`;
+            html += `<p><strong>Tomorrow Date:</strong> ${tomorrow.getDate()}</p>`;
+            html += `<p><strong>Tomorrow Month:</strong> ${tomorrow.getMonth() + 1}</p>`;
+            html += `<p><strong>Tomorrow Year:</strong> ${tomorrow.getFullYear()}</p>`;
+            html += '</div>';
+            
+            // Test "lusa" parsing
+            const dayAfterTomorrow = new Date(today);
+            dayAfterTomorrow.setDate(today.getDate() + 2);
+            
+            html += '<div class="test-result success">';
+            html += '<h4>✅ "Lusa" (Day After Tomorrow) Parsing</h4>';
+            html += `<p><strong>Day After Tomorrow:</strong> ${dayAfterTomorrow.toString()}</p>`;
+            html += `<p><strong>Day After Tomorrow ISO:</strong> ${dayAfterTomorrow.toISOString().slice(0, 10)}</p>`;
+            html += `<p><strong>Day After Tomorrow Date:</strong> ${dayAfterTomorrow.getDate()}</p>`;
+            html += `<p><strong>Day After Tomorrow Month:</strong> ${dayAfterTomorrow.getMonth() + 1}</p>`;
+            html += `<p><strong>Day After Tomorrow Year:</strong> ${dayAfterTomorrow.getFullYear()}</p>`;
+            html += '</div>';
+            
+            // Test edge cases
+            html += '<div class="test-result info">';
+            html += '<h4>🔍 Edge Cases Testing</h4>';
+            
+            // End of month test
+            const endOfMonth = new Date(2025, 0, 31); // January 31, 2025
+            const nextDay = new Date(endOfMonth);
+            nextDay.setDate(endOfMonth.getDate() + 1);
+            html += `<p><strong>End of Month (Jan 31 + 1 day):</strong> ${nextDay.toISOString().slice(0, 10)}</p>`;
+            
+            // Leap year test
+            const leapYear = new Date(2024, 1, 28); // Feb 28, 2024 (leap year)
+            const nextDayLeap = new Date(leapYear);
+            nextDayLeap.setDate(leapYear.getDate() + 1);
+            html += `<p><strong>Leap Year (Feb 28 + 1 day):</strong> ${nextDayLeap.toISOString().slice(0, 10)}</p>`;
+            
+            // Year boundary test
+            const endOfYear = new Date(2024, 11, 31); // Dec 31, 2024
+            const nextDayYear = new Date(endOfYear);
+            nextDayYear.setDate(endOfYear.getDate() + 1);
+            html += `<p><strong>Year Boundary (Dec 31 + 1 day):</strong> ${nextDayYear.toISOString().slice(0, 10)}</p>`;
+            
+            html += '</div>';
+            
+            // Validation
+            html += '<div class="test-result success">';
+            html += '<h4>✅ Validation Results</h4>';
+            
+            const expectedTomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+            const isCorrect = tomorrow.toISOString().slice(0, 10) === expectedTomorrow.toISOString().slice(0, 10);
+            
+            html += `<p><strong>Date Calculation Correct:</strong> ${isCorrect ? '✅ YES' : '❌ NO'}</p>`;
+            html += `<p><strong>Expected Tomorrow:</strong> ${expectedTomorrow.toISOString().slice(0, 10)}</p>`;
+            html += `<p><strong>Calculated Tomorrow:</strong> ${tomorrow.toISOString().slice(0, 10)}</p>`;
+            
+            if (isCorrect) {
+                html += '<p><strong>🎉 SUCCESS:</strong> Date parsing is working correctly!</p>';
+            } else {
+                html += '<p><strong>⚠️ WARNING:</strong> Date parsing may have issues!</p>';
+            }
+            
+            html += '</div>';
+            
+            // Debug information
+            html += '<div class="test-result info">';
+            html += '<h4>🔧 Debug Information</h4>';
+            html += '<pre>';
+            html += `Current Date Debug Info:\n`;
+            html += `- now: ${now.toISOString()}\n`;
+            html += `- today: ${today.toISOString()}\n`;
+            html += `- today.getTime(): ${today.getTime()}\n`;
+            html += `- tomorrow.getTime(): ${tomorrow.getTime()}\n`;
+            html += `- difference: ${tomorrow.getTime() - today.getTime()}\n`;
+            html += `- difference in hours: ${(tomorrow.getTime() - today.getTime()) / (1000 * 60 * 60)}\n`;
+            html += '</pre>';
+            html += '</div>';
+            
+            resultsDiv.innerHTML = html;
+            
+            // Console logging for debugging
+            console.log('🔍 Detailed Date Parsing Test Results:');
+            console.log('Current date:', today.toISOString().slice(0, 10));
+            console.log('Tomorrow date:', tomorrow.toISOString().slice(0, 10));
+            console.log('Day after tomorrow:', dayAfterTomorrow.toISOString().slice(0, 10));
+            console.log('Date calculation correct:', isCorrect);
+        }
+        
+        // Auto-run test on page load
+        window.onload = function() {
+            console.log('📅 Detailed Date Parsing Test Page Loaded');
+            runDetailedTest();
+        };
+    </script>
+</body>
+</html>

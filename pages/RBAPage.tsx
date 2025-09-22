@@ -93,7 +93,8 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                 text: response.message,
                 sender: 'ai' as const,
                 timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                options: response.quickActions?.map(qa => qa.label)
+                options: response.quickActions?.map(qa => qa.label),
+                isQuotaExceeded: response.isQuotaExceeded
             };
 
             setMessages(prev => [...prev, aiMessage]);
@@ -123,10 +124,25 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                                    bookingData.meetingType;
                 
                 if (hasValidData) {
-                    console.log('✅ RBAPage - All booking data is valid, proceeding to confirmation');
-                    setTimeout(() => {
-                        onBookingConfirmed(response.bookingData as any);
-                    }, 1000);
+                    console.log('✅ RBAPage - All booking data is valid, saving to database');
+                    
+                    // Save to database first
+                    try {
+                        const saveResult = await assistant?.saveBookingToDatabase(bookingData);
+                        console.log('✅ RBAPage - Booking saved to database:', saveResult);
+                        
+                        // Trigger refresh event for other components
+                        window.dispatchEvent(new CustomEvent('refreshBookings'));
+                        
+                        // Then proceed to confirmation
+                        setTimeout(() => {
+                            onBookingConfirmed(response.bookingData as any);
+                        }, 1000);
+                    } catch (error) {
+                        console.error('❌ RBAPage - Failed to save booking to database:', error);
+                        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                        alert(`Gagal menyimpan pemesanan ke database: ${errorMessage}. Silakan coba lagi.`);
+                    }
                 } else {
                     console.log('❌ RBAPage - Booking data is incomplete, not proceeding to confirmation');
                     console.log('❌ RBAPage - Missing fields:', {
@@ -221,10 +237,25 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                                        bookingData.meetingType;
                     
                     if (hasValidData) {
-                        console.log('✅ RBAPage (OptionClick) - All booking data is valid, proceeding to confirmation');
-                        setTimeout(() => {
-                            onBookingConfirmed(response.bookingData as any);
-                        }, 1000);
+                        console.log('✅ RBAPage (OptionClick) - All booking data is valid, saving to database');
+                        
+                        // Save to database first
+                        try {
+                            const saveResult = await assistant?.saveBookingToDatabase(bookingData);
+                            console.log('✅ RBAPage (OptionClick) - Booking saved to database:', saveResult);
+                            
+                            // Trigger refresh event for other components
+                            window.dispatchEvent(new CustomEvent('refreshBookings'));
+                            
+                            // Then proceed to confirmation
+                            setTimeout(() => {
+                                onBookingConfirmed(response.bookingData as any);
+                            }, 1000);
+                        } catch (error) {
+                            console.error('❌ RBAPage (OptionClick) - Failed to save booking to database:', error);
+                            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                            alert(`Gagal menyimpan pemesanan ke database: ${errorMessage}. Silakan coba lagi.`);
+                        }
                     } else {
                         console.log('❌ RBAPage (OptionClick) - Booking data is incomplete, not proceeding to confirmation');
                         console.log('❌ RBAPage (OptionClick) - Missing fields:', {
@@ -392,6 +423,33 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
                             <div className={`max-w-2xl ${message.sender === 'user' ? 'text-right' : ''}`}>
                                 <div className={`px-6 py-5 rounded-3xl inline-block shadow-lg backdrop-blur-sm ${message.sender === 'user' ? 'bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-br-none border border-blue-400/30 shadow-blue-500/25' : 'bg-white/90 text-gray-800 rounded-bl-none border border-blue-200/50 shadow-blue-200/50 backdrop-blur-sm'}`}>
                                     <p className="text-left" style={{ whiteSpace: 'pre-wrap'}} dangerouslySetInnerHTML={{ __html: message.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></p>
+                                    
+                                    {/* API Key Information for Quota Exceeded */}
+                                    {message.isQuotaExceeded && (
+                                        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                            <div className="flex items-start">
+                                                <div className="flex-shrink-0">
+                                                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div className="ml-3">
+                                                    <h3 className="text-sm font-medium text-yellow-800">
+                                                        Cara Mengatasi Masalah API Key
+                                                    </h3>
+                                                    <div className="mt-2 text-sm text-yellow-700">
+                                                        <p>Untuk mengatasi masalah ini:</p>
+                                                        <ol className="list-decimal list-inside mt-2 space-y-1">
+                                                            <li>Kunjungi <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Google AI Studio</a></li>
+                                                            <li>Buat API key baru atau periksa quota Anda</li>
+                                                            <li>Update file <code className="bg-yellow-100 px-1 rounded">.env.local</code> dengan API key baru</li>
+                                                            <li>Restart aplikasi</li>
+                                                        </ol>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 
                                 {/* Quick Actions */}

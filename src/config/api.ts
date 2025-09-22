@@ -290,8 +290,25 @@ export class ApiService {
     }
 
     static async getAllAIBookings() {
-        // Get all AI bookings by calling the regular bookings endpoint which includes AI bookings
-        return this.makeRequest(API_ENDPOINTS.RESERVATIONS.GET_UPCOMING());
+        // Get current user data from localStorage
+        const userDataStr = localStorage.getItem('user_data');
+        const userData = userDataStr ? JSON.parse(userDataStr) : null;
+        const userId = userData?.id || 1;
+        
+        // Debug logging
+        console.log('🔍 API getAllAIBookings - Debug Info:', {
+            userDataStr,
+            userData,
+            userId,
+            apiUrl: `${API_BASE_URL}/bookings.php?ai-data=true&user_id=${userId}`
+        });
+        
+        // Get all AI bookings by calling the AI bookings endpoint with user_id
+        const response = await this.makeRequest(`${API_BASE_URL}/bookings.php?ai-data=true&user_id=${userId}`);
+        
+        console.log('🔍 API getAllAIBookings - Response:', response);
+        
+        return response;
     }
 
     static async autoCompleteExpiredBookings() {

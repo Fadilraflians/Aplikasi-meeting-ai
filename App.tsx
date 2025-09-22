@@ -144,15 +144,26 @@ const App = () => {
             const userData = userDataStr ? JSON.parse(userDataStr) : null;
             const isAdmin = userData?.role === 'admin';
             
-            // All users can see all bookings (removed admin-only restriction)
-            console.log('🔍 App.tsx - Loading all bookings for user ID:', userId);
+            console.log('🔍 App.tsx - Loading bookings for user ID:', userId, 'Role:', userData?.role, 'Is Admin:', isAdmin);
+            
+            // Get server bookings (all users can see all server bookings)
             const serverBookingsRes = await ApiService.getAllBookings();
             serverBookings = serverBookingsRes.data || [];
             
+            // Get AI bookings (all users can see all AI bookings)
             const aiBookingsRes = await ApiService.getAllAIBookings();
             aiBookings = aiBookingsRes.data || [];
             
+            console.log('🔍 App.tsx - AI Bookings API Response:', aiBookingsRes);
             console.log('🔍 App.tsx - Raw AI bookings:', aiBookings);
+            console.log('🔍 App.tsx - AI bookings count:', aiBookings.length);
+            console.log('🔍 App.tsx - AI bookings success:', aiBookingsRes.success);
+            console.log('🔍 App.tsx - AI bookings message:', aiBookingsRes.message);
+            
+            // Debug: Show AI bookings with BOOKED status
+            const bookedAIBookings = aiBookings.filter((b: any) => b.booking_state === 'BOOKED');
+            console.log('🔍 App.tsx - AI bookings with BOOKED status:', bookedAIBookings.length);
+            console.log('🔍 App.tsx - Sample BOOKED AI booking:', bookedAIBookings[0]);
             
             // Format server bookings
             const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => {
@@ -197,6 +208,23 @@ const App = () => {
 
             // Format AI bookings
             const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => {
+                console.log('🔍 App.tsx - Processing AI booking:', {
+                    id: b.id,
+                    user_id: b.user_id,
+                    room_id: b.room_id,
+                    room_name: b.room_name,
+                    topic: b.topic,
+                    booking_state: b.booking_state,
+                    meeting_date: b.meeting_date,
+                    meeting_time: b.meeting_time,
+                    participants: b.participants,
+                    pic: b.pic
+                });
+                
+                // Validate required fields
+                if (!b.id || !b.topic || !b.meeting_date || !b.meeting_time) {
+                    console.warn('🔍 App.tsx - AI booking missing required fields:', b);
+                }
                 console.log('🔍 App.tsx - Raw AI booking facilities:', b.facilities, 'Type:', typeof b.facilities);
                 console.log('🔍 App.tsx - Raw AI booking requires_rispat:', b.requires_rispat, 'Type:', typeof b.requires_rispat);
                 
@@ -219,48 +247,109 @@ const App = () => {
                 
                 console.log('🔍 App.tsx - Formatted AI booking facilities:', formattedFacilities);
                 
-                return {
+                const formattedBooking = {
                     id: `ai_${b.id}`, // Prefix dengan 'ai_' untuk membedakan dari form bookings
                     roomId: b.room_id || 0,
                     roomName: b.room_name || (b.room_id ? `Room ${b.room_id}` : 'Ruangan Tidak Diketahui'),
+                    imageUrl: b.image_url || null, // Add image_url for room image display
                     topic: b.topic,
                     date: b.meeting_date,
                     time: b.meeting_time,
-                    endTime: b.end_time ? b.end_time.slice(0, 5) : null, // Format HH:MM
+                    endTime: b.end_time ? b.end_time.slice(0, 5) : null, // Use database end_time if available, don't calculate
                     duration: b.duration || 60, // Durasi dalam menit, default 60 menit
                     participants: Number(b.participants || 0),
                     pic: (b.pic && String(b.pic).trim()) ? b.pic : '-',
-                    meetingType: (b.meeting_type === 'external' ? 'external' : 'internal'),
+                    meetingType: (b.meeting_type === 'external' ? 'external' : 'internal') as 'internal' | 'external',
                     facilities: formattedFacilities,
                     requiresRispat: Boolean(b.requires_rispat), // Add requiresRispat field
-                    status: b.booking_state || 'BOOKED', // Status dari database
-                    booking_state: b.booking_state || 'BOOKED', // Booking state dari database
+                    status: 'BOOKED', // Always set to BOOKED for AI bookings
+                    booking_state: 'BOOKED', // Always set to BOOKED for AI bookings
                     source: 'ai', // Menandai bahwa ini adalah AI booking
                     userName: b.user_name || b.username || 'Unknown User', // Add user info for admin view
+                    userId: b.user_id, // Add user_id for admin view
                 };
+                
+                console.log('🔍 App.tsx - Formatted AI booking:', formattedBooking);
+                return formattedBooking;
             });
             
             console.log('🔍 App.tsx - Formatted AI bookings:', aiBookingsFormatted);
             console.log('🔍 App.tsx - Formatted server bookings:', serverBookingsFormatted);
+            
+            // Debug: Check AI bookings with BOOKED status specifically
+            const bookedAIBookingsFormatted = aiBookingsFormatted.filter(b => b.status === 'BOOKED' && b.booking_state === 'BOOKED');
+            console.log('🔍 App.tsx - BOOKED AI bookings formatted:', bookedAIBookingsFormatted.length);
+            console.log('🔍 App.tsx - Sample BOOKED AI booking formatted:', bookedAIBookingsFormatted[0]);
+            
+            // Debug: Check if AI bookings have required fields
+            aiBookingsFormatted.forEach((booking, index) => {
+                console.log(`🔍 App.tsx - AI booking ${index}:`, {
+                    id: booking.id,
+                    topic: booking.topic,
+                    date: booking.date,
+                    time: booking.time,
+                    roomName: booking.roomName,
+                    pic: booking.pic,
+                    source: booking.source,
+                    status: booking.status,
+                    booking_state: booking.booking_state
+                });
+                
+                // Special check for booking ID 145 (meeting vendors)
+                if (booking.id === 'ai_145' || booking.topic === 'meeting vendors') {
+                    console.log('🎯 App.tsx - FOUND TARGET AI BOOKING (meeting vendors):', booking);
+                }
+            });
 
             // Gabungkan AI bookings dan server bookings dengan deduplication
             const allBookings = [...aiBookingsFormatted, ...serverBookingsFormatted];
+            
+            console.log('🔍 App.tsx - All bookings before deduplication:', allBookings.length);
+            console.log('🔍 App.tsx - AI bookings count:', aiBookingsFormatted.length);
+            console.log('🔍 App.tsx - Server bookings count:', serverBookingsFormatted.length);
             
             // Deduplicate by ID first
             const uniqueByIdBookings = allBookings.filter((booking, index, self) => 
                 index === self.findIndex(b => String(b.id) === String(booking.id))
             );
             
+            console.log('🔍 App.tsx - After ID deduplication:', uniqueByIdBookings.length);
+            console.log('🔍 App.tsx - ID duplicates removed:', allBookings.length - uniqueByIdBookings.length);
+            
             // Additional deduplication by content (topic, date, time, room, pic)
-            const uniqueBookings = uniqueByIdBookings.filter((booking, index, self) => 
-                index === self.findIndex(b => 
+            // But preserve AI bookings even if they have similar content to regular bookings
+            const uniqueBookings = uniqueByIdBookings.filter((booking, index, self) => {
+                // Always keep AI bookings
+                if (booking.source === 'ai') {
+                    console.log('🔍 App.tsx - Keeping AI booking:', booking.topic, 'ID:', booking.id);
+                    
+                    // Special tracking for target booking
+                    if (booking.id === 'ai_145' || booking.topic === 'meeting vendors') {
+                        console.log('🎯 App.tsx - TARGET AI BOOKING PASSED DEDUPLICATION:', booking);
+                    }
+                    
+                    return true;
+                }
+                
+                // For regular bookings, check for duplicates
+                const isDuplicate = index !== self.findIndex(b => 
                     b.topic === booking.topic && 
                     b.date === booking.date && 
                     b.time === booking.time && 
                     b.roomName === booking.roomName && 
-                    b.pic === booking.pic
-                )
-            );
+                    b.pic === booking.pic &&
+                    b.source === booking.source // Also check source to avoid mixing AI and regular bookings
+                );
+                
+                if (isDuplicate) {
+                    console.log('🔍 App.tsx - Filtering out duplicate regular booking:', booking.topic, 'ID:', booking.id);
+                }
+                
+                return !isDuplicate;
+            });
+            
+            console.log('🔍 App.tsx - After content deduplication:', uniqueBookings.length);
+            console.log('🔍 App.tsx - Content duplicates removed:', uniqueByIdBookings.length - uniqueBookings.length);
             
             // Filter out completed and cancelled bookings (they should only appear in History/Rispat pages)
             const activeBookings = uniqueBookings.filter(booking => {
@@ -268,7 +357,46 @@ const App = () => {
                 const isCompleted = booking.status === 'completed' || booking.booking_state === 'COMPLETED';
                 const isCancelled = booking.status === 'cancelled' || booking.booking_state === 'CANCELLED';
                 
-                console.log('🔍 App.tsx - Checking booking:', {
+                // For AI bookings, be more lenient with status checking
+                if (booking.source === 'ai') {
+                    // AI bookings should be shown if they have BOOKED status or no explicit completed/cancelled status
+                    const isAICompleted = booking.status === 'completed' || booking.booking_state === 'COMPLETED';
+                    const isAICancelled = booking.status === 'cancelled' || booking.booking_state === 'CANCELLED';
+                    
+                    console.log('🔍 App.tsx - Checking AI booking:', {
+                        id: booking.id,
+                        topic: booking.topic,
+                        status: booking.status,
+                        booking_state: booking.booking_state,
+                        isAICompleted,
+                        isAICancelled,
+                        source: booking.source,
+                        date: booking.date,
+                        time: booking.time
+                    });
+                    
+                    if (isAICompleted) {
+                        console.log('🔍 App.tsx - Filtering out completed AI booking:', booking.topic, 'ID:', booking.id);
+                        return false;
+                    }
+                    
+                    if (isAICancelled) {
+                        console.log('🔍 App.tsx - Filtering out cancelled AI booking:', booking.topic, 'ID:', booking.id);
+                        return false;
+                    }
+                    
+                    // Show AI booking if it has BOOKED status or no explicit status
+                    console.log('🔍 App.tsx - AI booking passed filtering:', booking.topic, 'ID:', booking.id);
+                    
+                    // Special tracking for target booking
+                    if (booking.id === 'ai_145' || booking.topic === 'meeting vendors') {
+                        console.log('🎯 App.tsx - TARGET AI BOOKING PASSED STATUS FILTERING:', booking);
+                    }
+                    
+                    return true;
+                }
+                
+                console.log('🔍 App.tsx - Checking regular booking:', {
                     id: booking.id,
                     topic: booking.topic,
                     status: booking.status,
@@ -291,15 +419,45 @@ const App = () => {
                 return true;
             });
             
+            console.log('🔍 App.tsx - After status filtering:', activeBookings.length);
+            console.log('🔍 App.tsx - Status filtered out:', uniqueBookings.length - activeBookings.length);
+            
             console.log('🔍 App.tsx - Setting bookings:', activeBookings);
             console.log('🔍 App.tsx - Total bookings count:', activeBookings.length);
             console.log('🔍 App.tsx - AI bookings count:', aiBookingsFormatted.length);
             console.log('🔍 App.tsx - Server bookings count:', serverBookingsFormatted.length);
+            console.log('🔍 App.tsx - AI bookings after formatting:', aiBookingsFormatted);
+            console.log('🔍 App.tsx - Server bookings after formatting:', serverBookingsFormatted);
+            console.log('🔍 App.tsx - All bookings before filtering:', uniqueBookings);
+            console.log('🔍 App.tsx - Active bookings after filtering:', activeBookings);
             console.log('🔍 App.tsx - After ID deduplication:', uniqueByIdBookings.length);
             console.log('🔍 App.tsx - After content deduplication:', uniqueBookings.length);
             console.log('🔍 App.tsx - After status filtering:', activeBookings.length);
             console.log('🔍 App.tsx - Total duplicates removed:', allBookings.length - uniqueBookings.length);
             console.log('🔍 App.tsx - Sample booking:', activeBookings[0]);
+            
+            // Debug: Check if any AI bookings made it to the final list
+            const aiBookingsInFinal = activeBookings.filter(b => b.source === 'ai');
+            console.log('🔍 App.tsx - AI bookings in final list:', aiBookingsInFinal.length);
+            console.log('🔍 App.tsx - AI bookings in final list:', aiBookingsInFinal);
+            
+            // Special check for target booking in final result
+            const targetBooking = activeBookings.find(b => b.id === 'ai_145' || b.topic === 'meeting vendors');
+            if (targetBooking) {
+                console.log('🎯 App.tsx - TARGET AI BOOKING FOUND IN FINAL RESULT:', targetBooking);
+            } else {
+                console.log('❌ App.tsx - TARGET AI BOOKING NOT FOUND IN FINAL RESULT!');
+                console.log('🔍 App.tsx - All active booking IDs:', activeBookings.map(b => b.id));
+                console.log('🔍 App.tsx - All active booking topics:', activeBookings.map(b => b.topic));
+                
+                // Check localStorage history for potential issues
+                const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+                const historyBooking145 = history.find((h: any) => String(h.id) === '145');
+                if (historyBooking145) {
+                    console.log('⚠️ App.tsx - AI Booking 145 found in localStorage history:', historyBooking145);
+                    console.log('⚠️ App.tsx - This might be causing filtering issues!');
+                }
+            }
             setBookings(activeBookings);
             
             // Force re-render of dashboard if it's currently active

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug AI Booking Display Issue</title>
+</head>
+<body>
+    <h1>Debug AI Booking Display Issue</h1>
+    
+    <div id="debug-info"></div>
+    
+    <script>
+        function debugAIBookingIssue() {
+            const debugInfo = document.getElementById('debug-info');
+            let html = '<h2>Debug Information:</h2>';
+            
+            // Check localStorage
+            const bookingHistory = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            html += '<h3>1. LocalStorage Booking History:</h3>';
+            html += '<pre>' + JSON.stringify(bookingHistory, null, 2) + '</pre>';
+            
+            // Check if AI booking 145 is marked as completed/cancelled
+            const aiBooking145 = bookingHistory.find(h => String(h.id) === '145');
+            if (aiBooking145) {
+                html += '<h3>2. AI Booking 145 in History:</h3>';
+                html += '<pre>' + JSON.stringify(aiBooking145, null, 2) + '</pre>';
+                html += '<p style="color: red;">⚠️ AI Booking 145 is in localStorage history with status: ' + aiBooking145.status + '</p>';
+                html += '<p>This might be causing it to be filtered out!</p>';
+            } else {
+                html += '<h3>2. AI Booking 145 in History:</h3>';
+                html += '<p style="color: green;">✅ AI Booking 145 is NOT in localStorage history</p>';
+            }
+            
+            // Check user data
+            const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+            html += '<h3>3. User Data:</h3>';
+            html += '<pre>' + JSON.stringify(userData, null, 2) + '</pre>';
+            
+            // Instructions
+            html += '<h3>4. Instructions to Fix:</h3>';
+            html += '<ol>';
+            html += '<li>If AI booking 145 is in history with "Selesai" or "Dibatalkan" status, remove it:</li>';
+            html += '<li><code>localStorage.setItem("booking_history", JSON.stringify([]));</code></li>';
+            html += '<li>Or remove specific booking:</li>';
+            html += '<li><code>const history = JSON.parse(localStorage.getItem("booking_history") || "[]");</code></li>';
+            html += '<li><code>const filtered = history.filter(h => h.id !== "145");</code></li>';
+            html += '<li><code>localStorage.setItem("booking_history", JSON.stringify(filtered));</code></li>';
+            html += '<li>Refresh the page</li>';
+            html += '</ol>';
+            
+            // Auto-fix button
+            html += '<h3>5. Auto-Fix:</h3>';
+            html += '<button onclick="clearBookingHistory()">Clear All Booking History</button>';
+            html += '<button onclick="removeAIBooking145()">Remove AI Booking 145 from History</button>';
+            
+            debugInfo.innerHTML = html;
+        }
+        
+        function clearBookingHistory() {
+            localStorage.setItem('booking_history', JSON.stringify([]));
+            alert('Booking history cleared! Please refresh the page.');
+            debugAIBookingIssue();
+        }
+        
+        function removeAIBooking145() {
+            const history = JSON.parse(localStorage.getItem('booking_history') || '[]');
+            const filtered = history.filter(h => h.id !== '145');
+            localStorage.setItem('booking_history', JSON.stringify(filtered));
+            alert('AI Booking 145 removed from history! Please refresh the page.');
+            debugAIBookingIssue();
+        }
+        
+        // Run debug on page load
+        debugAIBookingIssue();
+    </script>
+</body>
+</html>

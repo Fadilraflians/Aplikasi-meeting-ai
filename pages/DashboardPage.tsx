@@ -159,6 +159,37 @@ const SiteFooter: React.FC = () => {
 
 const ReservationCard: React.FC<{ booking: Booking, showUserInfo?: boolean }> = ({ booking, showUserInfo = false }) => {
   console.log('🔍 ReservationCard received booking:', booking);
+  
+  // Function to get room image
+  const getRoomImage = (roomName?: string, imageUrl?: string) => {
+    // Jika ada image_url dari database, gunakan itu
+    if (imageUrl && imageUrl !== '/images/meeting-rooms/default-room.jpg') {
+      return imageUrl;
+    }
+    
+    // Fallback ke mapping berdasarkan nama ruangan untuk ruangan lama
+    if (!roomName) return '/images/meeting-rooms/default-room.jpg';
+    const name = roomName.toLowerCase();
+    
+    // Gunakan file JPEG yang sesuai dengan halaman meeting room
+    if (name.includes('samudrantha')) return '/images/meeting-rooms/r1.jpeg';
+    if (name.includes('nusantara')) return '/images/meeting-rooms/r2.jpeg';
+    if (name.includes('garuda')) return '/images/meeting-rooms/r3.jpeg';
+    if (name.includes('jawadwipa 1') || name.includes('jawadwipa1')) return '/images/meeting-rooms/r4.jpeg';
+    if (name.includes('jawadwipa 2') || name.includes('jawadwipa2') || name.includes('auditorium jawadwipa 2')) return '/images/meeting-rooms/r5.jpeg';
+    if (name.includes('kalamant') || name.includes('kalamanthana')) return '/images/meeting-rooms/r6.jpeg';
+    if (name.includes('cedaya')) return '/images/meeting-rooms/r7.jpeg';
+    if (name.includes('celebes')) return '/images/meeting-rooms/r8.jpeg';
+    if (name.includes('nusanipa')) return '/images/meeting-rooms/r9.jpeg'; // Add Nusanipa mapping
+    if (name.includes('balidwipa')) return '/images/meeting-rooms/r10.jpeg';
+    if (name.includes('swarnadwipa')) return '/images/meeting-rooms/r11.jpeg';
+    if (name.includes('borobudur')) return '/images/meeting-rooms/r12.jpeg';
+    if (name.includes('komodo')) return '/images/meeting-rooms/r13.jpeg';
+    
+    // Fallback ke gambar default
+    return '/images/meeting-rooms/default-room.jpg';
+  };
+  
   // Hitung apakah reservasi sudah lewat atau akan datang
   const normalizeTime = (t: string) => {
     if (!t) return '00:00';
@@ -305,10 +336,16 @@ const ReservationCard: React.FC<{ booking: Booking, showUserInfo?: boolean }> = 
         {/* Header */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center mr-3 bg-gray-100">
-              <svg className="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden mr-3 bg-gray-100">
+              <img
+                src={getRoomImage(booking.roomName, booking.imageUrl)}
+                alt={booking.roomName}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/images/meeting-rooms/default-room.jpg';
+                }}
+              />
             </div>
             <div>
               <h4 className="font-bold text-xl text-gray-800">{booking.topic}</h4>
@@ -688,18 +725,46 @@ const DashboardPage: React.FC<{ onNavigate: (page: Page) => void, bookings: Book
             String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Selesai'
         );
         
-        if (isCompleted) {
-            console.log('🔍 Dashboard Filtering out completed booking:', booking.topic, 'ID:', booking.id);
-            return false;
-        }
-        
         // Filter out cancelled bookings (same logic as ReservationsPage)
         const isCancelled = history.some((h: any) => 
             String(h.id) === String(booking.id).replace('ai_', '') && h.status === 'Dibatalkan'
         );
         
-        if (isCancelled) {
-            console.log('🔍 Dashboard Filtering out cancelled booking:', booking.topic, 'ID:', booking.id);
+        // For AI bookings, ignore database status and only check history
+        const isCompletedInDB = booking.source === 'ai' ? false : (booking.status === 'completed' || booking.booking_state === 'COMPLETED');
+        const isCancelledInDB = booking.source === 'ai' ? false : (booking.status === 'cancelled' || booking.booking_state === 'CANCELLED');
+        
+        // For AI bookings, be more lenient with status checking
+        if (booking.source === 'ai') {
+            if (isCompleted) {
+                console.log('🔍 Dashboard Filtering out completed AI booking:', booking.topic, 'ID:', booking.id, 'Source:', booking.source);
+                return false;
+            }
+            
+            if (isCancelled) {
+                console.log('🔍 Dashboard Filtering out cancelled AI booking:', booking.topic, 'ID:', booking.id, 'Source:', booking.source);
+                return false;
+            }
+            
+            // Show AI booking if it has BOOKED status or no explicit status
+            console.log('🔍 Dashboard - AI booking will be shown:', {
+                id: booking.id,
+                topic: booking.topic,
+                status: booking.status,
+                booking_state: booking.booking_state,
+                source: booking.source,
+                isUpcoming: isUpcoming
+            });
+            return isUpcoming;
+        }
+        
+        if (isCompleted || isCompletedInDB) {
+            console.log('🔍 Dashboard Filtering out completed booking:', booking.topic, 'ID:', booking.id, 'Source:', booking.source);
+            return false;
+        }
+        
+        if (isCancelled || isCancelledInDB) {
+            console.log('🔍 Dashboard Filtering out cancelled booking:', booking.topic, 'ID:', booking.id, 'Source:', booking.source);
             return false;
         }
         
