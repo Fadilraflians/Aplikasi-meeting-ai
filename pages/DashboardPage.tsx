@@ -160,6 +160,42 @@ const SiteFooter: React.FC = () => {
 
 const ReservationCard: React.FC<{ booking: Booking, showUserInfo?: boolean }> = ({ booking, showUserInfo = false }) => {
   console.log('🔍 ReservationCard received booking:', booking);
+  
+  // Function to get room image
+  const getRoomImage = (roomName?: string, imageUrl?: string) => {
+    console.log('🔍 Dashboard getRoomImage called with:', { roomName, imageUrl });
+    
+    // Jika ada image_url dari database, gunakan itu
+    if (imageUrl && imageUrl !== '/images/meeting-rooms/default-room.jpg' && imageUrl !== '') {
+      console.log('🔍 Dashboard Using imageUrl from database:', imageUrl);
+      return imageUrl;
+    }
+    
+    // Fallback ke mapping berdasarkan nama ruangan untuk ruangan lama
+    if (!roomName) return '/images/meeting-rooms/default-room.jpg';
+    const name = roomName.toLowerCase();
+    
+    console.log('🔍 Dashboard Room name for mapping:', name);
+    
+    // Gunakan file JPEG yang sesuai dengan halaman meeting room
+    if (name.includes('samudrantha')) return '/images/meeting-rooms/r1.jpeg';
+    if (name.includes('nusantara')) return '/images/meeting-rooms/r2.jpeg';
+    if (name.includes('garuda')) return '/images/meeting-rooms/r3.jpeg';
+    if (name.includes('jawadwipa 1') || name.includes('jawadwipa1')) return '/images/meeting-rooms/r4.jpeg';
+    if (name.includes('jawadwipa 2') || name.includes('jawadwipa2') || name.includes('auditorium jawadwipa 2')) return '/images/meeting-rooms/r5.jpeg';
+    if (name.includes('kalamant') || name.includes('kalamanthana')) return '/images/meeting-rooms/r6.jpeg';
+    if (name.includes('cedaya')) return '/images/meeting-rooms/r7.jpeg';
+    if (name.includes('celebes')) return '/images/meeting-rooms/r8.jpeg';
+    if (name.includes('nusanipa')) return '/images/meeting-rooms/r9.jpeg';
+    if (name.includes('balidwipa')) return '/images/meeting-rooms/r10.jpeg';
+    if (name.includes('swarnadwipa')) return '/images/meeting-rooms/r11.jpeg';
+    if (name.includes('borobudur')) return '/images/meeting-rooms/r12.jpeg';
+    if (name.includes('komodo')) return '/images/meeting-rooms/r13.jpeg';
+    
+    // Fallback ke gambar default
+    console.log('🔍 Dashboard Using default room image for:', roomName);
+    return '/images/meeting-rooms/default-room.jpg';
+  };
   // Hitung apakah reservasi sudah lewat atau akan datang
   const normalizeTime = (t: string) => {
     if (!t) return '00:00';
@@ -306,10 +342,25 @@ const ReservationCard: React.FC<{ booking: Booking, showUserInfo?: boolean }> = 
         {/* Header */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center mr-3 bg-gray-100">
-              <svg className="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
+            <div className="w-12 h-12 rounded-xl mr-3 overflow-hidden border-2 border-gray-200 shadow-md">
+              <img
+                src={(() => {
+                  const imageSrc = getRoomImage(booking.roomName, booking.imageUrl);
+                  console.log('🔍 Dashboard Image src for booking:', {
+                    roomName: booking.roomName,
+                    imageUrl: booking.imageUrl,
+                    finalSrc: imageSrc
+                  });
+                  return imageSrc;
+                })()}
+                alt={booking.roomName}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  console.log('🔍 Dashboard Image failed to load, using default:', target.src);
+                  target.src = '/images/meeting-rooms/default-room.jpg';
+                }}
+              />
             </div>
             <div>
               <h4 className="font-bold text-xl text-gray-800">{booking.topic}</h4>
