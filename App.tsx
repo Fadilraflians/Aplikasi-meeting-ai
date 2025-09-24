@@ -169,6 +169,7 @@ const App = () => {
             const serverBookingsFormatted: Booking[] = serverBookings.map((b: any): Booking => {
                 console.log('🔍 App.tsx - Raw server booking facilities:', b.facilities, 'Type:', typeof b.facilities);
                 console.log('🔍 App.tsx - Raw server booking requires_rispat:', b.requires_rispat, 'Type:', typeof b.requires_rispat);
+                console.log('🔍 App.tsx - Raw server booking image_url:', b.image_url, 'Type:', typeof b.image_url);
                 
                 const formattedFacilities = (() => {
                     if (b.facilities && Array.isArray(b.facilities)) {
@@ -193,6 +194,7 @@ const App = () => {
                     id: b.id,
                     roomId: b.room_id || 0,
                     roomName: b.room_name || `Room ${b.room_id}` || '—',
+                    imageUrl: b.image_url || null, // Add image_url for room image display
                     topic: b.topic,
                     date: b.meeting_date,
                     time: b.meeting_time,
@@ -210,6 +212,7 @@ const App = () => {
             const aiBookingsFormatted: Booking[] = aiBookings.map((b: any): Booking => {
                 console.log('🔍 App.tsx - Processing AI booking:', {
                     id: b.id,
+                    image_url: b.image_url,
                     user_id: b.user_id,
                     room_id: b.room_id,
                     room_name: b.room_name,
@@ -458,7 +461,47 @@ const App = () => {
                     console.log('⚠️ App.tsx - This might be causing filtering issues!');
                 }
             }
-            setBookings(activeBookings);
+            
+            // Check for expired bookings and move them to history
+            const now = new Date();
+            const currentDate = now.toISOString().split('T')[0];
+            const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+            
+            const expiredBookings = activeBookings.filter(booking => {
+                // Check if booking is today and time has passed
+                if (booking.date === currentDate) {
+                    const endTime = booking.endTime || booking.time;
+                    return currentTime > endTime;
+                }
+                // Check if booking date has passed
+                return booking.date < currentDate;
+            });
+            
+            if (expiredBookings.length > 0) {
+                console.log(`🔍 App.tsx - Found ${expiredBookings.length} expired bookings, moving to history`);
+                expiredBookings.forEach(booking => {
+                    console.log('🔍 Moving expired booking to history:', booking);
+                    addHistory({
+                        id: booking.id,
+                        topic: booking.topic,
+                        date: booking.date,
+                        time: booking.time,
+                        endTime: booking.endTime,
+                        roomName: booking.roomName,
+                        participants: booking.participants || 0,
+                        pic: booking.pic || 'Unknown',
+                        status: 'Selesai'
+                    });
+                });
+                
+                // Remove expired bookings from active bookings
+                const nonExpiredBookings = activeBookings.filter(booking => 
+                    !expiredBookings.some(expired => expired.id === booking.id)
+                );
+                setBookings(nonExpiredBookings);
+            } else {
+                setBookings(activeBookings);
+            }
             
             // Force re-render of dashboard if it's currently active
             if (currentPage === Page.Dashboard) {

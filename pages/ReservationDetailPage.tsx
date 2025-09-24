@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Page, type Booking } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { useDarkMode } from '../contexts/DarkModeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import RispatService, { RispatFile } from '../services/rispatService';
 
 interface Props {
@@ -42,6 +43,7 @@ const ClickableInfoRow: React.FC<{
 
 const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
   const { isDarkMode } = useDarkMode();
+  const { t } = useLanguage();
   const [showInvitationCard, setShowInvitationCard] = useState(false);
   const [rispatFiles, setRispatFiles] = useState<RispatFile[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -332,8 +334,8 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
               <BackArrowIcon />
             </button>
             <div>
-              <h2 className="text-3xl font-bold text-white mb-1">Detail Reservasi</h2>
-              <p className="text-teal-100">Informasi lengkap reservasi meeting room</p>
+              <h2 className="text-3xl font-bold text-white mb-1">{t('reservationDetail.title')}</h2>
+              <p className="text-teal-100">{t('reservationDetail.subtitle')}</p>
             </div>
           </div>
         </div>
@@ -346,7 +348,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold mb-2">{booking.roomName}</h3>
-                  <p className="text-cyan-100">{booking.topic || 'Meeting Room'}</p>
+                  <p className="text-cyan-100">{booking.topic || t('reservationDetail.meeting')}</p>
                 </div>
                 <div className="bg-white/20 backdrop-blur-sm rounded-full p-4">
                   <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
@@ -360,15 +362,15 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
             <div className="p-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <InfoRow label="📅 Tanggal" value={booking.date} />
-                  <InfoRow label="🕐 Waktu Mulai" value={displayTime} />
-                  <InfoRow label="🕐 Waktu Berakhir" value={displayEndTime || '—'} />
-                  <InfoRow label="👤 PIC" value={booking.pic || '—'} />
+                  <InfoRow label={`📅 ${t('reservationDetail.date')}`} value={booking.date} />
+                  <InfoRow label={`🕐 ${t('reservationDetail.startTime')}`} value={displayTime} />
+                  <InfoRow label={`🕐 ${t('reservationDetail.endTime')}`} value={displayEndTime || '—'} />
+                  <InfoRow label={`👤 ${t('reservationDetail.pic')}`} value={booking.pic || '—'} />
                 </div>
                 <div className="space-y-4">
-                  <InfoRow label="👥 Peserta" value={`${booking.participants} orang`} />
-                  <InfoRow label="📋 Jenis Rapat" value={booking.meetingType} />
-                  <InfoRow label="⚙️ Fasilitas" value={(() => {
+                  <InfoRow label={`👥 ${t('reservationDetail.participants')}`} value={`${booking.participants} ${t('reservationDetail.people')}`} />
+                  <InfoRow label={`📋 ${t('reservationDetail.meetingType')}`} value={booking.meetingType} />
+                  <InfoRow label={`⚙️ ${t('reservationDetail.facilities')}`} value={(() => {
                     if (booking.facilities && Array.isArray(booking.facilities) && booking.facilities.length > 0) {
                       return booking.facilities.join(', ');
                     } else if (booking.facilities && typeof booking.facilities === 'string') {
@@ -379,7 +381,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                         return booking.facilities;
                       }
                     }
-                    return 'Tidak ada fasilitas khusus';
+                    return t('reservationDetail.noSpecialFacilities');
                   })()} />
                   
                   {/* Kolom Risalah Rapat */}
@@ -387,7 +389,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-gray-600 font-medium flex items-center">
                         <span className="mr-2">📋</span>
-                        Risalah Rapat
+                        {t('reservationDetail.meetingMinutes')}
                       </span>
                       <div className="flex gap-2">
                         <button
@@ -395,7 +397,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                             if (canUploadRispat) {
                               setShowUploadModal(true);
                             } else {
-                              alert(`Upload risalah rapat hanya bisa dilakukan saat rapat sedang berlangsung.\n\nStatus saat ini: ${bookingStatus === 'upcoming' ? 'Belum dimulai' : bookingStatus === 'expired' ? 'Sudah selesai' : 'Tidak diketahui'}`);
+                              alert(`${t('reservationDetail.uploadOnlyDuringMeetingAlert')}\n\n${t('reservationDetail.currentStatus').replace('{status}', bookingStatus === 'upcoming' ? t('reservationDetail.notStarted') : bookingStatus === 'expired' ? t('reservationDetail.finished') : t('reservationDetail.unknown'))}`);
                             }
                           }}
                           disabled={!canUploadRispat}
@@ -404,9 +406,9 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                               ? 'bg-blue-500 text-white hover:bg-blue-600' 
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           }`}
-                          title={canUploadRispat ? 'Upload risalah rapat' : 'Upload hanya bisa dilakukan saat rapat sedang berlangsung'}
+                          title={canUploadRispat ? t('reservationDetail.uploadMinutes') : t('reservationDetail.uploadOnlyDuringMeeting')}
                         >
-                          📤 Upload
+                          📤 {t('reservationDetail.upload')}
                         </button>
                         <button
                           onClick={() => {
@@ -417,29 +419,29 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                           }}
                           className="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
                         >
-                          👁️ Lihat
+                          👁️ {t('reservationDetail.view')}
                         </button>
                       </div>
                     </div>
                     <div className="text-sm text-gray-600">
                       {rispatFiles.length > 0 ? (
                         <span className="text-green-600 font-semibold">
-                          {rispatFiles.length} file tersedia
+                          {t('reservationDetail.filesAvailable').replace('{count}', rispatFiles.length.toString())}
                         </span>
                       ) : (
-                        <span className="text-gray-500">Belum ada file risalah</span>
+                        <span className="text-gray-500">{t('reservationDetail.noMinutesFile')}</span>
                       )}
                     </div>
                     {/* Status indicator */}
                     <div className="mt-2 text-xs">
                       {bookingStatus === 'ongoing' && (
-                        <span className="text-green-600 font-semibold">✅ Rapat sedang berlangsung - Upload tersedia</span>
+                        <span className="text-green-600 font-semibold">✅ {t('reservationDetail.meetingOngoing')}</span>
                       )}
                       {bookingStatus === 'upcoming' && (
-                        <span className="text-orange-600 font-semibold">⏳ Rapat belum dimulai - Upload tidak tersedia</span>
+                        <span className="text-orange-600 font-semibold">⏳ {t('reservationDetail.meetingNotStarted')}</span>
                       )}
                       {bookingStatus === 'expired' && (
-                        <span className="text-gray-600 font-semibold">🔒 Rapat sudah selesai - Upload tidak tersedia</span>
+                        <span className="text-gray-600 font-semibold">🔒 {t('reservationDetail.meetingFinished')}</span>
                       )}
                     </div>
                   </div>
@@ -451,8 +453,8 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
           {/* Card Ringkasan */}
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
             <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-6 text-white">
-              <h3 className="text-xl font-bold mb-2">📊 Ringkasan</h3>
-              <p className="text-emerald-100 text-sm">Informasi singkat reservasi</p>
+              <h3 className="text-xl font-bold mb-2">📊 {t('reservationDetail.summary')}</h3>
+              <p className="text-emerald-100 text-sm">{t('reservationDetail.summarySubtitle')}</p>
             </div>
             
             <div className="p-6">
@@ -465,7 +467,7 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-800">{booking.roomName}</p>
-                    <p className="text-sm text-gray-600">Ruangan Meeting</p>
+                    <p className="text-sm text-gray-600">{t('reservationDetail.meetingRoom')}</p>
                   </div>
                 </div>
                 
@@ -478,9 +480,9 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                   <div>
                     <p className="font-semibold text-gray-800">{booking.date} {displayTime}</p>
                     {displayEndTime && (
-                      <p className="text-sm text-gray-600">Sampai {displayEndTime}</p>
+                      <p className="text-sm text-gray-600">{t('reservationDetail.until')} {displayEndTime}</p>
                     )}
-                    <p className="text-sm text-gray-600">Jadwal Meeting</p>
+                    <p className="text-sm text-gray-600">{t('reservationDetail.meetingSchedule')}</p>
                   </div>
                 </div>
                 
@@ -491,8 +493,8 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                     </svg>
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-800">{booking.participants} orang</p>
-                    <p className="text-sm text-gray-600">Jumlah Peserta</p>
+                    <p className="font-semibold text-gray-800">{booking.participants} {t('reservationDetail.people')}</p>
+                    <p className="text-sm text-gray-600">{t('reservationDetail.participantCount')}</p>
                   </div>
                 </div>
               </div>
@@ -502,14 +504,14 @@ const ReservationDetailPage: React.FC<Props> = ({ onNavigate, booking }) => {
                   onClick={handleCreateInvitation} 
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                 >
-                  🎉 Undangan Rapat
+                  🎉 {t('reservationDetail.meetingInvitation')}
                 </button>
                 
                 <button 
                   onClick={() => onNavigate(Page.Reservations)} 
                   className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                 >
-                  ← Kembali ke Reservasi
+                  ← {t('reservationDetail.backToReservations')}
                 </button>
               </div>
             </div>

@@ -3,6 +3,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Page, type MeetingRoom, type Booking } from '../types';
 import { ApiService } from '../src/config/api';
 import { BackArrowIcon } from '../components/icons';
+import { useLanguage } from '../contexts/LanguageContext';
+import InJourneyPattern from '../components/InJourneyPattern';
 
 interface BookingFormPageProps {
     onNavigate: (page: Page) => void;
@@ -12,6 +14,7 @@ interface BookingFormPageProps {
 }
 
 const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onBookingConfirmed, bookingData }) => {
+    const { t } = useLanguage();
     const [selectedRoom, setSelectedRoom] = useState<MeetingRoom | null>(room);
     const [availableRooms, setAvailableRooms] = useState<MeetingRoom[]>([]);
     const [loadingRooms, setLoadingRooms] = useState(true);
@@ -477,9 +480,12 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
         );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
+        <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50 relative">
+            {/* InJourney Pattern Background */}
+            <InJourneyPattern className="opacity-15" />
+            
             {/* Header Section */}
-            <div className="bg-white shadow-lg border-b border-gray-200">
+            <div className="bg-white shadow-lg border-b border-gray-200 relative z-10">
                 <div className="max-w-4xl mx-auto px-6 py-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center">
@@ -490,8 +496,8 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                 <BackArrowIcon />
                             </button>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-800">Formulir Pemesanan</h1>
-                                <p className="text-gray-600 text-sm mt-1">Isi formulir untuk memesan ruangan meeting</p>
+                                <h1 className="text-2xl font-bold text-gray-800">{t('bookingForm.title')}</h1>
+                                <p className="text-gray-600 text-sm mt-1">{t('bookingForm.subtitle')}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -504,7 +510,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
             </div>
 
             {/* Main Content */}
-            <div className="max-w-4xl mx-auto p-6">
+            <div className="max-w-4xl mx-auto p-6 relative z-10">
                 <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                     <div className="p-8">
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -514,7 +520,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     <label htmlFor="room" className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                            Pilih Ruangan *
+                                            {t('bookingForm.selectRoom')}
                                         </span>
                                     </label>
                                     <select 
@@ -527,11 +533,11 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" 
                                     >
                                         <option value="" disabled>
-                                            {loadingRooms ? 'Memuat ruangan...' : 'Pilih ruangan meeting'}
+                                            {loadingRooms ? t('bookingForm.loadingRooms') : t('bookingForm.selectRoomPlaceholder')}
                                         </option>
                                         {availableRooms.map(room => (
                                             <option key={room.id} value={room.id} disabled={room.isActive === false}>
-                                                {room.name} ({room.capacity} orang) {room.isActive === false ? '- ❌ Nonaktif' : ''}
+                                                {room.name} ({room.capacity} {t('bookingForm.people')}) {room.isActive === false ? t('bookingForm.inactive') : ''}
                                             </option>
                                         ))}
                                     </select>
@@ -540,7 +546,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     <label htmlFor="topic" className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                            Topik / Nama Rapat *
+                                            {t('bookingForm.topic')}
                                         </span>
                                     </label>
                                     <input 
@@ -549,7 +555,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         name="topic" 
                                         value={topic}
                                         onChange={handleTopicChange}
-                                        placeholder="Masukkan topik atau nama rapat"
+                                        placeholder={t('bookingForm.topicPlaceholder')}
                                         autoComplete="off"
                                         spellCheck="false"
                                         className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300" 
@@ -562,7 +568,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     <label htmlFor="pic" className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                                            PIC (Person in Charge) *
+                                            {t('bookingForm.pic')}
                                         </span>
                                     </label>
                                     <input 
@@ -571,7 +577,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         name="pic" 
                                         value={pic}
                                         onChange={handlePicChange}
-                                        placeholder="Masukkan nama PIC"
+                                        placeholder={t('bookingForm.picPlaceholder')}
                                         autoComplete="off"
                                         spellCheck="false"
                                         required
@@ -582,7 +588,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     <label htmlFor="participants" className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                                            Jumlah Peserta *
+                                            {t('bookingForm.participants')}
                                         </span>
                                     </label>
                                     <input 
@@ -592,7 +598,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         min={1}
                                         value={participantsInput} 
                                         onChange={handleParticipantsChange}
-                                        placeholder="Jumlah peserta"
+                                        placeholder={t('bookingForm.participantsPlaceholder')}
                                         autoComplete="off"
                                         className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300" 
                                     />
@@ -604,7 +610,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     <label htmlFor="date" className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
-                                            Tanggal Rapat *
+                                            {t('bookingForm.meetingDate')}
                                         </span>
                                     </label>
                                     <input 
@@ -621,12 +627,12 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     <label className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
-                                            Waktu Rapat *
+                                            {t('bookingForm.meetingTime')}
                                         </span>
                                     </label>
                                     <div className="flex gap-2">
                                         <div className="flex-1">
-                                            <label htmlFor="time" className="block text-xs text-gray-500 mb-1">Mulai:</label>
+                                            <label htmlFor="time" className="block text-xs text-gray-500 mb-1">{t('bookingForm.startTime')}</label>
                                             <input 
                                                 type="time" 
                                                 id="time" 
@@ -640,7 +646,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                             />
                                         </div>
                                         <div className="flex-1">
-                                            <label htmlFor="endTime" className="block text-xs text-gray-500 mb-1">Berakhir:</label>
+                                            <label htmlFor="endTime" className="block text-xs text-gray-500 mb-1">{t('bookingForm.endTime')}</label>
                                             <input 
                                                 type="time" 
                                                 id="endTime" 
@@ -656,7 +662,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     </div>
                                     {time && endTime && (
                                         <div className="mt-2 text-sm text-gray-600">
-                                            <span className="font-medium">Durasi:</span> {
+                                            <span className="font-medium">{t('bookingForm.duration')}</span> {
                                                 (() => {
                                                     const [startHour, startMin] = time.split(':').map(Number);
                                                     const [endHour, endMin] = endTime.split(':').map(Number);
@@ -664,17 +670,17 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                                     const endMinutes = endHour * 60 + endMin;
                                                     const durationMinutes = endMinutes - startMinutes;
                                                     
-                                                    if (durationMinutes <= 0) return 'Waktu tidak valid';
+                                                    if (durationMinutes <= 0) return t('bookingForm.invalidTime');
                                                     
                                                     const hours = Math.floor(durationMinutes / 60);
                                                     const minutes = durationMinutes % 60;
                                                     
                                                     if (hours > 0 && minutes > 0) {
-                                                        return `${hours} jam ${minutes} menit`;
+                                                        return `${hours} ${t('bookingForm.hours')} ${minutes} ${t('bookingForm.minutes')}`;
                                                     } else if (hours > 0) {
-                                                        return `${hours} jam`;
+                                                        return `${hours} ${t('bookingForm.hours')}`;
                                                     } else {
-                                                        return `${minutes} menit`;
+                                                        return `${minutes} ${t('bookingForm.minutes')}`;
                                                     }
                                                 })()
                                             }
@@ -688,7 +694,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     <label htmlFor="meetingType" className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
-                                            Jenis Rapat *
+                                            {t('bookingForm.meetingType')}
                                         </span>
                                     </label>
                                     <select 
@@ -698,15 +704,15 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         onChange={handleMeetingTypeChange}
                                         className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300 cursor-pointer"
                                     >
-                                        <option value="internal">Internal</option>
-                                        <option value="external">Eksternal</option>
+                                        <option value="internal">{t('bookingForm.internal')}</option>
+                                        <option value="external">{t('bookingForm.external')}</option>
                                     </select>
                                 </div>
                                 <div>
                                     <label htmlFor="rispat" className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                                            Rispat *
+                                            {t('bookingForm.rispat')}
                                         </span>
                                     </label>
                                     <select 
@@ -717,11 +723,11 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300 cursor-pointer"
                                         style={{backgroundColor: 'white', border: '2px solid #e5e7eb'}}
                                     >
-                                        <option value="no">Tidak</option>
-                                        <option value="yes">Ya</option>
+                                        <option value="no">{t('bookingForm.no')}</option>
+                                        <option value="yes">{t('bookingForm.yes')}</option>
                                     </select>
                                     <div className="mt-2 text-sm text-gray-600">
-                                        <span className="text-blue-600">💡</span> Jika memilih "Ya", Anda harus mengupload rispat setelah pemesanan untuk menyelesaikan booking
+                                        <span className="text-blue-600">💡</span> {t('bookingForm.rispatHint')}
                                     </div>
                                 </div>
                             </div>
@@ -731,12 +737,12 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                     <label className="block text-sm font-semibold text-gray-700 mb-3">
                                         <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                                            Fasilitas
+                                            {t('bookingForm.facilities')}
                                         </span>
                                     </label>
                                     <div className="text-sm text-gray-600 mb-4 flex items-center gap-2">
                                         <span className="text-green-600">✓</span>
-                                        Pilih fasilitas yang tersedia di {selectedRoom?.name || 'ruangan meeting ini'}
+                                        {t('bookingForm.selectFacilities').replace('{roomName}', selectedRoom?.name || t('bookingForm.selectRoomFirst'))}
                                     </div>
                                     <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm">
                                         {availableFacilities.length > 0 ? (
@@ -756,14 +762,14 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         ) : (
                                             <div className="text-center py-8 text-gray-500">
                                                 <div className="text-4xl mb-2">🏢</div>
-                                                <p>Pilih ruangan terlebih dahulu untuk melihat fasilitas yang tersedia</p>
+                                                <p>{t('bookingForm.selectRoomFirst')}</p>
                                             </div>
                                         )}
                                         
                                         {selectedFacilities.length > 0 && (
                                             <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                                                 <div className="text-sm font-medium text-blue-800 mb-2">
-                                                    Fasilitas yang dipilih ({selectedFacilities.length}):
+                                                    {t('bookingForm.selectedFacilities').replace('{count}', selectedFacilities.length.toString())}
                                                 </div>
                                                 <div className="flex flex-wrap gap-2">
                                                     {selectedFacilities.map((facility) => (
@@ -794,7 +800,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                 >
                                     <span className="flex items-center justify-center gap-2">
                                         <span>↩️</span>
-                                        Batal
+                                        {t('bookingForm.cancel')}
                                     </span>
                                 </button>
                                 <button
@@ -810,12 +816,12 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         {isSubmitting ? (
                                             <>
                                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                Memproses...
+                                                {t('bookingForm.processing')}
                                             </>
                                         ) : (
                                             <>
                                                 <span>✅</span>
-                                                Konfirmasi Pemesanan
+                                                {t('bookingForm.confirmBooking')}
                                             </>
                                         )}
                                     </span>
@@ -829,7 +835,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                         <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
                                             <span className="text-white text-sm font-bold">🏢</span>
                                         </div>
-                                        <h3 className="text-xl font-bold text-gray-800">Detail Ruangan</h3>
+                                        <h3 className="text-xl font-bold text-gray-800">{t('bookingForm.roomDetails')}</h3>
                                     </div>
                                     
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -838,9 +844,9 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                                 <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
                                                     <span className="text-green-600 text-xs">👥</span>
                                                 </div>
-                                                <span className="font-semibold text-gray-700 text-sm">Kapasitas</span>
+                                                <span className="font-semibold text-gray-700 text-sm">{t('bookingForm.capacity')}</span>
                                             </div>
-                                            <p className="text-lg font-bold text-gray-800">{selectedRoom.capacity} orang</p>
+                                            <p className="text-lg font-bold text-gray-800">{selectedRoom.capacity} {t('bookingForm.people')}</p>
                                         </div>
                                         
                                         <div className="bg-white/70 backdrop-blur-sm p-4 rounded-xl border border-blue-100 shadow-sm">
@@ -858,7 +864,7 @@ const BookingFormPage: React.FC<BookingFormPageProps> = ({ onNavigate, room, onB
                                                 <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
                                                     <span className="text-purple-600 text-xs">⚙️</span>
                                                 </div>
-                                                <span className="font-semibold text-gray-700 text-sm">Fasilitas</span>
+                                                <span className="font-semibold text-gray-700 text-sm">{t('bookingForm.facilities')}</span>
                                             </div>
                                             <div className="flex flex-wrap gap-1">
                                                 {selectedRoom.facilities.map((facility, index) => (

@@ -118,15 +118,15 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pending': return 'Menunggu Respon';
-      case 'approved': return 'Disetujui';
-      case 'rejected': return 'Ditolak';
+      case 'pending': return t('cancelRequests.waitingResponse');
+      case 'approved': return t('cancelRequests.approved');
+      case 'rejected': return t('cancelRequests.rejected');
       default: return status;
     }
   };
 
   const getRequestTypeText = (type: string) => {
-    return type === 'ai' ? 'AI Booking' : 'Form Booking';
+    return type === 'ai' ? t('cancelRequests.aiBooking') : t('cancelRequests.formBooking');
   };
 
   if (loading) {
@@ -134,7 +134,7 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
       <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat permintaan pembatalan...</p>
+          <p className="text-gray-600">{t('cancelRequests.loading')}</p>
         </div>
       </div>
     );
@@ -161,8 +161,8 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
                 <BackArrowIcon />
               </button>
               <div>
-                <h1 className="text-4xl font-bold text-white mb-2">Permintaan Pembatalan</h1>
-                <p className="text-teal-100 text-lg">Kelola semua permintaan pembatalan reservasi</p>
+                <h1 className="text-4xl font-bold text-white mb-2">{t('cancelRequests.title')}</h1>
+                <p className="text-teal-100 text-lg">{t('cancelRequests.subtitle')}</p>
               </div>
             </div>
           </div>
@@ -176,10 +176,10 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
           <div className="bg-white rounded-xl p-2 shadow-md">
             <div className="flex space-x-2">
               {[
-                { key: 'all', label: 'Semua', count: requests.length },
-                { key: 'pending', label: 'Menunggu', count: requests.filter(r => r.status === 'pending').length },
-                { key: 'approved', label: 'Disetujui', count: requests.filter(r => r.status === 'approved').length },
-                { key: 'rejected', label: 'Ditolak', count: requests.filter(r => r.status === 'rejected').length }
+                { key: 'all', label: t('cancelRequests.all'), count: requests.length },
+                { key: 'pending', label: t('cancelRequests.pending'), count: requests.filter(r => r.status === 'pending').length },
+                { key: 'approved', label: t('cancelRequests.approved'), count: requests.filter(r => r.status === 'approved').length },
+                { key: 'rejected', label: t('cancelRequests.rejected'), count: requests.filter(r => r.status === 'rejected').length }
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -206,11 +206,11 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Tidak Ada Permintaan</h3>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">{t('cancelRequests.noRequests')}</h3>
               <p className="text-gray-600">
                 {filter === 'all' 
-                  ? 'Belum ada permintaan pembatalan reservasi.'
-                  : `Tidak ada permintaan dengan status "${getStatusText(filter)}".`
+                  ? t('cancelRequests.noRequestsDesc')
+                  : t('cancelRequests.noRequestsFilter').replace('{status}', getStatusText(filter))
                 }
               </p>
             </div>
@@ -231,17 +231,17 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-800 text-lg">
-                          Permintaan Pembatalan #{request.id}
+                          {t('cancelRequests.requestId').replace('{id}', request.id.toString())}
                         </h3>
                         <div className="text-sm text-gray-600 space-y-1">
                           <p>
-                            <span className="font-medium">Dari:</span> {request.requester_full_name || request.requester_name}
+                            <span className="font-medium">{t('cancelRequests.from')}:</span> {request.requester_full_name || request.requester_name}
                           </p>
                           <p>
-                            <span className="font-medium">Untuk:</span> {request.owner_full_name || request.owner_name}
+                            <span className="font-medium">{t('cancelRequests.to')}:</span> {request.owner_full_name || request.owner_name}
                           </p>
                           <p>
-                            <span className="font-medium">Reservasi:</span> {request.booking_id} ({getRequestTypeText(request.booking_type)})
+                            <span className="font-medium">{t('cancelRequests.reservation')}:</span> {request.booking_id} ({getRequestTypeText(request.booking_type)})
                           </p>
                         </div>
                       </div>
@@ -258,7 +258,7 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
 
                   {/* Reason */}
                   <div className="mb-4">
-                    <h4 className="font-medium text-gray-800 mb-2">Alasan Pembatalan:</h4>
+                    <h4 className="font-medium text-gray-800 mb-2">{t('cancelRequests.cancellationReason')}:</h4>
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                       <p className="text-sm text-red-800">{request.reason}</p>
                     </div>
@@ -267,7 +267,7 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
                   {/* Response Message */}
                   {request.response_message && (
                     <div className="mb-4">
-                      <h4 className="font-medium text-gray-800 mb-2">Pesan Balasan:</h4>
+                      <h4 className="font-medium text-gray-800 mb-2">{t('cancelRequests.responseMessage')}:</h4>
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <p className="text-sm text-blue-800">{request.response_message}</p>
                       </div>
@@ -279,18 +279,18 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
                     <div className="border-t pt-4">
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Pesan Balasan (Opsional)
+                          {t('cancelRequests.replyMessage')}
                         </label>
                         <textarea
                           value={responseMessage}
                           onChange={(e) => setResponseMessage(e.target.value)}
-                          placeholder="Berikan pesan balasan untuk peminta..."
+                          placeholder={t('cancelRequests.replyPlaceholder')}
                           className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
                           rows={3}
                           maxLength={500}
                         />
                         <div className="text-right text-xs text-gray-500 mt-1">
-                          {responseMessage.length}/500 karakter
+                          {responseMessage.length}/500 {t('cancelRequests.characters')}
                         </div>
                       </div>
 
@@ -306,14 +306,14 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              Memproses...
+                              {t('cancelRequests.processing')}
                             </>
                           ) : (
                             <>
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
-                              Tolak
+                              {t('cancelRequests.reject')}
                             </>
                           )}
                         </button>
@@ -328,14 +328,14 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              Memproses...
+                              {t('cancelRequests.processing')}
                             </>
                           ) : (
                             <>
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              Setujui
+                              {t('cancelRequests.approve')}
                             </>
                           )}
                         </button>
@@ -348,12 +348,12 @@ const CancelRequestsPage: React.FC<{ onNavigate: (page: Page) => void }> = ({ on
                     <div className="border-t pt-4">
                       <div className="text-center text-sm text-gray-600">
                         {request.status === 'approved' 
-                          ? '✅ Permintaan Anda telah disetujui'
-                          : '❌ Permintaan Anda telah ditolak'
+                          ? t('cancelRequests.requestApproved')
+                          : t('cancelRequests.requestRejected')
                         }
                         {request.response_message && (
                           <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-                            <strong>Pesan:</strong> {request.response_message}
+                            <strong>{t('cancelRequests.message')}:</strong> {request.response_message}
                           </div>
                         )}
                       </div>

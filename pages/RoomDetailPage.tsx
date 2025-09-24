@@ -3,6 +3,7 @@ import { Page, type MeetingRoom, type Booking, type User } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { ApiService } from '../src/config/api';
 import { useDarkMode } from '../contexts/DarkModeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface RoomDetailPageProps {
   onNavigate: (page: Page) => void;
@@ -27,6 +28,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const { isDarkMode } = useDarkMode();
+  const { t } = useLanguage();
 
   // Debug room data
   console.log('🔍 RoomDetailPage - Room data:', {
@@ -230,7 +232,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
     
     // Hari ini
     options.push({
-      label: 'Hari Ini',
+      label: t('roomDetail.today'),
       value: today.toISOString().split('T')[0],
       isToday: true
     });
@@ -239,7 +241,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
     options.push({
-      label: 'Besok',
+      label: t('roomDetail.tomorrow'),
       value: tomorrow.toISOString().split('T')[0],
       isToday: false
     });
@@ -248,7 +250,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
     const nextWeek = new Date(today);
     nextWeek.setDate(today.getDate() + 7);
     options.push({
-      label: 'Minggu Depan',
+      label: t('roomDetail.nextWeek'),
       value: nextWeek.toISOString().split('T')[0],
       isToday: false
     });
@@ -257,7 +259,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
     const nextMonth = new Date(today);
     nextMonth.setMonth(today.getMonth() + 1);
     options.push({
-      label: 'Bulan Depan',
+      label: t('roomDetail.nextMonth'),
       value: nextMonth.toISOString().split('T')[0],
       isToday: false
     });
@@ -544,7 +546,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Informasi Ruangan</h3>
+                <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{t('roomDetail.roomInfo')}</h3>
                 {user?.role === 'admin' && (
                   <div className="flex gap-2">
                     <button
@@ -599,12 +601,12 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                 )}
               </div>
               <div className={`space-y-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                <p><span className="font-semibold">Kapasitas:</span> {room.capacity} orang</p>
-                <p><span className="font-semibold">Lantai:</span> {room.floor}</p>
-                <p><span className="font-semibold">Alamat:</span> {room.address}</p>
-                <p><span className="font-semibold">Fasilitas:</span> {room.facilities.join(', ')}</p>
+                <p><span className="font-semibold">{t('roomDetail.capacity')}:</span> {room.capacity} {t('roomDetail.people')}</p>
+                <p><span className="font-semibold">{t('roomDetail.floor')}:</span> {room.floor}</p>
+                <p><span className="font-semibold">{t('roomDetail.address')}:</span> {room.address}</p>
+                <p><span className="font-semibold">{t('roomDetail.facilities')}:</span> {room.facilities.join(', ')}</p>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">Status:</span> 
+                  <span className="font-semibold">{t('roomDetail.status')}:</span> 
                   {(() => {
                     const roomStatus = getRoomStatus();
                     
@@ -613,7 +615,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200`}>
                           <span className="flex items-center gap-1">
                             <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
-                            Maintenance
+                            {t('roomDetail.maintenance')}
                           </span>
                         </span>
                       );
@@ -622,7 +624,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200`}>
                           <span className="flex items-center gap-1">
                             <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
-                            Sedang Berlangsung
+                            {t('roomDetail.ongoing')}
                           </span>
                         </span>
                       );
@@ -631,7 +633,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200`}>
                           <span className="flex items-center gap-1">
                             <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
-                            Akan Datang
+                            {t('roomDetail.upcoming')}
                           </span>
                         </span>
                       );
@@ -640,7 +642,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200`}>
                           <span className="flex items-center gap-1">
                             <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                            Tersedia
+                            {t('roomDetail.available')}
                           </span>
                         </span>
                       );
@@ -681,10 +683,10 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
-                    Unavailable
+                    {t('roomDetail.unavailable')}
                   </span>
                 ) : (
-                  '📅 Pesan Ruangan'
+                  `📅 ${t('roomDetail.bookRoom')}`
                 )}
               </button>
               {room.isActive === false && (
@@ -706,7 +708,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
         {/* Booking Schedule */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Jadwal Booking</h3>
+            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{t('roomDetail.bookingSchedule')}</h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigateDate('prev')}
@@ -737,11 +739,11 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
           {/* Calendar Picker */}
           {showCalendar && (
             <div className={`mb-6 p-4 rounded-lg border shadow-sm ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
-              <h4 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Pilih Tanggal</h4>
+              <h4 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{t('roomDetail.selectDate')}</h4>
               
               {/* Quick Date Options */}
               <div className="mb-4">
-                <p className={`text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Pilihan Cepat:</p>
+                <p className={`text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t('roomDetail.quickOptions')}:</p>
                 <div className="flex flex-wrap gap-2">
                   {getQuickDateOptions().map((option) => (
                     <button
@@ -767,7 +769,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
               {/* Dates with Bookings */}
               {getDatesWithBookings().length > 0 && (
                 <div>
-                  <p className={`text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Tanggal dengan Booking:</p>
+                  <p className={`text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t('roomDetail.datesWithBookings')}:</p>
                   <div className="flex flex-wrap gap-2">
                     {getDatesWithBookings().map((date) => (
                       <button
@@ -795,8 +797,8 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
           
           {roomBookings.length === 0 ? (
             <div className={`text-center py-8 rounded-lg ${isDarkMode ? 'text-gray-400 bg-gray-700' : 'text-gray-500 bg-gray-50'}`}>
-              <p>Tidak ada booking untuk {formatDate(selectedDate)}</p>
-              <p className="text-sm mt-2">Ruangan tersedia sepanjang hari</p>
+              <p>{t('roomDetail.noBookings').replace('{date}', formatDate(selectedDate))}</p>
+              <p className="text-sm mt-2">{t('roomDetail.roomAvailableAllDay')}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -804,10 +806,10 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className={`text-xl font-bold mb-1 ${isDarkMode ? 'text-blue-300' : 'text-blue-800'}`}>
-                      📅 Jadwal Booking - {formatDate(selectedDate)}
+                      📅 {t('roomDetail.bookingScheduleTitle').replace('{date}', formatDate(selectedDate))}
                     </h4>
                     <p className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>
-                      Total {roomBookings.length} pemesanan untuk hari ini
+                      {t('roomDetail.totalBookings').replace('{count}', roomBookings.length.toString())}
                     </p>
                   </div>
                   <div className={`px-3 py-1 rounded-full text-sm font-semibold ${isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
@@ -827,11 +829,11 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                             <h5 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                              {booking.topic || 'Meeting'}
+                              {booking.topic || t('roomDetail.meeting')}
                             </h5>
                           </div>
                           <span className={`text-xs px-3 py-1 rounded-full font-semibold ${isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'}`}>
-                            BOOKED
+                            {t('roomDetail.booked')}
                           </span>
                         </div>
                         
@@ -840,7 +842,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                           <div className="flex items-center gap-2">
                             <span className="text-blue-600">📅</span>
                             <div>
-                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tanggal</div>
+                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('roomDetail.date')}</div>
                               <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                 {new Date(booking.meeting_date).toLocaleDateString('id-ID', {
                                   day: 'numeric',
@@ -854,7 +856,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                           <div className="flex items-center gap-2">
                             <span className="text-green-600">⏰</span>
                             <div>
-                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Waktu</div>
+                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('roomDetail.time')}</div>
                               <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                 {formatTime(booking.meeting_time)}
                                 {booking.end_time && (
@@ -869,7 +871,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                           <div className="flex items-center gap-2">
                             <span className="text-purple-600">👤</span>
                             <div>
-                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>PIC</div>
+                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('roomDetail.pic')}</div>
                               <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.pic || '-'}</div>
                             </div>
                           </div>
@@ -877,24 +879,24 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                           <div className="flex items-center gap-2">
                             <span className="text-orange-600">👥</span>
                             <div>
-                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Peserta</div>
-                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.participants} orang</div>
+                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('roomDetail.participants')}</div>
+                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.participants} {t('roomDetail.people')}</div>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             <span className="text-indigo-600">🏢</span>
                             <div>
-                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Jenis</div>
-                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.meeting_type || 'internal'}</div>
+                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('roomDetail.type')}</div>
+                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.meeting_type || t('roomDetail.internal')}</div>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             <span className="text-pink-600">🍽️</span>
                             <div>
-                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Fasilitas</div>
-                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.facilities?.join(', ') || 'Tidak ada'}</div>
+                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('roomDetail.facilities')}</div>
+                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{booking.facilities?.join(', ') || t('roomDetail.noFacilities')}</div>
                             </div>
                           </div>
                         </div>
@@ -903,7 +905,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                         <div className={`bg-gradient-to-r rounded-lg p-3 ${isDarkMode ? 'from-gray-600 to-gray-700' : 'from-gray-50 to-gray-100'}`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>⏱️ Durasi:</span>
+                              <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>⏱️ {t('roomDetail.duration')}:</span>
                               <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                 {(() => {
                                   const start = new Date(`2000-01-01 ${booking.meeting_time}`);
@@ -911,12 +913,12 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                                   const diffMs = end.getTime() - start.getTime();
                                   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                                   const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                                  return `${diffHours} jam ${diffMinutes > 0 ? `${diffMinutes} menit` : ''}`.trim();
+                                  return `${diffHours} ${t('roomDetail.hours')} ${diffMinutes > 0 ? `${diffMinutes} ${t('roomDetail.minutes')}` : ''}`.trim();
                                 })()}
                               </span>
                             </div>
                             <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              Slot: {formatTime(booking.meeting_time)}
+                              {t('roomDetail.slot')}: {formatTime(booking.meeting_time)}
                               {booking.end_time && (
                                 <span className="ml-1">
                                   - {formatTime(booking.end_time)}
@@ -934,7 +936,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                 {roomBookings.length > 1 && (
                   <div className="flex justify-center mt-4 gap-2">
                     <div className="text-xs text-gray-500">
-                      ← Geser untuk melihat booking lainnya →
+                      {t('roomDetail.scrollHint')}
                     </div>
                   </div>
                 )}
@@ -945,7 +947,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
           {/* Available Time Slots */}
           <div className="mt-6">
             <h4 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-              Slot Waktu Tersedia - {formatDate(selectedDate)}
+              {t('roomDetail.availableTimeSlots').replace('{date}', formatDate(selectedDate))}
             </h4>
             <div className="grid grid-cols-4 gap-3">
               {Array.from({ length: 12 }, (_, i) => {
@@ -979,7 +981,7 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                     
                     {isBooked && (
                       <>
-                        <div className="text-xs mt-1 font-semibold text-red-700">BOOKED</div>
+                        <div className="text-xs mt-1 font-semibold text-red-700">{t('roomDetail.booked')}</div>
                         <div className="text-xs text-red-500 truncate mt-1">
                           {bookingForSlot.topic}
                         </div>
@@ -987,18 +989,18 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                           {bookingForSlot.pic}
                         </div>
                         <div className="text-xs text-red-600 mt-1 font-medium">
-                          ❌ Tidak tersedia
+                          ❌ {t('roomDetail.notAvailable')}
                         </div>
                       </>
                     )}
                     
                     {isPastTime && (
-                      <div className="text-xs mt-1 text-gray-500">PAST</div>
+                      <div className="text-xs mt-1 text-gray-500">{t('roomDetail.past')}</div>
                     )}
                     
                     {!isBooked && !isPastTime && (
                       <div className="text-xs mt-1 text-green-500 font-medium">
-                        Tersedia
+                        {t('roomDetail.available')}
                       </div>
                     )}
                     
@@ -1009,10 +1011,10 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                           <div className="font-semibold mb-2">{bookingForSlot.topic}</div>
                           <div className="space-y-1">
                             <div>📅 {formatTime(bookingForSlot.meeting_time)}</div>
-                            <div>👤 PIC: {bookingForSlot.pic}</div>
-                            <div>👥 Peserta: {bookingForSlot.participants} orang</div>
-                            <div>🏢 Jenis: {bookingForSlot.meeting_type}</div>
-                            <div>🔧 Fasilitas: {bookingForSlot.facilities?.join(', ') || 'Tidak ada'}</div>
+                            <div>👤 {t('roomDetail.pic')}: {bookingForSlot.pic}</div>
+                            <div>👥 {t('roomDetail.participants')}: {bookingForSlot.participants} {t('roomDetail.people')}</div>
+                            <div>🏢 {t('roomDetail.type')}: {bookingForSlot.meeting_type}</div>
+                            <div>🔧 {t('roomDetail.facilities')}: {bookingForSlot.facilities?.join(', ') || t('roomDetail.noFacilities')}</div>
                           </div>
                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                         </div>
@@ -1028,28 +1030,28 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
               <div className="flex flex-wrap gap-4 text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
-                  <span>Tersedia</span>
+                  <span>{t('roomDetail.available')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
-                  <span>Sudah Dipesan</span>
+                  <span>{t('roomDetail.booked')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-gray-100 border border-gray-200 rounded"></div>
-                  <span>Waktu Lalu</span>
+                  <span>{t('roomDetail.pastTime')}</span>
                 </div>
               </div>
               
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-blue-600 font-semibold">💡 Tips:</span>
+                  <span className="text-blue-600 font-semibold">💡 {t('roomDetail.tips')}</span>
                 </div>
                 <ul className="text-blue-700 space-y-1">
-                  <li>• <strong>Klik slot hijau</strong> untuk memesan ruangan pada waktu tersebut</li>
-                  <li>• <strong>Slot merah tidak bisa diklik</strong> karena sudah dipesan</li>
-                  <li>• Hover pada slot merah untuk melihat detail pemesanan yang sudah ada</li>
-                  <li>• Slot abu-abu menunjukkan waktu yang sudah lewat</li>
-                  <li>• Gunakan navigasi tanggal untuk melihat booking di hari lain</li>
+                  <li>• <strong>{t('roomDetail.tip1')}</strong></li>
+                  <li>• <strong>{t('roomDetail.tip2')}</strong></li>
+                  <li>• {t('roomDetail.tip3')}</li>
+                  <li>• {t('roomDetail.tip4')}</li>
+                  <li>• {t('roomDetail.tip5')}</li>
                 </ul>
               </div>
             </div>
@@ -1066,25 +1068,25 @@ const RoomDetailPage: React.FC<RoomDetailPageProps> = ({ onNavigate, onBookRoom,
                 <span className="text-green-600 text-2xl">📅</span>
               </div>
               <h3 className="text-xl font-bold text-gray-800 mb-2">
-                Konfirmasi Pemesanan
+                {t('roomDetail.confirmBooking')}
               </h3>
               <p className="text-gray-600">
-                Anda akan memesan ruangan untuk waktu yang dipilih
+                {t('roomDetail.bookingConfirmation')}
               </p>
             </div>
 
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Ruangan:</span>
+                  <span className="text-gray-600">{t('roomDetail.room')}:</span>
                   <span className="font-medium text-gray-800">{room.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Tanggal:</span>
+                  <span className="text-gray-600">{t('roomDetail.date')}:</span>
                   <span className="font-medium text-gray-800">{formatDate(selectedDate)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Waktu:</span>
+                  <span className="text-gray-600">{t('roomDetail.time')}:</span>
                   <span className="font-medium text-gray-800">{selectedTimeSlot}</span>
                 </div>
               </div>

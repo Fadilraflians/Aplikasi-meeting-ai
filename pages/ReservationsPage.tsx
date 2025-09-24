@@ -8,6 +8,7 @@ import { useDarkMode } from '../contexts/DarkModeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import RispatService from '../services/rispatService';
 import RequestCancelModal from '../components/RequestCancelModal';
+import KotakPattern from '../components/KotakPattern';
 
 const ReservationListItem: React.FC<{ booking: Booking, onCancel: (id: string | number) => void, onDetail: (b: Booking) => void, onComplete: (b: Booking) => void, getBookingStatus: (date: string, startTime: string, endTime?: string, serverTime?: any) => string, hasRispat?: boolean, currentUser?: string, onRequestCancel?: (booking: Booking) => void }> = ({ booking, onCancel, onDetail, onComplete, getBookingStatus, hasRispat = false, currentUser, onRequestCancel }) => {
   const { isDarkMode } = useDarkMode();
@@ -410,6 +411,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     const [cancelReason, setCancelReason] = useState('');
     const [requestCancelModalOpen, setRequestCancelModalOpen] = useState(false);
     const [bookingToRequestCancel, setBookingToRequestCancel] = useState<Booking | null>(null);
+    const [internalRefreshTrigger, setInternalRefreshTrigger] = useState(0);
     
     // Calculate active reservations based on current time and status
     const getActiveReservations = () => {
@@ -737,6 +739,126 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
             window.removeEventListener('rispatUploaded', handleRispatUploaded);
         };
     }, []);
+
+    // Auto-complete timer - check every 5 minutes
+    useEffect(() => {
+        const autoCompleteInterval = setInterval(() => {
+            console.log('🔄 ReservationsPage: Running auto-complete check...');
+            
+            // Check for expired bookings in current data
+            const expiredBookings = bookings.filter(booking => {
+                const status = getBookingStatusWithServerTime(booking.date, booking.time, booking.endTime);
+                return status === 'expired' || status === 'completed';
+            });
+            
+            if (expiredBookings.length > 0) {
+                console.log(`🔍 ReservationsPage: Found ${expiredBookings.length} expired bookings`);
+                expiredBookings.forEach(booking => {
+                    console.log('🔍 Moving expired booking to history:', booking);
+                    addHistory({
+                        id: booking.id,
+                        topic: booking.topic,
+                        date: booking.date,
+                        time: booking.time,
+                        endTime: booking.endTime,
+                        roomName: booking.roomName,
+                        participants: booking.participants || 0,
+                        pic: booking.pic || 'Unknown',
+                        status: 'Selesai'
+                    });
+                });
+            }
+            
+            ApiService.autoCompleteExpiredBookings()
+                .then(response => {
+                    if (response.status === 'success' && response.data && response.data.length > 0) {
+                        console.log('✅ ReservationsPage: Auto-completed expired bookings:', response.message);
+                        
+                        // Save completed bookings to history
+                        response.data.forEach((booking: any) => {
+                            addHistory({
+                                id: booking.id,
+                                topic: booking.topic,
+                                date: booking.meeting_date || booking.date,
+                                time: booking.meeting_time || booking.time,
+                                endTime: booking.end_time,
+                                roomName: booking.room_name || booking.roomName,
+                                participants: booking.participants || 0,
+                                pic: booking.pic || 'Unknown',
+                                status: 'Selesai'
+                            });
+                        });
+                        
+                        // Trigger refresh to update UI
+                        setInternalRefreshTrigger(prev => prev + 1);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ ReservationsPage: Error in auto-complete timer:', error);
+                });
+        }, 5 * 60 * 1000); // 5 minutes
+
+        return () => {
+            clearInterval(autoCompleteInterval);
+        };
+    }, [bookings]);
+
+    // Auto-complete on component mount
+    useEffect(() => {
+        console.log('🔄 ReservationsPage: Running initial auto-complete check...');
+        
+        // Check for expired bookings in current data
+        const expiredBookings = bookings.filter(booking => {
+            const status = getBookingStatusWithServerTime(booking.date, booking.time, booking.endTime);
+            return status === 'expired' || status === 'completed';
+        });
+        
+        if (expiredBookings.length > 0) {
+            console.log(`🔍 ReservationsPage: Found ${expiredBookings.length} expired bookings on mount`);
+            expiredBookings.forEach(booking => {
+                console.log('🔍 Moving expired booking to history:', booking);
+                addHistory({
+                    id: booking.id,
+                    topic: booking.topic,
+                    date: booking.date,
+                    time: booking.time,
+                    endTime: booking.endTime,
+                    roomName: booking.roomName,
+                    participants: booking.participants || 0,
+                    pic: booking.pic || 'Unknown',
+                    status: 'Selesai'
+                });
+            });
+        }
+        
+        ApiService.autoCompleteExpiredBookings()
+            .then(response => {
+                if (response.status === 'success' && response.data && response.data.length > 0) {
+                    console.log('✅ ReservationsPage: Initial auto-completed expired bookings:', response.message);
+                    
+                    // Save completed bookings to history
+                    response.data.forEach((booking: any) => {
+                        addHistory({
+                            id: booking.id,
+                            topic: booking.topic,
+                            date: booking.meeting_date || booking.date,
+                            time: booking.meeting_time || booking.time,
+                            endTime: booking.end_time,
+                            roomName: booking.room_name || booking.roomName,
+                            participants: booking.participants || 0,
+                            pic: booking.pic || 'Unknown',
+                            status: 'Selesai'
+                        });
+                    });
+                    
+                    // Trigger refresh to update UI
+                    setInternalRefreshTrigger(prev => prev + 1);
+                }
+            })
+            .catch(error => {
+                console.error('❌ ReservationsPage: Error in initial auto-complete:', error);
+            });
+    }, [bookings]);
 
     const handleCancel = (id: string | number) => {
         // Find the booking to cancel from the main bookings prop (same data shown in the UI)
@@ -1215,9 +1337,11 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
     }, [bookings, search, sort, serverCurrentTime]);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
+        <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50 relative">
+            {/* Kotak Pattern Background */}
+            <KotakPattern />
             {/* Modern Header Section */}
-            <div className="relative overflow-hidden">
+            <div className="relative overflow-hidden z-10">
                 {/* Background - Teal Solid */}
                 <div className="absolute inset-0 bg-teal-500"></div>
                 <div className="absolute inset-0 bg-gradient-to-br from-teal-400 to-teal-600"></div>
@@ -1253,7 +1377,7 @@ const ReservationsPage: React.FC<{ onNavigate: (page: Page) => void, bookings: B
                 </div>
             </div>
 
-            <div className="container mx-auto px-4 py-8">
+            <div className="container mx-auto px-4 py-8 relative z-10">
                 
                 {/* Stats Cards */}
                 <div className="grid md:grid-cols-3 gap-6 mb-8">

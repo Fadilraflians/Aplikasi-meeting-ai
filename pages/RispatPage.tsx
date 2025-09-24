@@ -159,9 +159,9 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
             </button>
             <div>
               <h2 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                View Rispat
+                {t('rispat.title')}
               </h2>
-              <p className="text-gray-600 mt-1">Lihat dan kelola risalah rapat yang sudah selesai</p>
+              <p className="text-gray-600 mt-1">{t('rispat.subtitle')}</p>
             </div>
           </div>
 
@@ -172,7 +172,7 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <span className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    Pilih Tanggal
+                    {t('rispat.selectDate')}
                   </span>
                 </label>
                 <input 
@@ -185,9 +185,9 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
               <div className="text-gray-600 text-center md:text-left">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                  <span className="font-semibold">Risalah Rapat</span>
+                  <span className="font-semibold">{t('rispat.meetingMinutes')}</span>
                 </div>
-                <p className="text-sm">Menampilkan pemesanan yang sudah selesai untuk melihat risalah rapat</p>
+                <p className="text-sm">{t('rispat.description')}</p>
               </div>
             </div>
           </div>
@@ -201,8 +201,8 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">Tidak ada risalah rapat</h3>
-                <p className="text-gray-500">Belum ada pemesanan yang sudah selesai pada tanggal ini</p>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">{t('rispat.noMinutes')}</h3>
+                <p className="text-gray-500">{t('rispat.noMinutesDesc')}</p>
               </div>
             )}
             
@@ -228,7 +228,7 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
                             <p className="text-gray-600 font-medium">{h.roomName}</p>
                           </div>
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700 border border-green-200">
-                            Selesai
+                            {t('rispat.completed')}
                           </span>
                         </div>
                         
@@ -298,7 +298,7 @@ const RispatPage: React.FC<Props> = ({ onNavigate }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-6 border-b border-gray-200 flex-shrink-0">
-              <h3 className="text-xl font-bold text-gray-800">Risalah Rapat</h3>
+              <h3 className="text-xl font-bold text-gray-800">{t('rispat.modalTitle')}</h3>
               <button
                 onClick={() => setShowRispatModal(false)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"

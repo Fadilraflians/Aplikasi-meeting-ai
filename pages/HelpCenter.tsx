@@ -1,32 +1,34 @@
 import React from 'react';
 import { Page } from '../types';
 import { BackArrowIcon } from '../components/icons';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface HelpCenterProps {
     onNavigate: (page: Page) => void;
 }
 
 const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
+    const { t } = useLanguage();
     const faqs = [
         {
-            question: "Bagaimana cara booking ruangan meeting?",
-            answer: "Pilih menu 'Meeting Rooms', pilih ruangan yang tersedia, lalu klik 'Book Now' dan isi form booking."
+            question: t('helpCenter.faq1Question'),
+            answer: t('helpCenter.faq1Answer')
         },
         {
-            question: "Apakah bisa membatalkan booking?",
-            answer: "Ya, Anda bisa membatalkan booking melalui menu 'Reservations' dan klik tombol 'Cancel' pada booking yang ingin dibatalkan."
+            question: t('helpCenter.faq2Question'),
+            answer: t('helpCenter.faq2Answer')
         },
         {
-            question: "Berapa lama durasi maksimal booking?",
-            answer: "Durasi maksimal booking adalah 8 jam per hari untuk setiap ruangan."
+            question: t('helpCenter.faq3Question'),
+            answer: t('helpCenter.faq3Answer')
         },
         {
-            question: "Apakah ada biaya untuk booking ruangan?",
-            answer: "Booking ruangan meeting adalah gratis untuk karyawan perusahaan."
+            question: t('helpCenter.faq4Question'),
+            answer: t('helpCenter.faq4Answer')
         },
         {
-            question: "Bagaimana jika ruangan yang diinginkan sudah dibooking?",
-            answer: "Anda bisa melihat jadwal booking di halaman 'Meeting Rooms' dan memilih waktu yang tersedia."
+            question: t('helpCenter.faq5Question'),
+            answer: t('helpCenter.faq5Answer')
         }
     ];
 
@@ -43,8 +45,8 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                 <BackArrowIcon />
                             </button>
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-800 mb-1">Help Center</h2>
-                                <p className="text-gray-600 text-sm">Temukan jawaban untuk pertanyaan yang sering diajukan</p>
+                                <h2 className="text-2xl font-bold text-gray-800 mb-1">{t('helpCenter.title')}</h2>
+                                <p className="text-gray-600 text-sm">{t('helpCenter.subtitle')}</p>
                             </div>
                         </div>
                     </div>
@@ -60,7 +62,7 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    Pertanyaan yang Sering Diajukan
+                                    {t('helpCenter.faq')}
                                 </h2>
                                 <div className="space-y-6">
                                     {faqs.map((faq, index) => (
@@ -83,7 +85,7 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                                         </svg>
                                     </div>
-                                    Aksi Cepat
+                                    {t('helpCenter.quickActions')}
                                 </h3>
                                 <div className="space-y-4">
                                     <button
@@ -93,7 +95,7 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                         </svg>
-                                        Lihat Ruangan Meeting
+                                        {t('helpCenter.viewMeetingRooms')}
                                     </button>
                                     <button
                                         onClick={() => onNavigate(Page.Reservations)}
@@ -102,7 +104,7 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
-                                        Lihat Booking Saya
+                                        {t('helpCenter.viewMyBookings')}
                                     </button>
                                 </div>
                             </div>
@@ -114,7 +116,7 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                         </svg>
                                     </div>
-                                    Hubungi Kami
+                                    {t('helpCenter.contactUs')}
                                 </h3>
                                 <div className="space-y-6">
                                     <div className="flex items-center p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
@@ -124,7 +126,7 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                             </svg>
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-gray-900">Telepon</p>
+                                            <p className="font-semibold text-gray-900">{t('helpCenter.phone')}</p>
                                             <p className="text-gray-600">+62 21 1234 5678</p>
                                         </div>
                                     </div>
@@ -135,13 +137,13 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                             </svg>
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-gray-900">Email</p>
+                                            <p className="font-semibold text-gray-900">{t('helpCenter.email')}</p>
                                             <p className="text-gray-600">support@spacio.com</p>
                                         </div>
                                     </div>
                                     <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-200">
                                         <p className="text-sm text-gray-700 font-medium">
-                                            <span className="text-yellow-600">⏰</span> Jam operasional: Senin - Jumat, 08:00 - 17:00 WIB
+                                            <span className="text-yellow-600">⏰</span> {t('helpCenter.operatingHours')}
                                         </p>
                                     </div>
                                 </div>
@@ -157,10 +159,10 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                                             </svg>
                                         </div>
-                                        AI Assistant
+                                        {t('helpCenter.aiAssistant')}
                                     </h3>
                                     <p className="text-blue-100 mb-6 leading-relaxed">
-                                        Dapatkan bantuan instan dengan AI Assistant kami yang siap membantu 24/7
+                                        {t('helpCenter.aiAssistantDesc')}
                                     </p>
                                     <button
                                         onClick={() => onNavigate(Page.RBA)}
@@ -169,7 +171,7 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ onNavigate }) => {
                                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                         </svg>
-                                        Chat dengan AI
+                                        {t('helpCenter.chatWithAI')}
                                     </button>
                                 </div>
                             </div>

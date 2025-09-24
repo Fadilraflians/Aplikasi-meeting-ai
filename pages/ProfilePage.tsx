@@ -21,20 +21,38 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
         setLoading(true);
         
         // Ambil data booking dari API
-        const bookingsResponse = await ApiService.getUserBookings();
-        const bookings = bookingsResponse?.data || [];
+        let bookings = [];
+        let aiBookings = [];
         
-        // Ambil data AI bookings juga
-        const aiBookingsResponse = await ApiService.getAIBookingsByUserId();
-        const aiBookings = aiBookingsResponse?.data || [];
+        try {
+          const bookingsResponse = await ApiService.getUserBookings(user.id);
+          bookings = bookingsResponse?.data || [];
+          console.log('ProfilePage - Regular bookings:', bookings);
+        } catch (error) {
+          console.error('ProfilePage - Error fetching regular bookings:', error);
+        }
+        
+        try {
+          const aiBookingsResponse = await ApiService.getAIBookingsByUserId(user.id);
+          aiBookings = aiBookingsResponse?.data || [];
+          console.log('ProfilePage - AI bookings:', aiBookings);
+        } catch (error) {
+          console.error('ProfilePage - Error fetching AI bookings:', error);
+        }
         
         // Gabungkan semua booking
         const allBookings = [...bookings, ...aiBookings];
+        console.log('ProfilePage - All bookings combined:', allBookings);
         
         // Buat aktivitas dari data booking
         const activities = allBookings
-          .sort((a, b) => new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime())
-          .slice(0, 4)
+          .filter(booking => booking.created_at || booking.date) // Pastikan ada tanggal
+          .sort((a, b) => {
+            const dateA = new Date(a.created_at || a.date);
+            const dateB = new Date(b.created_at || b.date);
+            return dateB.getTime() - dateA.getTime(); // Terbaru dulu
+          })
+          .slice(0, 4) // Ambil 4 terbaru
           .map((booking, index) => {
             const bookingDate = new Date(booking.created_at || booking.date);
             const now = new Date();
@@ -42,21 +60,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
             let timeLabel = '';
-            if (diffDays === 0) timeLabel = 'Hari ini';
-            else if (diffDays === 1) timeLabel = 'Kemarin';
-            else if (diffDays <= 7) timeLabel = `${diffDays} hari lalu`;
-            else timeLabel = `${Math.ceil(diffDays / 7)} minggu lalu`;
+            if (diffDays === 0) timeLabel = t('profile.today');
+            else if (diffDays === 1) timeLabel = t('profile.yesterday');
+            else if (diffDays <= 7) timeLabel = t('profile.daysAgo').replace('{days}', diffDays.toString());
+            else timeLabel = t('profile.weeksAgo').replace('{weeks}', Math.ceil(diffDays / 7).toString());
             
             return {
-              id: booking.id,
+              id: booking.id || `booking-${index}`,
               type: 'reservation',
-              title: 'Reservasi Ruangan',
-              description: `${booking.roomName || 'Meeting Room'} - ${booking.topic || 'Meeting'}`,
+              title: t('profile.roomReservation'),
+              description: `${booking.roomName || booking.room_name || 'Meeting Room'} - ${booking.topic || booking.meeting_topic || 'Meeting'}`,
               time: timeLabel,
               icon: 'calendar',
               color: 'blue'
             };
           });
+        
+        console.log('ProfilePage - Generated activities:', activities);
         
         // Tambahkan aktivitas default jika tidak ada booking
         if (activities.length === 0) {
@@ -64,9 +84,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
             {
               id: 'default-1',
               type: 'profile',
-              title: 'Update Profil',
-              description: 'Profil berhasil diperbarui',
-              time: '1 minggu lalu',
+              title: t('profile.updateProfile'),
+              description: t('profile.profileUpdated'),
+              time: t('profile.weekAgo'),
               icon: 'user',
               color: 'green'
             }
@@ -76,14 +96,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
         setRecentActivities(activities);
       } catch (error) {
         console.error('Failed to fetch recent activities:', error);
-        // Set default activities jika error
+        // Fallback ke aktivitas default
         setRecentActivities([
           {
             id: 'default-1',
             type: 'profile',
-            title: 'Update Profil',
-            description: 'Profil berhasil diperbarui',
-            time: '1 minggu lalu',
+            title: t('profile.updateProfile'),
+            description: t('profile.profileUpdated'),
+            time: t('profile.weekAgo'),
             icon: 'user',
             color: 'green'
           }
@@ -94,7 +114,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
     };
 
     fetchRecentActivities();
-  }, []);
+    
+    // Event listener untuk refresh activities ketika ada perubahan booking
+    const handleRefreshActivities = () => {
+      console.log('ProfilePage - Refreshing activities due to booking change');
+      fetchRecentActivities();
+    };
+    
+    window.addEventListener('refreshBookings', handleRefreshActivities);
+    
+    return () => {
+      window.removeEventListener('refreshBookings', handleRefreshActivities);
+    };
+  }, [user.id, t]);
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
@@ -110,8 +142,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
                 <BackArrowIcon />
               </button>
               <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-1">Profile</h2>
-                <p className="text-gray-600 text-sm">Kelola informasi dan pengaturan akun Anda</p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">{t('profile.title')}</h2>
+                <p className="text-gray-600 text-sm">{t('profile.subtitle')}</p>
               </div>
             </div>
             
@@ -150,7 +182,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
                   {user.role || 'User'}
                 </span>
                 <span className="px-6 py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold border border-green-200">
-                  ✓ Aktif
+                  ✓ {t('profile.active')}
                 </span>
               </div>
               
@@ -158,15 +190,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
               <div className="grid grid-cols-3 gap-6 mt-8">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">12</div>
-                  <div className="text-sm text-gray-600">Reservasi</div>
+                  <div className="text-sm text-gray-600">{t('profile.reservations')}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">8</div>
-                  <div className="text-sm text-gray-600">Selesai</div>
+                  <div className="text-sm text-gray-600">{t('profile.completed')}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">4</div>
-                  <div className="text-sm text-gray-600">Menunggu</div>
+                  <div className="text-sm text-gray-600">{t('profile.pending')}</div>
                 </div>
               </div>
             </div>
@@ -182,24 +214,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-                <h4 className="text-xl font-bold text-gray-800">Informasi Pribadi</h4>
+                <h4 className="text-xl font-bold text-gray-800">{t('profile.personalInfo')}</h4>
               </div>
               <div className="space-y-4">
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="text-gray-600 font-medium">Nama Lengkap</span>
+                  <span className="text-gray-600 font-medium">{t('profile.fullName')}</span>
                   <span className="font-semibold text-gray-800">{user.fullName || 'User'}</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="text-gray-600 font-medium">Email</span>
+                  <span className="text-gray-600 font-medium">{t('profile.email')}</span>
                   <span className="font-semibold text-gray-800">{user.email || 'user@example.com'}</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="text-gray-600 font-medium">Role</span>
+                  <span className="text-gray-600 font-medium">{t('profile.role')}</span>
                   <span className="font-semibold text-gray-800">{user.role || 'User'}</span>
                 </div>
                 <div className="flex justify-between items-center py-3">
-                  <span className="text-gray-600 font-medium">Status Akun</span>
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">Aktif</span>
+                  <span className="text-gray-600 font-medium">{t('profile.accountStatus')}</span>
+                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">{t('profile.active')}</span>
                 </div>
               </div>
             </div>
@@ -212,13 +244,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h4 className="text-xl font-bold text-gray-800">Aktivitas Terbaru</h4>
+                <h4 className="text-xl font-bold text-gray-800">{t('profile.recentActivity')}</h4>
               </div>
               <div className="space-y-4">
                 {loading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Memuat aktivitas...</p>
+                    <p className="text-gray-600">{t('profile.loadingActivities')}</p>
                   </div>
                 ) : recentActivities.length > 0 ? (
                   recentActivities.map((activity, index) => {
@@ -298,8 +330,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, user }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <p className="text-gray-600">Belum ada aktivitas terbaru</p>
-                    <p className="text-gray-500 text-sm mt-1">Mulai dengan membuat reservasi ruangan</p>
+                    <p className="text-gray-600">{t('profile.noRecentActivity')}</p>
+                    <p className="text-gray-500 text-sm mt-1">{t('profile.startWithReservation')}</p>
                   </div>
                 )}
               </div>

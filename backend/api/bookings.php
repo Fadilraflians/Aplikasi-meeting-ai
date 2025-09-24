@@ -191,49 +191,79 @@ try {
             } elseif ($endpoint === 'auto-complete') {
                 // Auto-complete expired bookings
                 $currentTime = date('Y-m-d H:i:s');
+                $totalUpdated = 0;
+                $expiredBookings = [];
                 
-                // Find expired bookings using end_time
-                $query = "SELECT id, topic, meeting_date, meeting_time, end_time 
-                         FROM ai_booking_data 
-                         WHERE booking_state = 'BOOKED' 
-                         AND CONCAT(meeting_date, ' ', COALESCE(end_time, ADDTIME(meeting_time, SEC_TO_TIME(duration * 60)))) < :current_time";
+                // 1. Auto-complete AI bookings from ai_booking_data table
+                $aiQuery = "SELECT id, topic, meeting_date, meeting_time, end_time 
+                           FROM ai_booking_data 
+                           WHERE booking_state = 'BOOKED' 
+                           AND CONCAT(meeting_date, ' ', COALESCE(end_time, ADDTIME(meeting_time, SEC_TO_TIME(duration * 60)))) < :current_time";
                 
-                $stmt = $db->prepare($query);
-                $stmt->bindParam(':current_time', $currentTime);
-                $stmt->execute();
+                $aiStmt = $db->prepare($aiQuery);
+                $aiStmt->bindParam(':current_time', $currentTime);
+                $aiStmt->execute();
                 
-                $expiredBookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $expiredAiBookings = $aiStmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                if (empty($expiredBookings)) {
+                if (!empty($expiredAiBookings)) {
+                    // Update AI bookings to completed
+                    $aiUpdateQuery = "UPDATE ai_booking_data 
+                                     SET booking_state = 'COMPLETED', updated_at = CURRENT_TIMESTAMP 
+                                     WHERE booking_state = 'BOOKED' 
+                                     AND CONCAT(meeting_date, ' ', COALESCE(end_time, ADDTIME(meeting_time, SEC_TO_TIME(duration * 60)))) < :current_time";
+                    
+                    $aiUpdateStmt = $db->prepare($aiUpdateQuery);
+                    $aiUpdateStmt->bindParam(':current_time', $currentTime);
+                    
+                    if ($aiUpdateStmt->execute()) {
+                        $aiAffectedRows = $aiUpdateStmt->rowCount();
+                        $totalUpdated += $aiAffectedRows;
+                        $expiredBookings = array_merge($expiredBookings, $expiredAiBookings);
+                    }
+                }
+                
+                // 2. Auto-complete regular bookings from bookings table
+                $regularQuery = "SELECT id, topic, date, time, end_time 
+                                FROM bookings 
+                                WHERE status = 'active' 
+                                AND CONCAT(date, ' ', COALESCE(end_time, ADDTIME(time, '01:00:00'))) < :current_time";
+                
+                $regularStmt = $db->prepare($regularQuery);
+                $regularStmt->bindParam(':current_time', $currentTime);
+                $regularStmt->execute();
+                
+                $expiredRegularBookings = $regularStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (!empty($expiredRegularBookings)) {
+                    // Update regular bookings to completed
+                    $regularUpdateQuery = "UPDATE bookings 
+                                           SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
+                                           WHERE status = 'active' 
+                                           AND CONCAT(date, ' ', COALESCE(end_time, ADDTIME(time, '01:00:00'))) < :current_time";
+                    
+                    $regularUpdateStmt = $db->prepare($regularUpdateQuery);
+                    $regularUpdateStmt->bindParam(':current_time', $currentTime);
+                    
+                    if ($regularUpdateStmt->execute()) {
+                        $regularAffectedRows = $regularUpdateStmt->rowCount();
+                        $totalUpdated += $regularAffectedRows;
+                        $expiredBookings = array_merge($expiredBookings, $expiredRegularBookings);
+                    }
+                }
+                
+                if ($totalUpdated === 0) {
                     echo json_encode([
                         'status' => 'success',
                         'message' => 'No expired bookings found',
                         'data' => []
                     ]);
                 } else {
-                    // Update to completed using end_time
-                    $updateQuery = "UPDATE ai_booking_data 
-                                   SET booking_state = 'COMPLETED', updated_at = CURRENT_TIMESTAMP 
-                                   WHERE booking_state = 'BOOKED' 
-                                   AND CONCAT(meeting_date, ' ', COALESCE(end_time, ADDTIME(meeting_time, SEC_TO_TIME(duration * 60)))) < :current_time";
-                    
-                    $updateStmt = $db->prepare($updateQuery);
-                    $updateStmt->bindParam(':current_time', $currentTime);
-                    
-                    if ($updateStmt->execute()) {
-                        $affectedRows = $updateStmt->rowCount();
-                        echo json_encode([
-                            'status' => 'success',
-                            'message' => "Updated {$affectedRows} bookings to completed",
-                            'data' => $expiredBookings
-                        ]);
-                    } else {
-                        http_response_code(500);
-                        echo json_encode([
-                            'status' => 'error',
-                            'message' => 'Failed to update bookings'
-                        ]);
-                    }
+                    echo json_encode([
+                        'status' => 'success',
+                        'message' => "Updated {$totalUpdated} bookings to completed",
+                        'data' => $expiredBookings
+                    ]);
                 }
             } elseif ($endpoint === 'ai-success') {
                 // Get AI success bookings by user ID

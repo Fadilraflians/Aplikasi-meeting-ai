@@ -3,6 +3,7 @@ import { Page, Booking, MeetingRoom } from '../types';
 import RoomBookingAssistant from '../services/roomBookingAssistant';
 import { createRoomBookingAssistant } from '../services/roomBookingAssistant';
 import { BackArrowIcon, SendIcon, RobotIcon, CheckIcon, XIcon, BookingIcon } from '../components/icons';
+import InJourneyPattern from '../components/InJourneyPattern';
 
 const AiIcon: React.FC = () => {
     const [isThinking, setIsThinking] = useState(false);
@@ -326,6 +327,9 @@ const RBAPage: React.FC<RBAPageProps> = ({ onNavigate, onBookingConfirmed }) => 
 
     return (
         <div className="h-screen overflow-hidden relative">
+            {/* InJourney Pattern Background */}
+            <InJourneyPattern className="opacity-30" />
+            
             {/* Background Image */}
             <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url(/images/view.jpeg)'}}></div>
             

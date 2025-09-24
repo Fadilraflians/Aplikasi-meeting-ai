@@ -252,6 +252,24 @@ class AuthService {
     }
     
     /**
+     * Logout all sessions for a user (for security after password change)
+     */
+    public function logoutAllSessions($userId) {
+        $conn = $this->db->getConnection();
+        if (!$conn) {
+            return false;
+        }
+        
+        try {
+            $stmt = $conn->prepare("UPDATE user_sessions SET is_active = 0 WHERE user_id = ?");
+            return $stmt->execute([$userId]);
+            
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+    
+    /**
      * Get user profile
      */
     public function getUserProfile($userId) {
@@ -346,7 +364,10 @@ class AuthService {
             $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
             $stmt->execute([$newPassword, $userId]);
             
-            return ['success' => true, 'message' => 'Password changed successfully'];
+            // Logout all sessions for security (force re-login with new password)
+            $this->logoutAllSessions($userId);
+            
+            return ['success' => true, 'message' => 'Password changed successfully. Please login again.'];
             
         } catch (PDOException $e) {
             return ['success' => false, 'message' => 'Password change failed: ' . $e->getMessage()];

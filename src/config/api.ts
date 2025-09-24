@@ -289,6 +289,26 @@ export class ApiService {
         return this.makeRequest(`${API_BASE_URL}/bookings.php/ai-data?user_id=${userId}`);
     }
 
+    static async changePassword(currentPassword: string, newPassword: string) {
+        const token = localStorage.getItem('session_token');
+        if (!token) {
+            throw new Error('No session token found');
+        }
+
+        return this.makeRequest(`${AUTH_API_BASE_URL}/auth/login.php`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                action: 'change_password',
+                current_password: currentPassword,
+                new_password: newPassword
+            })
+        });
+    }
+
     static async getAllAIBookings() {
         // Get current user data from localStorage
         const userDataStr = localStorage.getItem('user_data');

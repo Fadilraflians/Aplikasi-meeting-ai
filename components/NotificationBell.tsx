@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNotifications } from '../hooks/useNotifications';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface NotificationBellProps {
   currentUser: string;
@@ -12,6 +13,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { requests, pendingCount, loading, refreshNotifications } = useNotifications(currentUser);
+  const { t } = useLanguage();
 
   const handleBellClick = () => {
     setIsOpen(!isOpen);
@@ -42,11 +44,11 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
           <div className="p-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-800">Notifikasi</h3>
+            <h3 className="font-semibold text-gray-800">{t('notification.title')}</h3>
             <p className="text-sm text-gray-600">
               {pendingCount > 0 
-                ? `${pendingCount} permintaan pembatalan menunggu respons`
-                : 'Tidak ada notifikasi baru'
+                ? t('notification.pendingRequests').replace('{count}', pendingCount.toString())
+                : t('notification.noNewNotifications')
               }
             </p>
           </div>
@@ -64,7 +66,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                 <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-sm">Tidak ada permintaan pembatalan</p>
+                <p className="text-sm">{t('notification.noCancellationRequests')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -78,7 +80,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-800 truncate">
-                          Permintaan pembatalan dari {request.requester_name}
+                          {t('notification.cancellationRequestFrom').replace('{requester}', request.requester_name)}
                         </p>
                         <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                           {request.reason}
@@ -104,7 +106,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                 }}
                 className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
               >
-                Lihat Semua Permintaan →
+                {t('notification.viewAllRequests')}
               </button>
             </div>
           )}

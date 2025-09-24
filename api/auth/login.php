@@ -105,6 +105,45 @@ try {
                 echo json_encode($result);
                 break;
                 
+            case 'change_password':
+                if (!isset($input['current_password']) || !isset($input['new_password'])) {
+                    http_response_code(400);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Current password and new password required'
+                    ]);
+                    exit;
+                }
+                
+                // Get user from session token
+                $headers = getallheaders();
+                $token = $headers['Authorization'] ?? $headers['authorization'] ?? null;
+                
+                if (!$token) {
+                    http_response_code(401);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Authentication required'
+                    ]);
+                    exit;
+                }
+                
+                $token = str_replace('Bearer ', '', $token);
+                $session = $authService->validateSession($token);
+                
+                if (!$session) {
+                    http_response_code(401);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Invalid or expired session'
+                    ]);
+                    exit;
+                }
+                
+                $result = $authService->changePassword($session['user_id'], $input['current_password'], $input['new_password']);
+                echo json_encode($result);
+                break;
+                
             default:
                 http_response_code(400);
                 echo json_encode([

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MailIcon, LockIcon, EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '../components/icons';
 import { User } from '../types';
 import WorkingPersonIllustration from '../components/WorkingPersonIllustration';
+import KotakPattern from '../components/KotakPattern';
 import { useDarkMode } from '../contexts/DarkModeContext';
 
 interface LoginPageProps {
@@ -19,7 +20,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToRegister }) 
         e.preventDefault();
         try {
             // Call the actual API for login
-            const response = await fetch('/api/auth/login.php', {
+            const response = await fetch('http://localhost:5174/api/auth/login.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -70,8 +71,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToRegister }) 
     };
 
     return (
-        <div className={`min-h-screen w-full ${isDarkMode ? 'bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900' : 'bg-gradient-to-b from-cyan-400 via-sky-200 to-cyan-400'} flex justify-center items-center font-['Poppins'] p-4`}>
-            <div className="container mx-auto max-w-screen-2xl max-h-[1024px] h-full flex w-full">
+        <div className={`min-h-screen w-full ${isDarkMode ? 'bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900' : 'bg-gradient-to-b from-cyan-400 via-sky-200 to-cyan-400'} flex justify-center items-center font-['Poppins'] p-4 relative`}>
+            {/* Kotak Pattern Background */}
+            <KotakPattern 
+                excludeAreas={[
+                    {
+                        top: '20%',
+                        left: '10%',
+                        width: '35%',
+                        height: '60%',
+                        borderRadius: '12px'
+                    }
+                ]}
+            />
+            <div className="container mx-auto max-w-screen-2xl max-h-[1024px] h-full flex w-full relative z-10">
                 {/* Left Panel */}
                 <div className="hidden md:flex w-[55%] relative flex-col justify-between items-center p-10 text-white">
                     <div className="self-start">

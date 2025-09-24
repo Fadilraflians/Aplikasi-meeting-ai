@@ -5,6 +5,7 @@ import { BackArrowIcon } from '../components/icons';
 import { ApiService } from '../src/config/api';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import KotakPattern from '../components/KotakPattern';
 
 const MeetingRoomCard: React.FC<{ room: MeetingRoom, onBook: (room: MeetingRoom) => void, onRoomDetail: (room: MeetingRoom) => void, bookings: Booking[] }> = ({ room, onBook, onRoomDetail, bookings }) => {
     const { isDarkMode } = useDarkMode();
@@ -447,7 +448,21 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
     }, [bookings]);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
+        <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50 relative">
+            {/* Kotak Pattern Background dengan warna teal - hanya untuk bagian ruangan */}
+            <KotakPattern 
+                className="opacity-8"
+                color="rgba(20, 184, 166, 0.08)"
+                excludeAreas={[
+                    {
+                        top: '0',
+                        left: '0',
+                        width: '100%',
+                        height: '200px',
+                        borderRadius: '0'
+                    }
+                ]}
+            />
             {/* Modern Header Section */}
             <div className="relative overflow-hidden">
                 {/* Background - Teal Solid */}
@@ -523,7 +538,7 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                                 </div>
                                 <input
                                     type="text"
-                                    placeholder="Cari ruangan, lokasi, atau fasilitas..."
+                                    placeholder={t('meetingRooms.searchPlaceholder')}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
@@ -548,14 +563,14 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                                 onChange={(e) => setSelectedCapacity(e.target.value)}
                                 className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                             >
-                                <option value="">Semua Kapasitas</option>
-                                <option value="2">2+ Orang</option>
-                                <option value="4">4+ Orang</option>
-                                <option value="6">6+ Orang</option>
-                                <option value="8">8+ Orang</option>
-                                <option value="10">10+ Orang</option>
-                                <option value="15">15+ Orang</option>
-                                <option value="20">20+ Orang</option>
+                                <option value="">{t('meetingRooms.allCapacities')}</option>
+                                <option value="2">{t('meetingRooms.capacity2')}</option>
+                                <option value="4">{t('meetingRooms.capacity4')}</option>
+                                <option value="6">{t('meetingRooms.capacity6')}</option>
+                                <option value="8">{t('meetingRooms.capacity8')}</option>
+                                <option value="10">{t('meetingRooms.capacity10')}</option>
+                                <option value="15">{t('meetingRooms.capacity15')}</option>
+                                <option value="20">{t('meetingRooms.capacity20')}</option>
                             </select>
                         </div>
 
@@ -566,9 +581,9 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                                 onChange={(e) => setSelectedStatus(e.target.value)}
                                 className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                             >
-                                <option value="">Semua Status</option>
-                                <option value="available">Tersedia</option>
-                                <option value="maintenance">Maintenance</option>
+                                <option value="">{t('meetingRooms.allStatus')}</option>
+                                <option value="available">{t('meetingRooms.available')}</option>
+                                <option value="maintenance">{t('meetingRooms.maintenance')}</option>
                             </select>
                         </div>
 
@@ -581,7 +596,7 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
-                                Reset
+                                {t('meetingRooms.reset')}
                             </button>
                         )}
                     </div>
@@ -591,11 +606,11 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                         <div className="mt-4 pt-4 border-t border-gray-200">
                             <div className="flex items-center justify-between">
                                 <p className="text-sm text-gray-600">
-                                    Menampilkan <span className="font-semibold text-blue-600">{filteredRooms.length}</span> dari <span className="font-semibold text-gray-800">{rooms.length}</span> ruangan
+                                    {t('meetingRooms.showingResults').replace('{filtered}', filteredRooms.length.toString()).replace('{total}', rooms.length.toString())}
                                 </p>
                                 {filteredRooms.length === 0 && (
                                     <p className="text-sm text-red-600 font-medium">
-                                        Tidak ada ruangan yang sesuai dengan kriteria pencarian
+                                        {t('meetingRooms.noSearchResults')}
                                     </p>
                                 )}
                             </div>
@@ -632,7 +647,7 @@ const MeetingRoomsPage: React.FC<MeetingRoomsPageProps> = ({ onNavigate, onBookR
                     <div className="bg-white rounded-2xl p-6 shadow-lg">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-gray-600 text-sm font-medium">Rooms Used</p>
+                                <p className="text-gray-600 text-sm font-medium">{t('meetingRooms.roomsUsed')}</p>
                                 <p className="text-3xl font-bold text-purple-600">{getRoomsInUse()}</p>
                             </div>
                             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">

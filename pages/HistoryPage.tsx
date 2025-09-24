@@ -149,9 +149,9 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
             </button>
             <div>
               <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {t('dashboard.bookingHistory')}
+                {t('history.title')}
               </h2>
-              <p className="text-gray-600 mt-1">Riwayat pemesanan ruang rapat Anda</p>
+              <p className="text-gray-600 mt-1">{t('history.subtitle')}</p>
             </div>
           </div>
 
@@ -162,7 +162,7 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <span className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                    Pilih Tanggal
+                    {t('history.selectDate')}
                   </span>
                 </label>
                 <input 
@@ -175,9 +175,9 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
               <div className="text-gray-600 text-center md:text-left">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                  <span className="font-semibold">Status Pemesanan</span>
+                  <span className="font-semibold">{t('history.bookingStatus')}</span>
                 </div>
-                <p className="text-sm">Menampilkan pemesanan (dibatalkan & selesai) pada tanggal yang dipilih</p>
+                <p className="text-sm">{t('history.statusDescription')}</p>
               </div>
             </div>
           </div>
@@ -191,8 +191,8 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">Tidak ada histori</h3>
-                <p className="text-gray-500">Belum ada pemesanan pada tanggal yang dipilih</p>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">{t('history.noHistory')}</h3>
+                <p className="text-gray-500">{t('history.noHistoryDesc')}</p>
               </div>
             )}
             
@@ -273,12 +273,12 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
                         </div>
                         
                         {/* Additional info for cancelled bookings */}
-                        {h.status === 'Dibatalkan' && h.cancelReason && (
+                        {!isCompleted && !isExpired && h.cancelReason && (
                           <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
                             <div className="flex items-start gap-2 text-red-700 text-sm">
                               <span className="w-1.5 h-1.5 bg-red-500 rounded-full mt-1"></span>
                               <div>
-                                <span className="font-medium">Alasan Pembatalan:</span>
+                                <span className="font-medium">{t('history.cancelReason')}:</span>
                                 <p className="mt-1 text-red-600">{h.cancelReason}</p>
                               </div>
                             </div>
@@ -290,7 +290,7 @@ const HistoryPage: React.FC<Props> = ({ onNavigate }) => {
                           <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
                             <div className="flex items-center gap-2 text-orange-700 text-sm">
                               <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
-                              <span className="font-medium">Expired:</span>
+                              <span className="font-medium">{t('history.expired')}:</span>
                               <span>{new Date(h.completedAt).toLocaleString('id-ID')}</span>
                             </div>
                           </div>
