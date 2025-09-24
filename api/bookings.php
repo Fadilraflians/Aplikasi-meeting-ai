@@ -175,7 +175,10 @@ try {
                     $result = $booking->createBooking($bookingData);
                     error_log("Bookings API create - result: " . json_encode($result));
                     
-                    if ($result) {
+                    if ($result && isset($result['success']) && $result['success'] === false) {
+                        // Room not available
+                        sendResponse(false, $result['message'], $result, 409);
+                    } elseif ($result) {
                         sendResponse(true, 'Booking created successfully', $result);
                     } else {
                         sendResponse(false, 'Failed to create booking', null, 500);
@@ -238,6 +241,22 @@ try {
                         $roomId = $room ? $room['id'] : null;
                     }
                     
+                    // Check room availability first
+                    if ($roomId && isset($bookingData['meeting_date']) && isset($bookingData['meeting_time']) && isset($bookingData['duration'])) {
+                        $availability = $booking->checkRoomAvailability(
+                            $roomId, 
+                            $bookingData['meeting_date'], 
+                            $bookingData['meeting_time'], 
+                            $bookingData['duration']
+                        );
+                        
+                        if (!$availability['available']) {
+                            error_log("Room not available for AI booking: " . json_encode($availability));
+                            sendResponse(false, 'Room is not available for the selected time', $availability, 409);
+                            return;
+                        }
+                    }
+
                     // Prepare data for ai_bookings_success table
                     $successData = [
                         'user_id' => $bookingData['user_id'],

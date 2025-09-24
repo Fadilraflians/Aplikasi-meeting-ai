@@ -48,6 +48,25 @@ class Booking {
             // Ensure optional columns
             $this->ensurePicColumnExists();
 
+            // Check room availability first
+            if (isset($data['room_id']) && isset($data['meeting_date']) && isset($data['meeting_time']) && isset($data['duration'])) {
+                $availability = $this->checkRoomAvailability(
+                    $data['room_id'], 
+                    $data['meeting_date'], 
+                    $data['meeting_time'], 
+                    $data['duration']
+                );
+                
+                if (!$availability['available']) {
+                    error_log("Room not available for AI booking: " . json_encode($availability));
+                    return [
+                        'success' => false,
+                        'message' => 'Room is not available for the selected time',
+                        'conflicting_bookings' => $availability['conflicting_bookings']
+                    ];
+                }
+            }
+
             // Calculate end_time from meeting_time + duration
             $endTime = null;
             if (isset($data['meeting_time']) && isset($data['duration'])) {
@@ -96,6 +115,25 @@ class Booking {
      */
     public function createBooking($data) {
         try {
+            // Check room availability first
+            if (isset($data['room_id']) && isset($data['meeting_date']) && isset($data['meeting_time']) && isset($data['duration'])) {
+                $availability = $this->checkRoomAvailability(
+                    $data['room_id'], 
+                    $data['meeting_date'], 
+                    $data['meeting_time'], 
+                    $data['duration']
+                );
+                
+                if (!$availability['available']) {
+                    error_log("Room not available for booking: " . json_encode($availability));
+                    return [
+                        'success' => false,
+                        'message' => 'Room is not available for the selected time',
+                        'conflicting_bookings' => $availability['conflicting_bookings']
+                    ];
+                }
+            }
+
             // Calculate end_time from meeting_time + duration if not provided
             $endTime = null;
             if (isset($data['end_time']) && !empty($data['end_time'])) {
@@ -374,25 +412,36 @@ class Booking {
             $endDateTime = strtotime("+{$duration} minutes", $startDateTime);
             $endTime = date('H:i:s', $endDateTime);
 
-            $query = "SELECT COUNT(*) as conflicting_bookings
-                      FROM " . $this->table_name . "
-                      WHERE room_id = :room_id 
-                      AND meeting_date = :date
-                      AND booking_state != 'CANCELLED'
-                      AND (
-                          (meeting_time <= :start_time AND DATE_ADD(meeting_time, INTERVAL duration MINUTE) > :start_time) OR
-                          (meeting_time < :end_time AND DATE_ADD(meeting_time, INTERVAL duration MINUTE) >= :end_time) OR
-                          (meeting_time >= :start_time AND meeting_time <= :end_time)
-                      )";
+            // Check both ai_booking_data and bookings tables
+            $query = "SELECT COUNT(*) as conflicting_bookings FROM (
+                        SELECT 1 FROM ai_booking_data 
+                        WHERE room_id = ? 
+                        AND meeting_date = ?
+                        AND booking_state != 'CANCELLED'
+                        AND (
+                            (meeting_time <= ? AND end_time > ?) OR
+                            (meeting_time < ? AND end_time >= ?) OR
+                            (meeting_time >= ? AND meeting_time <= ?)
+                        )
+                        UNION ALL
+                        SELECT 1 FROM bookings 
+                        WHERE room_id = ? 
+                        AND meeting_date = ?
+                        AND status != 'cancelled'
+                        AND (
+                            (start_time <= ? AND end_time > ?) OR
+                            (start_time < ? AND end_time >= ?) OR
+                            (start_time >= ? AND start_time <= ?)
+                        )
+                      ) as combined_bookings";
 
             $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(":room_id", $roomId);
-            $stmt->bindParam(":date", $date);
-            $stmt->bindParam(":start_time", $startTime);
-            $stmt->bindParam(":end_time", $endTime);
-            $stmt->execute();
+            $stmt->execute([
+                $roomId, $date, $startTime, $startTime, $endTime, $endTime, $startTime, $endTime,
+                $roomId, $date, $startTime, $startTime, $endTime, $endTime, $startTime, $endTime
+            ]);
 
-            $result = $stmt->fetch();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
             $conflictingBookings = $result['conflicting_bookings'];
 
             return [
