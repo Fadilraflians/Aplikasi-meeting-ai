@@ -165,41 +165,42 @@ class RoomBookingAssistant {
       console.log('🔍 RBA - No meeting type found in input');
     }
 
-    // Extract date - improved with better timezone handling
+    // Extract date - use browser time directly (already in WIB)
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     console.log('🔍 RBA - Current date info:', {
       now: now.toISOString(),
-      today: today.toISOString(),
-      todayFormatted: today.toISOString().slice(0, 10),
+      todayStr: todayStr,
       currentDate: now.getDate(),
       currentMonth: now.getMonth() + 1,
       currentYear: now.getFullYear()
     });
     
     if (lowerInput.includes('hari ini')) {
-      extracted.date = today.toISOString().slice(0, 10);
+      extracted.date = todayStr;
       console.log('🔍 RBA - Extracted date "hari ini":', extracted.date);
     } else if (lowerInput.includes('besok') || lowerInput.includes('tomorrow')) {
-      // Fix: Use proper date arithmetic to avoid timezone issues
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
-      extracted.date = tomorrow.toISOString().slice(0, 10);
+      // Fix: Use proper date arithmetic with Indonesia timezone
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+      extracted.date = tomorrowStr;
       console.log('🔍 RBA - Extracted date "besok":', extracted.date);
       console.log('🔍 RBA - Tomorrow calculation:', {
-        todayDate: today.getDate(),
-        todayMonth: today.getMonth() + 1,
-        todayYear: today.getFullYear(),
+        todayDate: now.getDate(),
+        todayMonth: now.getMonth() + 1,
+        todayYear: now.getFullYear(),
         tomorrowDate: tomorrow.getDate(),
         tomorrowMonth: tomorrow.getMonth() + 1,
         tomorrowYear: tomorrow.getFullYear(),
-        tomorrowFormatted: tomorrow.toISOString().slice(0, 10)
+        tomorrowFormatted: tomorrowStr
       });
     } else if (lowerInput.includes('lusa')) {
-      const dayAfterTomorrow = new Date(today);
-      dayAfterTomorrow.setDate(today.getDate() + 2);
-      extracted.date = dayAfterTomorrow.toISOString().slice(0, 10);
+      const dayAfterTomorrow = new Date(now);
+      dayAfterTomorrow.setDate(now.getDate() + 2);
+      const dayAfterTomorrowStr = `${dayAfterTomorrow.getFullYear()}-${String(dayAfterTomorrow.getMonth() + 1).padStart(2, '0')}-${String(dayAfterTomorrow.getDate()).padStart(2, '0')}`;
+      extracted.date = dayAfterTomorrowStr;
       console.log('🔍 RBA - Extracted date "lusa":', extracted.date);
     }
 

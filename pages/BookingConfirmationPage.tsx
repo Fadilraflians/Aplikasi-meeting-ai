@@ -187,7 +187,18 @@ const BookingConfirmationPage: React.FC<BookingConfirmationPageProps> = ({ onNav
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Tanggal</p>
-                        <p className="font-semibold text-lg text-gray-800">{booking.date}</p>
+                        <p className="font-semibold text-lg text-gray-800">
+                            {(() => {
+                                if (!booking.date) return '-';
+                                const date = new Date(booking.date);
+                                return date.toLocaleDateString('id-ID', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                });
+                            })()}
+                        </p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Waktu Mulai</p>

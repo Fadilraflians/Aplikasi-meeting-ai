@@ -36,7 +36,7 @@ try {
     switch ($method) {
         case 'GET':
             // Check if this is a request for AI bookings
-            $aiData = $_GET['ai'] ?? null;
+            $aiData = $_GET['ai'] ?? $_GET['ai-data'] ?? null;
             if ($aiData === 'true') {
                 // Get AI bookings from ai_bookings_success table
                 require_once '../backend/models/AiBookingSuccess.php';
