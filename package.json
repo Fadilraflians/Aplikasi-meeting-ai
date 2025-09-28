@@ -1,0 +1,32 @@
+{
+  "name": "spacio---ai-meeting-room-booker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n FRONTEND,PHP -c green,cyan \"npm run dev:vite\" \"npm run dev:php\"",
+    "start": "npm run dev",
+    "dev:vite": "vite",
+    "dev:php": "php -S 127.0.0.1:8080 -t .",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare-deploy": "node scripts/prepare-deploy.js",
+    "build:prod": "NODE_ENV=production vite build",
+    "install:all": "npm install && composer install --ignore-platform-req=ext-mongodb",
+    "setup": "npm run install:all && echo 'Setup complete! Run npm run dev to begin development.'"
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2",
+    "dotenv": "^17.2.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.1",
+    "mongodb": "^6.19.0",
+    "mongoose": "^8.18.1",
+    "typescript": "~5.8.2",
+    "vite": "^6.3.5"
+  }
+}

@@ -1,0 +1,17 @@
+{
+    "name": "aplikasi-meeting-ai/spacio",
+    "description": "AI-powered meeting room booking system",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "mongodb/mongodb": "^1.17"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "backend/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+

@@ -1,0 +1,21 @@
+# Enable PUT and DELETE methods
+RewriteEngine On
+
+# Handle PUT requests
+RewriteCond %{REQUEST_METHOD} ^PUT$
+RewriteRule ^api/bookings\.php/rooms$ api/bookings.php [L,QSA]
+
+# Handle DELETE requests  
+RewriteCond %{REQUEST_METHOD} ^DELETE$
+RewriteRule ^api/bookings\.php/rooms$ api/bookings.php [L,QSA]
+
+# Allow all methods
+<Limit GET POST PUT DELETE OPTIONS>
+    Order allow,deny
+    Allow from all
+</Limit>
+
+# CORS headers
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization"

@@ -1,0 +1,506 @@
+# Dependencies
+node_modules/
+vendor/
+composer.lock
+
+# Build outputs
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PHP specific
+*.php~
+*.php.bak
+*.php.orig
+
+# Database files
+*.sqlite
+*.db
+
+# Upload directories (keep structure but ignore content)
+uploads/rispat/*
+!uploads/rispat/.gitkeep
+api/uploads/rispat/*
+!api/uploads/rispat/.gitkeep
+
+# Test files
+test_*.php
+test_*.js
+*_test.php
+*_test.js
+debug_*.php
+check_*.php
+clean_*.php
+
+# Development and debugging files
+debug_database.php
+debug_date_parsing.php
+check_database.php
+check_duplicates.php
+check_table_structure.php
+clean_duplicates.php
+create_bookings_table.php
+setup_rispat_database.php
+setup_sample_data.php
+setup_rispat_database.bat
+
+# Configuration files with sensitive data
+config/database.php
+config/oauth.php
+backend/config/database.php
+
+# API test files
+test-gemini-*.js
+test_simple.js
+test-simple.js
+src/test-backend.js
+
+# Status files
+tatus
+
+# Examples (optional - uncomment if you want to exclude)
+# examples/
+
+# Scripts directory (optional - uncomment if you want to exclude)
+# scripts/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Cache files
+*.cache
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local development files
+local/
+dev/
+
+# Package manager lock files (keep package-lock.json for consistency)
+# yarn.lock
+
+# IDE specific files
+*.sublime-project
+*.sublime-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Netlify
+.netlify/
+
+# Vercel
+.vercel/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# Local environment
+.env.local
+.env.*.local
+
+# Build artifacts
+*.tgz
+*.tar.gz
+
+# Documentation build
+docs/_build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Laravel specific (if using Laravel)
+/storage/*.key
+/storage/app/public
+/storage/framework/cache
+/storage/framework/sessions
+/storage/framework/views
+/storage/logs
+/bootstrap/cache
+
+# Laravel Mix
+/public/hot
+/public/storage
+/public/css
+/public/js
+/public/mix-manifest.json
+
+# Laravel Telescope
+/storage/telescope
+
+# Laravel Horizon
+/storage/horizon
+
+# Laravel Passport
+/storage/oauth-*
+
+# Laravel Sanctum
+/storage/sanctum
+
+# Laravel Nova
+/nova
+
+# Laravel Spark
+/spark
+
+# Laravel Cashier
+/storage/cashier
+
+# Laravel Forge
+/forge
+
+# Laravel Envoy
+/envoy
+
+# Laravel Valet
+/valet
+
+# Laravel Homestead
+/Homestead.json
+/Homestead.yaml
+/vagrant
+
+# Laravel Sail
+/vendor/bin/sail
+
+# Laravel Breeze
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Jetstream
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Fortify
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Livewire
+/resources/views/livewire
+
+# Laravel Inertia
+/resources/js/Pages
+
+# Additional cleanup patterns
+fix_*.php
+cleanup*.php
+force_*.php
+pat_file_*.php
+_data.php
+*-files*
+ql*
+debug_*.php
+check_*.php
+test_*.php
+test_*.js
+*_test.php
+*_test.js
+
+# Documentation files (temporary)
+AI_*.md
+COMPREHENSIVE_*.md
+TOPIC_*.md
+
+# Backup directories
+scripts/backup_*/
+scripts/backup_form_*/
+
+# Temporary files with weird names
+i
+
+# Laravel Nova
+/nova
+
+# Laravel Spark
+/spark
+
+# Laravel Cashier
+/storage/cashier
+
+# Laravel Forge
+/forge
+
+# Laravel Envoy
+/envoy
+
+# Laravel Valet
+/valet
+
+# Laravel Homestead
+/Homestead.json
+/Homestead.yaml
+/vagrant
+
+# Laravel Sail
+/vendor/bin/sail
+
+# Laravel Breeze
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Jetstream
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Fortify
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Livewire
+/resources/views/livewire
+
+# Laravel Inertia
+/resources/js/Pages
+
+# Additional cleanup patterns
+fix_*.php
+cleanup*.php
+force_*.php
+pat_file_*.php
+_data.php
+*-files*
+ql*
+debug_*.php
+check_*.php
+test_*.php
+test_*.js
+*_test.php
+*_test.js
+
+# Documentation files (temporary)
+AI_*.md
+COMPREHENSIVE_*.md
+TOPIC_*.md
+
+# Backup directories
+scripts/backup_*/
+scripts/backup_form_*/
+
+# Temporary files with weird names
+i
+
+# Laravel Nova
+/nova
+
+# Laravel Spark
+/spark
+
+# Laravel Cashier
+/storage/cashier
+
+# Laravel Forge
+/forge
+
+# Laravel Envoy
+/envoy
+
+# Laravel Valet
+/valet
+
+# Laravel Homestead
+/Homestead.json
+/Homestead.yaml
+/vagrant
+
+# Laravel Sail
+/vendor/bin/sail
+
+# Laravel Breeze
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Jetstream
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Fortify
+/resources/views/auth
+/resources/views/layouts
+/routes/auth.php
+
+# Laravel Livewire
+/resources/views/livewire
+
+# Laravel Inertia
+/resources/js/Pages
+
+# Additional cleanup patterns
+fix_*.php
+cleanup*.php
+force_*.php
+pat_file_*.php
+_data.php
+*-files*
+ql*
+debug_*.php
+check_*.php
+test_*.php
+test_*.js
+*_test.php
+*_test.js
+
+# Documentation files (temporary)
+AI_*.md
+COMPREHENSIVE_*.md
+TOPIC_*.md
+
+# Backup directories
+scripts/backup_*/
+scripts/backup_form_*/
+
+# Temporary files with weird names
+i

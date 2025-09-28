@@ -1,0 +1,188 @@
+{
+	"info": {
+		"_postman_id": "meeting-room-booking-api",
+		"name": "Meeting Room Booking API - spacio_meeting_db",
+		"description": "API untuk sistem pemesanan ruangan meeting dengan AI Agent dan Form-based booking. Adapted for existing spacio_meeting_db database.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "GET - Get All Bookings",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/bookings",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings"]
+				}
+			}
+		},
+		{
+			"name": "GET - Get All Meeting Rooms",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/bookings/rooms",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings", "rooms"]
+				}
+			}
+		},
+		{
+			"name": "GET - Get Bookings by User ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/bookings/user?user_id=1",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings", "user"],
+					"query": [
+						{
+							"key": "user_id",
+							"value": "1"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "GET - Get AI Conversations",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/bookings/conversations",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings", "conversations"]
+				}
+			}
+		},
+		{
+			"name": "GET - Check Room Availability",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/bookings/availability?room_id=1&date=2024-12-26&start_time=14:00:00&duration=60",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings", "availability"],
+					"query": [
+						{
+							"key": "room_id",
+							"value": "1"
+						},
+						{
+							"key": "date",
+							"value": "2024-12-26"
+						},
+						{
+							"key": "start_time",
+							"value": "14:00:00"
+						},
+						{
+							"key": "duration",
+							"value": "60"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "POST - Create Form-based Booking",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"user_id\": 1,\n  \"room_id\": 1,\n  \"topic\": \"Rapat Tim\",\n  \"meeting_date\": \"2024-12-26\",\n  \"meeting_time\": \"14:00:00\",\n  \"duration\": 60,\n  \"participants\": 10,\n  \"meeting_type\": \"internal\",\n  \"food_order\": \"tidak\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/bookings",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings"]
+				}
+			}
+		},
+		{
+			"name": "POST - Create AI Agent Booking",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"user_id\": 1,\n  \"session_id\": \"session_123\",\n  \"room_id\": 1,\n  \"topic\": \"Rapat Tim\",\n  \"meeting_date\": \"2024-12-26\",\n  \"meeting_time\": \"14:00:00\",\n  \"duration\": 60,\n  \"participants\": 10,\n  \"meeting_type\": \"internal\",\n  \"food_order\": \"tidak\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/bookings/ai-booking",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings", "ai-booking"]
+				}
+			}
+		},
+		{
+			"name": "GET - Get Specific Booking",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/bookings/1",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings", "1"]
+				}
+			}
+		},
+		{
+			"name": "PUT - Update Booking",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"room_id\": 1,\n  \"topic\": \"Rapat Tim Updated\",\n  \"participants\": 15,\n  \"meeting_date\": \"2024-12-26\",\n  \"meeting_time\": \"15:00:00\",\n  \"duration\": 90,\n  \"meeting_type\": \"external\",\n  \"food_order\": \"ringan\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/bookings/1",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings", "1"]
+				}
+			}
+		},
+		{
+			"name": "DELETE - Delete Booking",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/bookings/1",
+					"host": ["{{base_url}}"],
+					"path": ["api", "bookings", "1"]
+				}
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://aplikasi-meeting-ai.test/backend/public",
+			"type": "string"
+		}
+	]
+}
