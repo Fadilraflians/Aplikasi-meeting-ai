@@ -5,6 +5,7 @@ import { ApiService } from '../src/config/api';
 import { BackArrowIcon } from '../components/icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import InJourneyPattern from '../components/InJourneyPattern';
+import InJourneyPattern from '../components/InJourneyPattern';
 
 interface BookingFormPageProps {
     onNavigate: (page: Page) => void;

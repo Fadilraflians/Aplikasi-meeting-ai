@@ -75,11 +75,21 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, onLogout }) =>
 
     return (
         <header className={`backdrop-blur-md shadow-md sticky top-4 mx-4 md:mx-8 rounded-xl z-50 ${isDarkMode ? 'bg-gray-800/80' : 'bg-white/80'}`}>
-            <div className="container mx-auto px-6 py-3 flex justify-between items-center">
-                <button onClick={() => onNavigate(Page.Dashboard)} className="flex items-center cursor-pointer group">
-                    <img src="/images/logoIAC.png" alt="IAC Logo" className="h-10 md:h-12 w-auto mr-3 rounded-sm" />
-                    <span className="text-3xl font-bold text-cyan-500 group-hover:text-cyan-600">Spacio</span>
-                </button>
+            <div className="container mx-auto px-6 py-3 flex justify-between items-center header-container">
+                <div className="flex items-center logo-section">
+                    <button onClick={() => onNavigate(Page.Dashboard)} className="flex items-center cursor-pointer group">
+                        <img src="/images/logoIAC.png" alt="IAC Logo" className="h-8 md:h-12 w-auto mr-2 md:mr-3 rounded-sm" />
+                        <span className="text-xl md:text-3xl font-bold text-cyan-500 group-hover:text-cyan-600">Spacio</span>
+                    </button>
+                    
+                    {/* Mobile Menu Button */}
+                    <button className="md:hidden mobile-menu-button p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+                
                 <nav className="hidden md:flex items-center space-x-8">
                     {navItems.map(item => (
                         <button 
@@ -91,7 +101,8 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, onLogout }) =>
                         </button>
                     ))}
                 </nav>
-                <div className="flex items-center space-x-4">
+                
+                <div className="flex items-center space-x-2 md:space-x-4 user-profile-section">
                     {/* Notification Bell */}
                     <NotificationBell 
                         currentUser={userData?.full_name || userData?.username || 'Unknown User'}
@@ -102,14 +113,14 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, onLogout }) =>
                     />
                     
                     {/* User Dropdown */}
-                    <div className="relative">
-                    <button onClick={() => setIsDropdownOpen(prev => !prev)} className={`flex items-center space-x-3 cursor-pointer p-2 rounded-xl transition-all duration-200 ${isDarkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-100/50'}`}>
+                    <div className="relative mobile-dropdown">
+                    <button onClick={() => setIsDropdownOpen(prev => !prev)} className={`flex items-center space-x-2 md:space-x-3 cursor-pointer p-2 rounded-xl transition-all duration-200 ${isDarkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-100/50'}`}>
                         <div className="relative">
-                            <img src={`https://i.pravatar.cc/150?u=${Date.now()}`} alt="User Avatar" className="w-12 h-12 rounded-full border-2 border-white shadow-md" />
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            <img src={`https://i.pravatar.cc/150?u=${Date.now()}`} alt="User Avatar" className="w-8 h-8 md:w-12 md:h-12 rounded-full border-2 border-white shadow-md" />
+                            <div className="absolute -bottom-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-green-500 rounded-full border-2 border-white"></div>
                         </div>
                         <div className="text-left hidden sm:block">
-                            <p className={`font-bold text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{userData?.full_name || userData?.username || 'User'}</p>
+                            <p className={`font-bold text-xs md:text-sm header-text ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{userData?.full_name || userData?.username || 'User'}</p>
                             <p className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{userData?.username || 'Free Account'}</p>
                         </div>
                         <div className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}>
@@ -120,7 +131,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, onLogout }) =>
                     </button>
 
                     {isDropdownOpen && (
-                        <div ref={dropdownRef} className={`absolute right-0 mt-3 w-64 rounded-2xl shadow-2xl border z-50 origin-top-right backdrop-blur-sm ${isDarkMode ? 'bg-gray-800/95 border-gray-600' : 'bg-white/95 border-gray-200'}`}>
+                        <div ref={dropdownRef} className={`absolute right-0 mt-3 w-64 rounded-2xl shadow-2xl border z-50 origin-top-right backdrop-blur-sm user-dropdown ${isDarkMode ? 'bg-gray-800/95 border-gray-600' : 'bg-white/95 border-gray-200'}`}>
                             {/* Profile Header */}
                             <div className={`px-4 py-3 border-b ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}`}>
                                 <div className="flex items-center space-x-3">

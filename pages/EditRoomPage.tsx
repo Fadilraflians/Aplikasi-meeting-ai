@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Page, type MeetingRoom } from '../types';
 import { BackArrowIcon } from '../components/icons';
 import { ApiService } from '../src/config/api';
+import InJourneyPattern from '../components/InJourneyPattern';
 
 interface EditRoomPageProps {
   onNavigate: (page: Page) => void;
@@ -208,9 +209,12 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50 relative">
+      {/* InJourney Pattern Background */}
+      <InJourneyPattern className="opacity-15" />
+      
       {/* Header Section */}
-      <div className="bg-white shadow-lg border-b border-gray-200">
+      <div className="bg-white shadow-lg border-b border-gray-200 relative z-10">
         <div className="max-w-4xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -235,7 +239,7 @@ const EditRoomPage: React.FC<EditRoomPageProps> = ({ onNavigate, room, onRoomUpd
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-6 relative z-10">
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="p-8">
 
